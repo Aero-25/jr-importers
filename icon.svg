@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#84cc16" />
+      <stop offset="100%" stop-color="#22c55e" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)" />
+  <rect x="34" y="34" width="444" height="444" rx="96" fill="none" stroke="rgba(132,204,22,0.22)" stroke-width="14" />
+  <path d="M148 122h216c40.869 0 74 33.131 74 74v120c0 40.869-33.131 74-74 74H256l-58 54c-10.562 9.825-28 2.333-28-12.084V390h-22c-40.869 0-74-33.131-74-74V196c0-40.869 33.131-74 74-74Z" fill="rgba(132,204,22,0.08)" />
+  <text x="256" y="308" text-anchor="middle" font-size="176" font-family="Arial, sans-serif" font-weight="800" fill="url(#accent)">JR</text>
+</svg>

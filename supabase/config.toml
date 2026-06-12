@@ -1,0 +1,19 @@
+project_id = "jr-importers"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+
+[db]
+port = 54322
+major_version = 15
+
+[auth]
+enabled = true
+site_url = "https://jrimporters.com"
+additional_redirect_urls = ["http://localhost:8788", "http://127.0.0.1:8788"]
+
+[storage]
+enabled = true
