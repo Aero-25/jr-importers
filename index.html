@@ -950,6 +950,24 @@
             overflow: hidden;
         }
 
+        .intent-card {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1.5rem;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            background:
+                radial-gradient(circle at top right, rgba(132, 204, 22, 0.1), transparent 40%),
+                rgba(15, 23, 42, 0.66);
+            padding: 1.15rem;
+            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .intent-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(132, 204, 22, 0.38);
+            box-shadow: 0 22px 50px rgba(2, 6, 23, 0.38);
+        }
+
         .mobile-dock {
             backdrop-filter: blur(18px) saturate(180%);
             -webkit-backdrop-filter: blur(18px) saturate(180%);
@@ -1720,9 +1738,23 @@
 
                 // Search filter
                 if (searchQuery) {
+                    const search = searchQuery.toLowerCase();
                     result = result.filter(p => 
-                        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()))
+                        [
+                            p.name,
+                            p.brand,
+                            p.category,
+                            p.description,
+                            p.spec_display,
+                            p.spec_processor,
+                            p.spec_ram,
+                            p.spec_storage,
+                            p.spec_battery,
+                            p.spec_back_camera,
+                            p.spec_front_camera,
+                            p.spec_os,
+                            p.spec_extras
+                        ].some(value => String(value || '').toLowerCase().includes(search))
                     );
                 }
 
@@ -1767,6 +1799,55 @@
                     icon: 'balance-scale',
                     title: 'Compare before buying',
                     text: 'The storefront helps shoppers compare devices, save favourites, and continue browsing from recently viewed items.'
+                }
+            ];
+
+            const SHOP_INTENTS = [
+                {
+                    id: 'value',
+                    icon: 'tags',
+                    title: 'Best value',
+                    text: 'Strong everyday phones with sensible pricing and enough storage for real life.',
+                    query: 'a redmi note spark hot',
+                    sort: 'price-low',
+                    maxMultiplier: 1.8,
+                    keywords: ['a0', 'a1', 'redmi', 'note', 'spark', 'hot', 'value', 'lite']
+                },
+                {
+                    id: 'camera',
+                    icon: 'camera-retro',
+                    title: 'Camera first',
+                    text: 'Prioritise sharper sensors, better selfie cameras, and social-ready devices.',
+                    query: 'camera pro ultra',
+                    sort: 'featured',
+                    keywords: ['camera', 'mp', 'pro', 'ultra', 'iphone', 'pixel', 'galaxy s']
+                },
+                {
+                    id: 'battery',
+                    icon: 'battery-full',
+                    title: 'Battery life',
+                    text: 'Devices built for long days, travel, work, and customers who hate charging twice.',
+                    query: '5000 6000 battery power',
+                    sort: 'featured',
+                    keywords: ['5000', '6000', 'battery', 'power', 'armor', 'm']
+                },
+                {
+                    id: 'premium',
+                    icon: 'gem',
+                    title: 'Premium picks',
+                    text: 'Flagship and near-flagship phones with stronger displays, cameras, and performance.',
+                    query: 'pro ultra s24 iphone pixel oneplus',
+                    sort: 'price-high',
+                    keywords: ['pro', 'ultra', 'iphone', 'pixel', 'oneplus', 's23', 's24', 'fold', 'flip']
+                },
+                {
+                    id: 'accessories',
+                    icon: 'headphones',
+                    title: 'Accessories',
+                    text: 'Add-ons, wearables, audio, protection, and service items around the phone purchase.',
+                    query: 'accessories earphones case charger',
+                    sort: 'featured',
+                    keywords: ['accessor', 'ear', 'case', 'charger', 'watch', 'cable', 'adapter']
                 }
             ];
 
@@ -1833,6 +1914,39 @@
                     .slice(0, 4);
             }, [recentlyViewed, products]);
 
+            const intentMatches = useMemo(() => {
+                return SHOP_INTENTS.reduce((acc, intent) => {
+                    const matches = inStockProducts
+                        .filter(product => {
+                            const haystack = [
+                                product.name,
+                                product.brand,
+                                product.category,
+                                product.description,
+                                product.spec_battery,
+                                product.spec_back_camera,
+                                product.spec_front_camera,
+                                product.spec_processor,
+                                product.spec_extras
+                            ].join(' ').toLowerCase();
+
+                            const keywordMatch = intent.keywords.some(keyword => haystack.includes(keyword));
+                            const maxIntentPrice = intent.maxMultiplier && startingPrice ? startingPrice * intent.maxMultiplier : null;
+                            const priceMatch = !maxIntentPrice || Number(product.price || 0) <= maxIntentPrice;
+                            return keywordMatch && priceMatch;
+                        })
+                        .sort((a, b) => {
+                            if (intent.sort === 'price-low') return Number(a.price || 0) - Number(b.price || 0);
+                            if (intent.sort === 'price-high') return Number(b.price || 0) - Number(a.price || 0);
+                            return Number(b.stock || 0) - Number(a.stock || 0);
+                        })
+                        .slice(0, 3);
+
+                    acc[intent.id] = matches;
+                    return acc;
+                }, {});
+            }, [SHOP_INTENTS, inStockProducts, startingPrice]);
+
             const handleCategoryBrowse = (category) => {
                 setCat(category);
                 setBrandFilter('all');
@@ -1840,6 +1954,17 @@
                 setSearchSuggestions([]);
                 setShowSearchSuggestions(false);
                 setShowFilters(false);
+                setPage('shop');
+            };
+
+            const applyShoppingIntent = (intent) => {
+                setCat('all');
+                setBrandFilter('all');
+                setSearchQuery(intent.query);
+                setSearchSuggestions([]);
+                setShowSearchSuggestions(false);
+                setShowFilters(false);
+                setSortBy(intent.sort || 'featured');
                 setPage('shop');
             };
 
@@ -3559,6 +3684,61 @@ Check admin: jrimporters.com/admin.html`;
                                                 <p className="mt-2 text-sm leading-7 text-slate-400">{feature.text}</p>
                                             </article>
                                         ))}
+                                    </div>
+                                </div>
+
+                                {/* SHOP BY INTENT */}
+                                <div className="section-shell">
+                                    <SectionHeader
+                                        eyebrow="Smart paths"
+                                        title="Shop by what matters most"
+                                        description="Customers can skip the guessing and jump into collections shaped around real buying intent."
+                                    />
+                                    <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                                        {SHOP_INTENTS.map((intent) => {
+                                            const matches = intentMatches[intent.id] || [];
+                                            const leadProduct = matches[0];
+                                            return (
+                                                <button
+                                                    key={intent.id}
+                                                    onClick={() => applyShoppingIntent(intent)}
+                                                    className="intent-card group text-left"
+                                                >
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-lime-500/12 text-lime-300 group-hover:bg-lime-500 group-hover:text-slate-950">
+                                                            <i className={`fas fa-${intent.icon}`}></i>
+                                                        </span>
+                                                        <span className="pill-badge pill-badge-soft">{matches.length || 0} picks</span>
+                                                    </div>
+                                                    <h3 className="mt-5 text-lg font-black text-white">{intent.title}</h3>
+                                                    <p className="mt-2 min-h-[4.5rem] text-sm leading-6 text-slate-400">{intent.text}</p>
+                                                    {leadProduct ? (
+                                                        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/40 p-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <img
+                                                                    src={leadProduct.image || leadProduct.image1 || LOGO_URL}
+                                                                    onError={handleImageError}
+                                                                    className="h-12 w-12 rounded-xl object-contain"
+                                                                    alt={leadProduct.name}
+                                                                />
+                                                                <div className="min-w-0">
+                                                                    <div className="truncate text-sm font-bold text-white">{leadProduct.name}</div>
+                                                                    <div className="text-xs font-black text-lime-400">{formatMoney(leadProduct.price)}</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-500">
+                                                            Ready for new stock
+                                                        </div>
+                                                    )}
+                                                    <div className="mt-5 flex items-center gap-2 text-sm font-black text-lime-400">
+                                                        Browse path
+                                                        <i className="fas fa-arrow-right text-xs transition-transform group-hover:translate-x-1"></i>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 

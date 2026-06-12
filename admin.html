@@ -3045,6 +3045,76 @@ Date: ${new Date().toLocaleDateString()}`
                 ].filter(Boolean);
             }, [onlineOrders, data.products, data.hero_images, analytics.lowStock]);
 
+            const adminIntelligence = useMemo(() => {
+                const activeProducts = data.products.filter(product => product.active !== false);
+                const activeHeroImages = (data.hero_images || []).filter(hero => hero.active);
+                const paidOrders = data.orders.filter(order => order.status === 'Paid');
+                const pendingOnline = onlineOrders.filter(order => order.status === 'Pending');
+                const paidCourierUndispatched = onlineOrders.filter(order =>
+                    order.status === 'Paid' && order.delivery_method === 'Courier' && !order.waybill_number
+                );
+
+                const imageReadyProducts = activeProducts.filter(product => product.image || product.image1).length;
+                const imageCoverage = activeProducts.length ? Math.round((imageReadyProducts / activeProducts.length) * 100) : 0;
+                const inventoryValue = data.products.reduce((sum, product) =>
+                    sum + (Number(product.cost_price || 0) * Number(product.stock || 0)), 0
+                );
+                const retailValue = data.products.reduce((sum, product) =>
+                    sum + (Number(product.price || 0) * Number(product.stock || 0)), 0
+                );
+                const averageOrder = paidOrders.length
+                    ? paidOrders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0) / paidOrders.length
+                    : 0;
+                const pendingRevenue = pendingOnline.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+
+                const productQualityIssues = activeProducts
+                    .map(product => {
+                        const issues = [
+                            !(product.image || product.image1) && 'image',
+                            !product.category && 'category',
+                            !product.brand && 'brand',
+                            !Number(product.price || 0) && 'price',
+                            !Number(product.cost_price || 0) && 'cost',
+                            !(product.sku || product.barcode) && 'sku/barcode'
+                        ].filter(Boolean);
+
+                        return {
+                            product,
+                            issues,
+                            score: Math.max(0, 100 - (issues.length * 16))
+                        };
+                    })
+                    .filter(row => row.issues.length > 0)
+                    .sort((a, b) => a.score - b.score)
+                    .slice(0, 6);
+
+                const launchChecklist = [
+                    { label: 'Supabase config loaded', done: Boolean(SUPABASE_URL && SUPABASE_KEY), view: 'settings' },
+                    { label: 'Products ready for sale', done: activeProducts.length > 0, view: 'products' },
+                    { label: 'Active hero campaign', done: activeHeroImages.length > 0, view: 'hero-images' },
+                    { label: 'Admin user directory', done: filteredUsers.some(user => String(user.role || '').toLowerCase().includes('admin')), view: 'users' },
+                    { label: 'Product images coverage 80%+', done: imageCoverage >= 80 || activeProducts.length === 0, view: 'products' },
+                    { label: 'Order recovery workflow', done: true, view: 'abandoned-carts' }
+                ];
+
+                const readinessScore = Math.round((launchChecklist.filter(item => item.done).length / launchChecklist.length) * 100);
+
+                return {
+                    activeProducts: activeProducts.length,
+                    activeHeroImages: activeHeroImages.length,
+                    imageCoverage,
+                    inventoryValue,
+                    retailValue,
+                    averageOrder,
+                    pendingRevenue,
+                    pendingOnline: pendingOnline.length,
+                    paidCourierUndispatched: paidCourierUndispatched.length,
+                    productQualityIssues,
+                    launchChecklist,
+                    readinessScore
+                };
+            }, [data, onlineOrders, filteredUsers]);
+
             const commandItems = useMemo(() => {
                 const navigationItems = viewRegistry.map(item => ({
                     ...item,
@@ -3730,6 +3800,108 @@ Date: ${new Date().toLocaleDateString()}`
                                                     </div>
                                                 </div>
                                             ))}
+                                        </div>
+                                    )}
+
+                                    <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+                                        <div className="glass-panel rounded-xl p-6">
+                                            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                                                <div>
+                                                    <div className="text-xs uppercase tracking-[0.18em] text-green-400 font-bold mb-2">Launch readiness</div>
+                                                    <h2 className="text-2xl font-black text-white">JR Command Center</h2>
+                                                    <p className="text-sm text-slate-400 mt-2">A live snapshot of store readiness, stock quality, and fulfilment pressure.</p>
+                                                </div>
+                                                <div className="relative h-28 w-28 shrink-0">
+                                                    <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(#10b981 ${adminIntelligence.readinessScore * 3.6}deg, rgba(148,163,184,0.16) 0deg)` }}></div>
+                                                    <div className="absolute inset-2 rounded-full bg-slate-950 flex flex-col items-center justify-center">
+                                                        <div className="text-3xl font-black text-white mono">{adminIntelligence.readinessScore}%</div>
+                                                        <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Ready</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-6 grid gap-3 md:grid-cols-2">
+                                                {adminIntelligence.launchChecklist.map(item => (
+                                                    <button
+                                                        key={item.label}
+                                                        onClick={() => setView(item.view)}
+                                                        className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/35 px-4 py-3 text-left hover:border-green-500/40"
+                                                    >
+                                                        <span className="flex items-center gap-3 text-sm font-semibold text-slate-200">
+                                                            <i className={`fas fa-${item.done ? 'check-circle text-green-400' : 'circle-exclamation text-yellow-400'}`}></i>
+                                                            {item.label}
+                                                        </span>
+                                                        <span className={`badge ${item.done ? 'badge-success' : 'badge-warning'}`}>
+                                                            {item.done ? 'OK' : 'Check'}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                                            <div className="glass-panel rounded-xl p-5">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-bold">Revenue pulse</div>
+                                                        <div className="mt-2 text-2xl font-black text-white mono">{formatCurrency(adminIntelligence.averageOrder)}</div>
+                                                    </div>
+                                                    <i className="fas fa-wave-square text-3xl text-blue-400"></i>
+                                                </div>
+                                                <div className="mt-3 text-sm text-slate-400">Average paid order value</div>
+                                                <div className="mt-4 rounded-lg bg-blue-500/10 p-3 text-sm text-blue-200">
+                                                    Pending online revenue: <span className="font-bold mono">{formatCurrency(adminIntelligence.pendingRevenue)}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="glass-panel rounded-xl p-5">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-bold">Inventory value</div>
+                                                        <div className="mt-2 text-2xl font-black text-white mono">{formatCurrency(adminIntelligence.inventoryValue)}</div>
+                                                    </div>
+                                                    <i className="fas fa-warehouse text-3xl text-green-400"></i>
+                                                </div>
+                                                <div className="mt-3 text-sm text-slate-400">Retail exposure: <span className="mono text-slate-200">{formatCurrency(adminIntelligence.retailValue)}</span></div>
+                                                <button onClick={() => setView('stock-report')} className="mt-4 text-sm font-bold text-green-400 hover:text-green-300">
+                                                    Open stock report <i className="fas fa-arrow-right ml-2 text-xs"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {adminIntelligence.productQualityIssues.length > 0 && (
+                                        <div className="glass-panel rounded-xl p-6">
+                                            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
+                                                <div>
+                                                    <div className="text-xs uppercase tracking-[0.18em] text-yellow-400 font-bold mb-2">Product data quality</div>
+                                                    <h3 className="text-xl font-black text-white">Fix these listings first</h3>
+                                                    <p className="text-sm text-slate-400 mt-1">Better images, categories, costs, and SKUs improve both sales and reporting.</p>
+                                                </div>
+                                                <div className="badge badge-info">{adminIntelligence.imageCoverage}% image coverage</div>
+                                            </div>
+                                            <div className="grid gap-3 lg:grid-cols-3">
+                                                {adminIntelligence.productQualityIssues.map(({ product, issues, score }) => (
+                                                    <button
+                                                        key={product.id}
+                                                        onClick={() => { setModalData({ editId: product.id, ...product }); setModal('product-form'); }}
+                                                        className="rounded-xl border border-slate-800 bg-slate-950/35 p-4 text-left hover:border-yellow-500/40"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <img src={product.image || product.image1 || LOGO_URL} className="h-12 w-12 rounded-lg object-cover" alt={product.name} />
+                                                            <div className="min-w-0">
+                                                                <div className="truncate font-bold text-white">{product.name}</div>
+                                                                <div className="text-xs text-slate-500">Quality score {score}%</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-3 flex flex-wrap gap-2">
+                                                            {issues.map(issue => (
+                                                                <span key={issue} className="badge badge-warning">{issue}</span>
+                                                            ))}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
 
