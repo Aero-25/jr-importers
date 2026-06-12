@@ -18,3 +18,8 @@ supabase/.temp/
 node_modules/
 dist/
 build/
+
+# Local QA tooling and generated screenshots
+.tooling/node_modules/
+.shots/
+.seed_body.json

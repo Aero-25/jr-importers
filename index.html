@@ -1206,6 +1206,8 @@
                     return [];
                 }
             });
+            // Total number of units currently in the cart (used for header badges).
+            const cartItemCount = cart.reduce((sum, item) => sum + (item.qty || item.quantity || 1), 0);
             const [compareList, setCompareList] = useState([]);
             const [wishlist, setWishlist] = useState([]);
             const [recentlyViewed, setRecentlyViewed] = useState([]);
