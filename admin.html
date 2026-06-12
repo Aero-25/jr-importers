@@ -314,6 +314,57 @@
             border-color: var(--accent);
             transform: translateY(-2px);
         }
+
+        .admin-topbar {
+            background:
+                radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 34%),
+                rgba(26, 31, 46, 0.96);
+            backdrop-filter: blur(18px);
+        }
+
+        .command-button {
+            min-width: 260px;
+            justify-content: space-between;
+            background: rgba(10, 14, 23, 0.82);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            color: var(--text-secondary);
+        }
+
+        .command-palette {
+            width: min(720px, calc(100vw - 32px));
+            background: #111827;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.58);
+        }
+
+        .command-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 12px;
+            color: var(--text-primary);
+            transition: all 0.15s;
+        }
+
+        .command-row:hover {
+            background: rgba(16, 185, 129, 0.12);
+        }
+
+        .ops-alert {
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            background: rgba(15, 23, 42, 0.72);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+
+        .ops-alert.warning { border-color: rgba(245, 158, 11, 0.26); }
+        .ops-alert.danger { border-color: rgba(239, 68, 68, 0.28); }
+        .ops-alert.info { border-color: rgba(59, 130, 246, 0.24); }
+
+        .sidebar-backdrop {
+            display: none;
+        }
         
         .fade-in { animation: fadeIn 0.3s; }
         
@@ -378,6 +429,10 @@
         
         /* MOBILE OPTIMIZATION */
         @media (max-width: 768px) {
+            body {
+                overflow: auto;
+            }
+
             .sidebar { 
                 width: 100%; 
                 max-width: 280px;
@@ -391,6 +446,25 @@
             
             .sidebar.mobile-open {
                 left: 0;
+            }
+
+            .sidebar-backdrop {
+                display: block;
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.58);
+                z-index: 900;
+            }
+
+            .command-button {
+                min-width: 0;
+                width: 44px;
+                justify-content: center;
+            }
+
+            .command-button span,
+            .command-button kbd {
+                display: none;
             }
             
             .main-content { 
@@ -551,6 +625,9 @@
             
             // State Management
             const [view, setView] = useState('dashboard');
+            const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+            const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+            const [commandSearch, setCommandSearch] = useState('');
             const [openGroups, setOpenGroups] = useState(['sales', 'inventory', 'purchasing']);
             const [notifications, setNotifications] = useState([]);
             const [modal, setModal] = useState(null);
@@ -712,6 +789,27 @@
                 if (view === 'pos' && searchInputRef.current) {
                     searchInputRef.current.focus();
                 }
+            }, [view]);
+
+            useEffect(() => {
+                const handleKeyDown = (event) => {
+                    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+                        event.preventDefault();
+                        setCommandPaletteOpen(true);
+                    }
+
+                    if (event.key === 'Escape') {
+                        setCommandPaletteOpen(false);
+                        setMobileSidebarOpen(false);
+                    }
+                };
+
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, []);
+
+            useEffect(() => {
+                setMobileSidebarOpen(false);
             }, [view]);
 
             const handleAdminLogin = async (e) => {
@@ -885,7 +983,7 @@
                 const { data: imeis, error: imeiError } = await db.from('product_imeis')
                     .select('*')
                     .eq('product_id', product.id)
-                    .eq('status', 'in_stock');
+                    .eq('status', 'available');
                 
                 if (imeiError) {
                     console.error('Error fetching IMEIs:', imeiError);
@@ -2871,6 +2969,116 @@ Date: ${new Date().toLocaleDateString()}`
                     .sort((a, b) => String(a.key || '').localeCompare(String(b.key || '')));
             }, [data.settings, settingSearch]);
 
+            const viewRegistry = useMemo(() => ([
+                { id: 'dashboard', label: 'Dashboard', icon: 'tachometer-alt', group: 'Command' },
+                { id: 'pos', label: 'POS Terminal', icon: 'cash-register', group: 'Sales' },
+                { id: 'orders', label: 'Orders', icon: 'receipt', group: 'Sales', count: data.orders.length },
+                { id: 'online-orders', label: 'Online Orders', icon: 'shopping-cart', group: 'Online Store', count: onlineOrders.length },
+                { id: 'dispatch', label: 'Dispatch', icon: 'truck', group: 'Online Store' },
+                { id: 'products', label: 'Products', icon: 'box', group: 'Inventory', count: data.products.length },
+                { id: 'stock-alerts', label: 'Stock Alerts', icon: 'exclamation-triangle', group: 'Inventory', count: analytics.lowStock },
+                { id: 'customers', label: 'Customers', icon: 'user-circle', group: 'Customers', count: data.customers.length },
+                { id: 'suppliers', label: 'Suppliers', icon: 'industry', group: 'Purchasing', count: data.suppliers.length },
+                { id: 'purchase-orders', label: 'Purchase Orders', icon: 'file-alt', group: 'Purchasing', count: data.purchase_orders?.length || 0 },
+                { id: 'grv', label: 'GRV', icon: 'truck-loading', group: 'Purchasing', count: data.grvs?.length || 0 },
+                { id: 'invoices', label: 'Invoices', icon: 'file-invoice-dollar', group: 'Sales', count: data.invoices?.length || 0 },
+                { id: 'coupons', label: 'Coupons', icon: 'ticket-alt', group: 'Inventory', count: data.coupons?.length || 0 },
+                { id: 'hero-images', label: 'Hero Images', icon: 'images', group: 'Online Store', count: data.hero_images?.length || 0 },
+                { id: 'expenses', label: 'Expenses', icon: 'receipt', group: 'Admin', count: data.expenses?.length || 0 },
+                { id: 'users', label: 'Users', icon: 'user-shield', group: 'Admin', count: filteredUsers.length },
+                { id: 'settings', label: 'Settings', icon: 'sliders-h', group: 'Admin', count: data.settings?.length || 0 }
+            ]), [data, analytics.lowStock, filteredUsers.length, onlineOrders.length]);
+
+            const operationalAlerts = useMemo(() => {
+                const pendingOnline = onlineOrders.filter(order => order.status === 'Pending').length;
+                const paidUndispatched = onlineOrders.filter(order =>
+                    order.status === 'Paid' && order.delivery_method === 'Courier' && !order.waybill_number
+                ).length;
+                const heroWarning = (data.hero_images || []).filter(hero => hero.active).length === 0;
+                const noProducts = (data.products || []).length === 0;
+                const lowStockItems = data.products
+                    .filter(product => Number(product.stock || 0) <= Number(product.reorder_level || 10))
+                    .sort((a, b) => Number(a.stock || 0) - Number(b.stock || 0))
+                    .slice(0, 5);
+
+                return [
+                    pendingOnline > 0 && {
+                        type: 'warning',
+                        icon: 'hourglass-half',
+                        title: `${pendingOnline} pending online order${pendingOnline === 1 ? '' : 's'}`,
+                        text: 'Follow up before reserved stock gets stale.',
+                        action: 'Review online orders',
+                        view: 'online-orders'
+                    },
+                    paidUndispatched > 0 && {
+                        type: 'info',
+                        icon: 'shipping-fast',
+                        title: `${paidUndispatched} courier order${paidUndispatched === 1 ? '' : 's'} need dispatch`,
+                        text: 'Add courier and waybill details from Dispatch.',
+                        action: 'Open dispatch',
+                        view: 'dispatch'
+                    },
+                    analytics.lowStock > 0 && {
+                        type: 'danger',
+                        icon: 'boxes',
+                        title: `${analytics.lowStock} low-stock item${analytics.lowStock === 1 ? '' : 's'}`,
+                        text: lowStockItems.map(item => `${item.name} (${item.stock || 0})`).join(', '),
+                        action: 'Check stock alerts',
+                        view: 'stock-alerts'
+                    },
+                    heroWarning && {
+                        type: 'info',
+                        icon: 'images',
+                        title: 'No active storefront hero',
+                        text: 'The fallback hero works, but custom campaign images will sell better.',
+                        action: 'Manage hero images',
+                        view: 'hero-images'
+                    },
+                    noProducts && {
+                        type: 'danger',
+                        icon: 'box-open',
+                        title: 'No products loaded',
+                        text: 'Add products or check the Supabase connection before going live.',
+                        action: 'Add product',
+                        modal: 'product-form'
+                    }
+                ].filter(Boolean);
+            }, [onlineOrders, data.products, data.hero_images, analytics.lowStock]);
+
+            const commandItems = useMemo(() => {
+                const navigationItems = viewRegistry.map(item => ({
+                    ...item,
+                    type: 'Navigate',
+                    keywords: `${item.label} ${item.group}`,
+                    run: () => setView(item.id)
+                }));
+
+                const actionItems = [
+                    { label: 'Create Product', icon: 'plus-circle', group: 'Action', keywords: 'new product inventory add', run: () => { setModalData({}); setModal('product-form'); } },
+                    { label: 'Create Invoice', icon: 'file-invoice-dollar', group: 'Action', keywords: 'new invoice bill customer', run: () => setModal('invoice-form') },
+                    { label: 'Create Purchase Order', icon: 'file-alt', group: 'Action', keywords: 'new purchase order supplier po', run: () => setModal('po-form') },
+                    { label: 'Open Till', icon: 'cash-register', group: 'Action', keywords: 'open till cash register', run: () => setModal('open-till') },
+                    { label: 'Refresh Data', icon: 'sync', group: 'Action', keywords: 'reload sync refresh', run: loadAllData },
+                    { label: 'Export Sales Report', icon: 'download', group: 'Action', keywords: 'download sales excel report', run: generateSalesReport }
+                ];
+
+                return [...navigationItems, ...actionItems];
+            }, [viewRegistry]);
+
+            const filteredCommandItems = useMemo(() => {
+                const search = commandSearch.trim().toLowerCase();
+                if (!search) return commandItems.slice(0, 10);
+                return commandItems
+                    .filter(item => `${item.label} ${item.group} ${item.keywords || ''}`.toLowerCase().includes(search))
+                    .slice(0, 12);
+            }, [commandItems, commandSearch]);
+
+            const runCommand = (item) => {
+                item.run();
+                setCommandPaletteOpen(false);
+                setCommandSearch('');
+            };
+
             const copyToClipboard = async (text, successMessage = 'Copied to clipboard') => {
                 try {
                     if (navigator.clipboard?.writeText) {
@@ -3179,8 +3387,54 @@ Date: ${new Date().toLocaleDateString()}`
                         />
                     ))}
 
+                    {mobileSidebarOpen && (
+                        <button className="sidebar-backdrop md:hidden" onClick={() => setMobileSidebarOpen(false)} aria-label="Close menu"></button>
+                    )}
+
+                    {commandPaletteOpen && (
+                        <div className="modal-backdrop" onClick={() => setCommandPaletteOpen(false)}>
+                            <div className="command-palette rounded-2xl p-4" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+                                    <i className="fas fa-search text-green-400"></i>
+                                    <input
+                                        autoFocus
+                                        value={commandSearch}
+                                        onChange={(e) => setCommandSearch(e.target.value)}
+                                        className="glass-input flex-1 rounded-xl px-4 py-3 text-base"
+                                        placeholder="Search pages, actions, reports..."
+                                    />
+                                    <button onClick={() => setCommandPaletteOpen(false)} className="h-10 w-10 rounded-xl bg-slate-800 text-slate-400 hover:text-white">
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div className="mt-4 max-h-[56vh] overflow-y-auto space-y-1">
+                                    {filteredCommandItems.length === 0 ? (
+                                        <div className="p-8 text-center text-slate-500">
+                                            <i className="fas fa-search text-3xl mb-3 opacity-40"></i>
+                                            <div>No matching commands</div>
+                                        </div>
+                                    ) : filteredCommandItems.map(item => (
+                                        <button key={`${item.group}-${item.label}`} onClick={() => runCommand(item)} className="command-row">
+                                            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/12 text-green-400">
+                                                <i className={`fas fa-${item.icon}`}></i>
+                                            </span>
+                                            <span className="flex-1 text-left">
+                                                <span className="block font-bold">{item.label}</span>
+                                                <span className="text-xs text-slate-500">{item.group || item.type}</span>
+                                            </span>
+                                            {item.count !== undefined && (
+                                                <span className="badge badge-info">{item.count}</span>
+                                            )}
+                                            <i className="fas fa-arrow-right text-slate-600"></i>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* SIDEBAR */}
-                    <aside className="w-64 glass-panel border-r border-slate-800 flex flex-col overflow-y-auto">
+                    <aside className={`sidebar w-64 glass-panel border-r border-slate-800 flex flex-col overflow-y-auto ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
                         <div className="p-6 border-b border-slate-800">
                             <div className="flex items-center gap-3 mb-4">
                                 <img src={LOGO_URL} className="w-10 h-10 rounded-full border-2 border-green-500" alt="Logo" />
@@ -3399,29 +3653,41 @@ Date: ${new Date().toLocaleDateString()}`
                     {/* MAIN CONTENT */}
                     <main className="flex-1 overflow-hidden flex flex-col">
                         {/* HEADER */}
-                        <header className="p-6 border-b border-slate-800 glass-panel">
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <h1 className="text-3xl font-bold text-white">
-                                        {view.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                                    </h1>
-                                    <div className="text-sm text-slate-400 mt-1 flex items-center gap-4">
-                                        <span>{new Date().toLocaleDateString('en-NA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                                        <span className="text-green-400">• Live System</span>
+                        <header className="admin-topbar p-4 md:p-6 border-b border-slate-800 glass-panel">
+                            <div className="flex justify-between items-center gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <button onClick={() => setMobileSidebarOpen(true)} className="md:hidden h-11 w-11 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 flex items-center justify-center">
+                                        <i className="fas fa-bars"></i>
+                                    </button>
+                                    <div className="min-w-0">
+                                        <h1 className="text-2xl md:text-3xl font-bold text-white truncate">
+                                            {view.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                        </h1>
+                                        <div className="text-xs md:text-sm text-slate-400 mt-1 flex items-center gap-4">
+                                            <span className="hidden sm:inline">{new Date().toLocaleDateString('en-NA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                            <span className="text-green-400">Live System</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex gap-3">
-                                    <div className="text-sm text-slate-400 flex items-center gap-2 mr-4">
+                                <div className="flex gap-2 md:gap-3">
+                                    <button onClick={() => setCommandPaletteOpen(true)} className="btn command-button">
+                                        <span className="flex items-center gap-2">
+                                            <i className="fas fa-search text-green-400"></i>
+                                            Search commands
+                                        </span>
+                                        <kbd className="rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-500">Ctrl K</kbd>
+                                    </button>
+                                    <div className="hidden lg:flex text-sm text-slate-400 items-center gap-2 mr-2">
                                         <i className="fas fa-user-shield text-green-500"></i>
                                         <span>Admin</span>
                                     </div>
                                     <button onClick={handleAdminLogout} className="btn btn-secondary text-red-400 hover:text-red-300" title="Logout">
                                         <i className="fas fa-sign-out-alt"></i>
-                                        Logout
+                                        <span className="hidden md:inline">Logout</span>
                                     </button>
                                     <button onClick={loadAllData} className="btn btn-secondary" disabled={loading}>
                                         <i className={`fas fa-sync ${loading ? 'fa-spin' : ''}`}></i>
-                                        {loading ? 'Loading...' : 'Refresh'}
+                                        <span className="hidden md:inline">{loading ? 'Loading...' : 'Refresh'}</span>
                                     </button>
                                 </div>
                             </div>
@@ -3432,6 +3698,41 @@ Date: ${new Date().toLocaleDateString()}`
                             {/* DASHBOARD VIEW */}
                             {view === 'dashboard' && (
                                 <div className="space-y-6 fade-in">
+                                    {operationalAlerts.length > 0 && (
+                                        <div className="grid gap-4 xl:grid-cols-2">
+                                            {operationalAlerts.map((alert, index) => (
+                                                <div key={`${alert.title}-${index}`} className={`ops-alert ${alert.type} rounded-xl p-5`}>
+                                                    <div className="flex items-start gap-4">
+                                                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
+                                                            alert.type === 'danger' ? 'bg-red-500/15 text-red-400' :
+                                                            alert.type === 'warning' ? 'bg-yellow-500/15 text-yellow-400' :
+                                                            'bg-blue-500/15 text-blue-400'
+                                                        }`}>
+                                                            <i className={`fas fa-${alert.icon}`}></i>
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="font-bold text-white">{alert.title}</div>
+                                                            <p className="mt-1 line-clamp-2 text-sm text-slate-400">{alert.text}</p>
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (alert.view) setView(alert.view);
+                                                                    if (alert.modal) {
+                                                                        setModalData({});
+                                                                        setModal(alert.modal);
+                                                                    }
+                                                                }}
+                                                                className="mt-3 text-sm font-bold text-green-400 hover:text-green-300"
+                                                            >
+                                                                {alert.action}
+                                                                <i className="fas fa-arrow-right ml-2 text-xs"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
                                     <div className="grid grid-cols-4 gap-6">
                                         <div className="stat-card glass-panel p-6 rounded-xl">
                                             <div className="flex items-center gap-4">
@@ -4068,7 +4369,7 @@ Date: ${new Date().toLocaleDateString()}`
                                                     </label>
                                                     <div className="grid grid-cols-2 gap-3">
                                                         {availableColors.map(color => {
-                                                            const colorImeis = availableImeis.filter(i => i.color === color && i.status === 'in_stock');
+                                                        const colorImeis = availableImeis.filter(i => i.color === color && i.status === 'available');
                                                             const isSelected = selectedColor === color;
                                                             
                                                             return (
@@ -4111,7 +4412,7 @@ Date: ${new Date().toLocaleDateString()}`
                                                     </label>
                                                     <div className="space-y-2 max-h-64 overflow-y-auto">
                                                         {availableImeis
-                                                            .filter(i => i.color === selectedColor && i.status === 'in_stock')
+                                                            .filter(i => i.color === selectedColor && i.status === 'available')
                                                             .map(imei => {
                                                                 const isSelected = selectedImei === String(imei.id);
                                                                 
@@ -4143,7 +4444,7 @@ Date: ${new Date().toLocaleDateString()}`
                                                             })}
                                                     </div>
                                                     
-                                                    {availableImeis.filter(i => i.color === selectedColor && i.status === 'in_stock').length === 0 && (
+                                                    {availableImeis.filter(i => i.color === selectedColor && i.status === 'available').length === 0 && (
                                                         <div className="text-center py-8 text-slate-500">
                                                             <i className="fas fa-inbox text-4xl mb-3 opacity-20"></i>
                                                             <p>No units available for {selectedColor}</p>

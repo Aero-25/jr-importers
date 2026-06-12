@@ -136,6 +136,7 @@ create table public.product_imeis (
   status text not null default 'available',
   sold_at timestamptz,
   order_id uuid references public.orders(id) on delete set null,
+  sold_order_id uuid references public.orders(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -425,6 +426,37 @@ begin
 end;
 $$;
 
+create or replace function public.sync_product_stock_from_imeis()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  affected_product_id bigint;
+begin
+  affected_product_id := coalesce(new.product_id, old.product_id);
+
+  if affected_product_id is not null then
+    update public.products
+    set stock = (
+      select count(*)::integer
+      from public.product_imeis
+      where product_id = affected_product_id
+        and status = 'available'
+    )
+    where id = affected_product_id
+      and exists (
+        select 1
+        from public.product_imeis
+        where product_id = affected_product_id
+      );
+  end if;
+
+  return coalesce(new, old);
+end;
+$$;
+
 create or replace function public.validate_coupon(p_code text, p_cart_total numeric)
 returns jsonb
 language plpgsql
@@ -626,6 +658,10 @@ for each row execute function public.protect_user_admin_fields();
 create trigger limit_customer_product_updates
 before update on public.products
 for each row execute function public.limit_customer_product_updates();
+
+create trigger sync_product_stock_from_imeis
+after insert or update or delete on public.product_imeis
+for each row execute function public.sync_product_stock_from_imeis();
 
 grant usage on schema public to anon, authenticated;
 grant select on public.products, public.hero_images, public.service_charges, public.coupons to anon, authenticated;
