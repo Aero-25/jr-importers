@@ -11,6 +11,7 @@ Thumbs.db
 .env.*
 !.env.example
 .supabase/
+supabase/.temp/
 
 # Logs and dependency folders if tooling is added later
 *.log
