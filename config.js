@@ -6,5 +6,7 @@ window.JR_CONFIG = Object.freeze({
     LOGO_URL: '/icon.svg',
     AERO_LOGO_URL: '/icon.svg',
     SMS_WORKER_URL: '',
-    WHATSAPP_WORKER_URL: ''
+    WHATSAPP_WORKER_URL: '',
+    ONESIGNAL_APP_ID: '',
+    ONESIGNAL_SAFARI_WEB_ID: ''
 });

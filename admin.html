@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#10b981">
     <meta name="robots" content="noindex,nofollow">
     <link rel="icon" type="image/svg+xml" href="/icon.svg">
-    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="manifest" href="/admin.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
@@ -19,6 +19,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -529,6 +530,8 @@
         const AUTO_WHATSAPP_WORKER_URL = window.JR_CONFIG?.WHATSAPP_WORKER_URL || window.JR_WHATSAPP_WORKER_URL || '';
         const LOGO_URL = window.JR_CONFIG?.LOGO_URL || '/icon.svg';
         const STORE_WHATSAPP_NUMBER = '26481562920';
+        const ONESIGNAL_APP_ID = window.JR_CONFIG?.ONESIGNAL_APP_ID || '';
+        const ONESIGNAL_SAFARI_WEB_ID = window.JR_CONFIG?.ONESIGNAL_SAFARI_WEB_ID || '';
         const hasConfiguredWorkerUrl = (url) => typeof url === 'string' && url.trim().length > 0;
         const debugLog = (...args) => {
             if (DEBUG) {
@@ -630,6 +633,7 @@
             const [commandSearch, setCommandSearch] = useState('');
             const [openGroups, setOpenGroups] = useState(['sales', 'inventory', 'purchasing']);
             const [notifications, setNotifications] = useState([]);
+            const [pushStatus, setPushStatus] = useState(ONESIGNAL_APP_ID ? 'Ready to enable' : 'Add OneSignal app id');
             const [modal, setModal] = useState(null);
             const [orderFilter, setOrderFilter] = useState('all'); // all, pending, paid, processing, shipped, delivered, pickup
             const [orderSearch, setOrderSearch] = useState('');
@@ -727,7 +731,10 @@
                 hero_images: [],
                 product_imeis: [],
                 service_charges: [],
-                coupons: []
+                coupons: [],
+                messages: [],
+                special_order_requests: [],
+                stock_alert_requests: []
             });
 
             // Load Data on Mount - Check Supabase Auth
@@ -810,7 +817,73 @@
 
             useEffect(() => {
                 setMobileSidebarOpen(false);
+                if (view && window.location.hash !== `#${view}`) {
+                    window.history.replaceState(null, '', `#${view}`);
+                }
             }, [view]);
+
+            useEffect(() => {
+                const hashView = window.location.hash.replace('#', '');
+                if (hashView) {
+                    setView(hashView);
+                }
+            }, []);
+
+            useEffect(() => {
+                if (!ONESIGNAL_APP_ID || !isAuthenticated) return;
+
+                window.OneSignalDeferred = window.OneSignalDeferred || [];
+                window.OneSignalDeferred.push(async (OneSignal) => {
+                    try {
+                        await OneSignal.init({
+                            appId: ONESIGNAL_APP_ID,
+                            safari_web_id: ONESIGNAL_SAFARI_WEB_ID || undefined,
+                            allowLocalhostAsSecureOrigin: true,
+                            notifyButton: { enable: false }
+                        });
+
+                        if (adminUser?.id && OneSignal.login) {
+                            await OneSignal.login(adminUser.id);
+                        }
+                        if (OneSignal.User?.addTags) {
+                            await OneSignal.User.addTags({
+                                app: 'jr-admin',
+                                role: 'admin',
+                                email: adminUser?.email || 'unknown'
+                            });
+                        }
+                        setPushStatus(window.Notification?.permission === 'granted' ? 'Enabled' : 'Ready to enable');
+                    } catch (error) {
+                        console.error('OneSignal init error:', error);
+                        setPushStatus('Setup needs attention');
+                    }
+                });
+            }, [isAuthenticated, adminUser?.id]);
+
+            const enableAdminNotifications = () => {
+                if (!ONESIGNAL_APP_ID) {
+                    showNotification('Add ONESIGNAL_APP_ID in config.js first', 'error');
+                    return;
+                }
+
+                window.OneSignalDeferred = window.OneSignalDeferred || [];
+                window.OneSignalDeferred.push(async (OneSignal) => {
+                    try {
+                        if (OneSignal.Notifications?.requestPermission) {
+                            const accepted = await OneSignal.Notifications.requestPermission();
+                            setPushStatus(accepted ? 'Enabled' : 'Permission declined');
+                            showNotification(accepted ? 'Admin notifications enabled' : 'Notification permission declined', accepted ? 'success' : 'warning');
+                        } else {
+                            setPushStatus(window.Notification?.permission || 'Ready');
+                            showNotification('OneSignal loaded. Use the browser permission prompt to subscribe.', 'info');
+                        }
+                    } catch (error) {
+                        console.error('OneSignal permission error:', error);
+                        setPushStatus('Permission error');
+                        showNotification('Unable to enable notifications: ' + error.message, 'error');
+                    }
+                });
+            };
 
             const handleAdminLogin = async (e) => {
                 e.preventDefault();
@@ -874,7 +947,10 @@
                     hero_images: [],
                     product_imeis: [],
                     service_charges: [],
-                    coupons: []
+                    coupons: [],
+                    messages: [],
+                    special_order_requests: [],
+                    stock_alert_requests: []
                 });
                 showNotification('Logged out successfully', 'info');
             };
@@ -896,7 +972,7 @@
                         }
                     };
                     
-                    const [products, orders, customers, suppliers, expenses, users, till_shifts, settings, hero_images, product_imeis, service_charges, invoices, purchase_orders, grvs, coupons] = await Promise.all([
+                    const [products, orders, customers, suppliers, expenses, users, till_shifts, settings, hero_images, product_imeis, service_charges, invoices, purchase_orders, grvs, coupons, messages, special_order_requests, stock_alert_requests] = await Promise.all([
                         safeFetch('products', '*', { column: 'name' }),
                         safeFetch('orders', 'id, customer_name, customer_email, customer_phone, delivery_address, delivery_method, total_amount, status, payment_method, payment_reference, items, created_at, updated_at, courier_company, waybill_number, date_dispatched, picked_up_at, paid_at, reservation_expires_at, stock_reserved, stock_returned, user_id, customer_city, customer_region, coupon_code, coupon_discount, dpo_trans_ref', { column: 'created_at', asc: false }),
                         safeFetch('customers', '*', { column: 'name' }),
@@ -911,10 +987,13 @@
                         safeFetch('invoices', '*', { column: 'created_at', asc: false }),
                         safeFetch('purchase_orders', '*', { column: 'created_at', asc: false }),
                         safeFetch('grvs', '*', { column: 'created_at', asc: false }),
-                        safeFetch('coupons', '*', { column: 'created_at', asc: false })
+                        safeFetch('coupons', '*', { column: 'created_at', asc: false }),
+                        safeFetch('messages', '*', { column: 'created_at', asc: false }),
+                        safeFetch('special_order_requests', '*', { column: 'created_at', asc: false }),
+                        safeFetch('stock_alert_requests', '*', { column: 'created_at', asc: false })
                     ]);
 
-                    setData(prev => ({ ...prev, products, orders, customers, suppliers, expenses, users, till_shifts, settings, hero_images, product_imeis, service_charges, invoices, purchase_orders, grvs, coupons }));
+                    setData(prev => ({ ...prev, products, orders, customers, suppliers, expenses, users, till_shifts, settings, hero_images, product_imeis, service_charges, invoices, purchase_orders, grvs, coupons, messages, special_order_requests, stock_alert_requests }));
                     setDataLoaded(true);
                     setLoading(false);
 
@@ -962,6 +1041,48 @@
 
             const showNotification = (message, type = 'info') => {
                 setNotifications(prev => [...prev, { id: Date.now(), message, type }]);
+            };
+
+            const sendLocalAdminAlert = (title, message, targetUrl = '/admin.html') => {
+                if (window.Notification?.permission === 'granted') {
+                    const notification = new Notification(title, {
+                        body: message,
+                        icon: LOGO_URL,
+                        badge: LOGO_URL
+                    });
+                    notification.onclick = () => window.open(targetUrl, '_blank');
+                }
+            };
+
+            const updateSpecialOrderStatus = async (request, status) => {
+                try {
+                    const payload = { status, updated_at: new Date().toISOString() };
+                    if (status === 'Delivered/collected') {
+                        payload.admin_notes = [request.admin_notes, `Completed by ${adminUser?.email || 'Admin'} on ${new Date().toLocaleString()}`].filter(Boolean).join('\n');
+                    }
+                    const { error } = await db.from('special_order_requests').update(payload).eq('id', request.id);
+                    if (error) throw error;
+                    showNotification(`Special order moved to ${status}`, 'success');
+                    sendLocalAdminAlert('JR Special Order', `${request.requested_product} moved to ${status}`);
+                    loadAllData();
+                } catch (error) {
+                    showNotification('Unable to update special order: ' + error.message, 'error');
+                }
+            };
+
+            const markStockAlertNotified = async (request) => {
+                try {
+                    const { error } = await db.from('stock_alert_requests').update({
+                        status: 'Notified',
+                        notified_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    }).eq('id', request.id);
+                    if (error) throw error;
+                    showNotification('Stock alert marked as notified', 'success');
+                    loadAllData();
+                } catch (error) {
+                    showNotification('Unable to update stock alert: ' + error.message, 'error');
+                }
             };
 
             const toggleGroup = (groupId) => {
@@ -1707,13 +1828,24 @@
                 setModal(null);
             };
 
+            const getPaymentComponentAmount = (order, component) => {
+                if (!order) return 0;
+                if (component === 'Cash' && order.payment_method === 'Cash') return Number(order.total_amount || 0);
+                if (component === 'Card' && order.payment_method === 'Card') return Number(order.total_amount || 0);
+                if (component === 'Bank Transfer' && order.payment_method === 'Bank Transfer') return Number(order.total_amount || 0);
+                if (order.payment_method !== 'Split Payment') return 0;
+
+                const match = String(order.payment_reference || '').match(new RegExp(`${component}:\\s*N\\$\\s*([\\d,.]+)`, 'i'));
+                return match ? Number(match[1].replace(/,/g, '')) || 0 : 0;
+            };
+
             const closeTill = async (actualCash) => {
                 const todayOrders = data.orders.filter(o => 
                     o.created_at?.startsWith(new Date().toISOString().split('T')[0]) && o.status === 'Paid'
                 );
                 
-                const cashSales = todayOrders.filter(o => o.payment_method === 'Cash')
-                    .reduce((sum, o) => sum + o.total_amount, 0);
+                const cashSales = todayOrders.reduce((sum, o) => sum + getPaymentComponentAmount(o, 'Cash'), 0);
+                const cardSales = todayOrders.reduce((sum, o) => sum + getPaymentComponentAmount(o, 'Card'), 0);
                     
                 const expected = tillFloat + cashSales;
                 const actual = parseFloat(actualCash);
@@ -1731,8 +1863,7 @@
                     cash_variance: variance,
                     total_sales: todayOrders.reduce((sum, o) => sum + o.total_amount, 0),
                     cash_sales: cashSales,
-                    card_sales: todayOrders.filter(o => o.payment_method === 'Card')
-                        .reduce((sum, o) => sum + o.total_amount, 0),
+                    card_sales: cardSales,
                     transaction_count: todayOrders.length,
                     status: 'Closed'
                 };
@@ -2761,6 +2892,10 @@ Date: ${new Date().toLocaleDateString()}`
                     .reduce((sum, o) => sum + (o.total_amount || 0), 0);
                 
                 const lowStock = data.products.filter(p => p.stock <= (p.reorder_level || 10)).length;
+                const pendingOrders = data.orders.filter(o => o.status === 'Pending').length;
+                const paymentConfirmations = data.orders.filter(o => o.status === 'Pending' && o.payment_reference).length;
+                const customerMessages = (data.messages || []).length;
+                const specialOrdersOpen = (data.special_order_requests || []).filter(req => !['Delivered/collected', 'Cancelled'].includes(req.status)).length;
                 
                 const totalProfit = data.orders
                     .filter(o => o.status === 'Paid')
@@ -2778,7 +2913,11 @@ Date: ${new Date().toLocaleDateString()}`
                     totalRevenue, 
                     todayOrders: todayOrders.length, 
                     lowStock,
-                    totalProfit
+                    totalProfit,
+                    pendingOrders,
+                    paymentConfirmations,
+                    customerMessages,
+                    specialOrdersOpen
                 };
             }, [data]);
 
@@ -2975,6 +3114,8 @@ Date: ${new Date().toLocaleDateString()}`
                 { id: 'orders', label: 'Orders', icon: 'receipt', group: 'Sales', count: data.orders.length },
                 { id: 'online-orders', label: 'Online Orders', icon: 'shopping-cart', group: 'Online Store', count: onlineOrders.length },
                 { id: 'dispatch', label: 'Dispatch', icon: 'truck', group: 'Online Store' },
+                { id: 'special-orders', label: 'Special Orders', icon: 'magic', group: 'Online Store', count: data.special_order_requests?.length || 0 },
+                { id: 'back-in-stock', label: 'Back In Stock', icon: 'bell', group: 'Online Store', count: data.stock_alert_requests?.length || 0 },
                 { id: 'products', label: 'Products', icon: 'box', group: 'Inventory', count: data.products.length },
                 { id: 'stock-alerts', label: 'Stock Alerts', icon: 'exclamation-triangle', group: 'Inventory', count: analytics.lowStock },
                 { id: 'customers', label: 'Customers', icon: 'user-circle', group: 'Customers', count: data.customers.length },
@@ -2984,6 +3125,7 @@ Date: ${new Date().toLocaleDateString()}`
                 { id: 'invoices', label: 'Invoices', icon: 'file-invoice-dollar', group: 'Sales', count: data.invoices?.length || 0 },
                 { id: 'coupons', label: 'Coupons', icon: 'ticket-alt', group: 'Inventory', count: data.coupons?.length || 0 },
                 { id: 'hero-images', label: 'Hero Images', icon: 'images', group: 'Online Store', count: data.hero_images?.length || 0 },
+                { id: 'messages', label: 'Messages', icon: 'envelope-open-text', group: 'Online Store', count: data.messages?.length || 0 },
                 { id: 'expenses', label: 'Expenses', icon: 'receipt', group: 'Admin', count: data.expenses?.length || 0 },
                 { id: 'users', label: 'Users', icon: 'user-shield', group: 'Admin', count: filteredUsers.length },
                 { id: 'settings', label: 'Settings', icon: 'sliders-h', group: 'Admin', count: data.settings?.length || 0 }
@@ -2991,6 +3133,9 @@ Date: ${new Date().toLocaleDateString()}`
 
             const operationalAlerts = useMemo(() => {
                 const pendingOnline = onlineOrders.filter(order => order.status === 'Pending').length;
+                const openSpecialOrders = (data.special_order_requests || []).filter(req => !['Delivered/collected', 'Cancelled'].includes(req.status)).length;
+                const waitingStockAlerts = (data.stock_alert_requests || []).filter(req => req.status !== 'Notified').length;
+                const customerMessages = (data.messages || []).length;
                 const paidUndispatched = onlineOrders.filter(order =>
                     order.status === 'Paid' && order.delivery_method === 'Courier' && !order.waybill_number
                 ).length;
@@ -3018,6 +3163,30 @@ Date: ${new Date().toLocaleDateString()}`
                         action: 'Open dispatch',
                         view: 'dispatch'
                     },
+                    openSpecialOrders > 0 && {
+                        type: 'warning',
+                        icon: 'magic',
+                        title: `${openSpecialOrders} special order${openSpecialOrders === 1 ? '' : 's'} in progress`,
+                        text: 'Quote, collect deposit, order from supplier, then mark arrival and collection.',
+                        action: 'Open pipeline',
+                        view: 'special-orders'
+                    },
+                    waitingStockAlerts > 0 && {
+                        type: 'info',
+                        icon: 'bell',
+                        title: `${waitingStockAlerts} back-in-stock follow-up${waitingStockAlerts === 1 ? '' : 's'}`,
+                        text: 'Customers are waiting for product availability updates.',
+                        action: 'Notify customers',
+                        view: 'back-in-stock'
+                    },
+                    customerMessages > 0 && {
+                        type: 'info',
+                        icon: 'envelope-open-text',
+                        title: `${customerMessages} customer message${customerMessages === 1 ? '' : 's'}`,
+                        text: 'Review webshop enquiries and convert them to orders or quotes.',
+                        action: 'Open messages',
+                        view: 'messages'
+                    },
                     analytics.lowStock > 0 && {
                         type: 'danger',
                         icon: 'boxes',
@@ -3043,7 +3212,7 @@ Date: ${new Date().toLocaleDateString()}`
                         modal: 'product-form'
                     }
                 ].filter(Boolean);
-            }, [onlineOrders, data.products, data.hero_images, analytics.lowStock]);
+            }, [onlineOrders, data.products, data.hero_images, data.messages, data.special_order_requests, data.stock_alert_requests, analytics.lowStock]);
 
             const adminIntelligence = useMemo(() => {
                 const activeProducts = data.products.filter(product => product.active !== false);
@@ -3697,8 +3866,17 @@ Date: ${new Date().toLocaleDateString()}`
                                     <div className={`nav-item ${view === 'online-payments' ? 'active' : ''}`} onClick={() => setView('online-payments')}>
                                         <i className="fas fa-credit-card"></i><span>Payments</span>
                                     </div>
+                                    <div className={`nav-item ${view === 'special-orders' ? 'active' : ''}`} onClick={() => setView('special-orders')}>
+                                        <i className="fas fa-magic"></i><span>Special Orders</span>
+                                    </div>
+                                    <div className={`nav-item ${view === 'back-in-stock' ? 'active' : ''}`} onClick={() => setView('back-in-stock')}>
+                                        <i className="fas fa-bell"></i><span>Back In Stock</span>
+                                    </div>
                                     <div className={`nav-item ${view === 'online-customers' ? 'active' : ''}`} onClick={() => setView('online-customers')}>
                                         <i className="fas fa-users"></i><span>Online Clients</span>
+                                    </div>
+                                    <div className={`nav-item ${view === 'messages' ? 'active' : ''}`} onClick={() => setView('messages')}>
+                                        <i className="fas fa-envelope-open-text"></i><span>Messages</span>
                                     </div>
                                     <div className={`nav-item ${view === 'abandoned-carts' ? 'active' : ''}`} onClick={() => setView('abandoned-carts')}>
                                         <i className="fas fa-shopping-basket"></i><span>Abandoned Carts</span>
@@ -3751,6 +3929,10 @@ Date: ${new Date().toLocaleDateString()}`
                                         <i className="fas fa-user-shield text-green-500"></i>
                                         <span>Admin</span>
                                     </div>
+                                    <button onClick={enableAdminNotifications} className="btn btn-secondary" title="Enable OneSignal admin notifications">
+                                        <i className={`fas fa-bell ${pushStatus === 'Enabled' ? 'text-green-400' : 'text-yellow-400'}`}></i>
+                                        <span className="hidden xl:inline">{pushStatus}</span>
+                                    </button>
                                     <button onClick={handleAdminLogout} className="btn btn-secondary text-red-400 hover:text-red-300" title="Logout">
                                         <i className="fas fa-sign-out-alt"></i>
                                         <span className="hidden md:inline">Logout</span>
@@ -3959,6 +4141,36 @@ Date: ${new Date().toLocaleDateString()}`
                                         </div>
                                     </div>
 
+                                    <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+                                        {[
+                                            { label: "Today's Sales", value: formatCurrency(analytics.todaySales), icon: 'cash-register', tone: 'green', view: 'sales-report' },
+                                            { label: 'Pending Orders', value: analytics.pendingOrders, icon: 'hourglass-half', tone: 'yellow', view: 'online-orders' },
+                                            { label: 'Low Stock', value: analytics.lowStock, icon: 'boxes', tone: 'red', view: 'stock-alerts' },
+                                            { label: 'Special Orders', value: analytics.specialOrdersOpen, icon: 'magic', tone: 'purple', view: 'special-orders' },
+                                            { label: 'Payment Checks', value: analytics.paymentConfirmations, icon: 'credit-card', tone: 'blue', view: 'online-payments' },
+                                            { label: 'Messages', value: analytics.customerMessages, icon: 'envelope', tone: 'slate', view: 'messages' }
+                                        ].map(card => (
+                                            <button
+                                                key={card.label}
+                                                onClick={() => setView(card.view)}
+                                                className="rounded-xl border border-slate-800 bg-slate-950/35 p-4 text-left hover:border-green-500/40"
+                                            >
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500 font-bold">{card.label}</div>
+                                                    <i className={`fas fa-${card.icon} ${
+                                                        card.tone === 'green' ? 'text-green-400' :
+                                                        card.tone === 'yellow' ? 'text-yellow-400' :
+                                                        card.tone === 'red' ? 'text-red-400' :
+                                                        card.tone === 'purple' ? 'text-purple-400' :
+                                                        card.tone === 'blue' ? 'text-blue-400' :
+                                                        'text-slate-400'
+                                                    }`}></i>
+                                                </div>
+                                                <div className="mt-3 text-xl font-black text-white mono">{card.value}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+
                                     {/* RECENT ORDERS */}
                                     <div className="glass-panel p-6 rounded-xl">
                                         <div className="flex justify-between items-center mb-4">
@@ -4033,6 +4245,180 @@ Date: ${new Date().toLocaleDateString()}`
                                             <div className="font-bold text-white">Export Sales</div>
                                             <div className="text-xs text-slate-400">Download Excel report</div>
                                         </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* SPECIAL ORDERS PIPELINE */}
+                            {view === 'special-orders' && (
+                                <div className="space-y-6 fade-in">
+                                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                        <div>
+                                            <h2 className="text-3xl font-bold text-white">Special Orders Pipeline</h2>
+                                            <p className="text-slate-400 mt-1">Track customer requests from quote to delivery or collection.</p>
+                                        </div>
+                                        <button onClick={loadAllData} className="btn btn-secondary">
+                                            <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''}`}></i>
+                                            Refresh
+                                        </button>
+                                    </div>
+
+                                    <div className="grid gap-4 xl:grid-cols-6">
+                                        {['New request', 'Quoted', 'Deposit paid', 'Ordered from supplier', 'Arrived', 'Delivered/collected'].map(status => {
+                                            const rows = (data.special_order_requests || []).filter(req => req.status === status);
+                                            return (
+                                                <div key={status} className="glass-panel rounded-xl p-4">
+                                                    <div className="mb-4 flex items-center justify-between">
+                                                        <div className="text-sm font-black text-white">{status}</div>
+                                                        <span className="badge badge-purple">{rows.length}</span>
+                                                    </div>
+                                                    <div className="space-y-3">
+                                                        {rows.map(req => (
+                                                            <div key={req.id} className="rounded-xl border border-slate-800 bg-slate-950/45 p-3">
+                                                                <div className="font-bold text-white line-clamp-2">{req.requested_product}</div>
+                                                                <div className="mt-2 text-xs text-slate-400">{req.customer_name || 'Customer'} - {req.customer_phone || req.customer_email || 'No contact'}</div>
+                                                                <div className="mt-2 text-xs text-slate-500">
+                                                                    {req.preferred_color_storage || 'Any variant'} {req.target_budget ? `- ${formatCurrency(req.target_budget)}` : ''}
+                                                                </div>
+                                                                <div className="mt-3 grid gap-2">
+                                                                    <select
+                                                                        value={req.status}
+                                                                        onChange={(e) => updateSpecialOrderStatus(req, e.target.value)}
+                                                                        className="form-input glass-input text-xs"
+                                                                    >
+                                                                        {['New request', 'Quoted', 'Deposit paid', 'Ordered from supplier', 'Arrived', 'Delivered/collected', 'Cancelled'].map(option => (
+                                                                            <option key={option} value={option}>{option}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    {req.customer_phone && (
+                                                                        <a
+                                                                            href={`https://wa.me/${String(req.customer_phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${req.customer_name || ''}, update on your JR Importers special order (${req.requested_product}): ${req.status}.`)}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="btn btn-sm btn-secondary justify-center"
+                                                                        >
+                                                                            <i className="fab fa-whatsapp"></i>
+                                                                            Update
+                                                                        </a>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        {rows.length === 0 && (
+                                                            <div className="rounded-xl border border-dashed border-slate-800 p-4 text-center text-xs text-slate-500">No requests</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* BACK IN STOCK REQUESTS */}
+                            {view === 'back-in-stock' && (
+                                <div className="space-y-6 fade-in">
+                                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                        <div>
+                                            <h2 className="text-3xl font-bold text-white">Back In Stock Requests</h2>
+                                            <p className="text-slate-400 mt-1">Customers waiting for product availability updates.</p>
+                                        </div>
+                                        <button onClick={loadAllData} className="btn btn-secondary">
+                                            <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''}`}></i>
+                                            Refresh
+                                        </button>
+                                    </div>
+
+                                    <div className="glass-panel rounded-xl overflow-hidden">
+                                        <table className="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Product</th>
+                                                    <th>Customer</th>
+                                                    <th>Channel</th>
+                                                    <th>Status</th>
+                                                    <th>Date</th>
+                                                    <th className="text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {(data.stock_alert_requests || []).map(req => (
+                                                    <tr key={req.id}>
+                                                        <td>
+                                                            <div className="font-bold text-white">{req.product_name || `Product #${req.product_id}`}</div>
+                                                            <div className="text-xs text-slate-500">{req.preferred_color || 'Any color'}</div>
+                                                        </td>
+                                                        <td>
+                                                            <div className="text-white">{req.customer_name || 'Customer'}</div>
+                                                            <div className="text-xs text-slate-500">{req.customer_phone || req.customer_email || 'No contact'}</div>
+                                                        </td>
+                                                        <td><span className="badge badge-info">{req.channel || 'WhatsApp'}</span></td>
+                                                        <td><span className={`badge ${req.status === 'Notified' ? 'badge-success' : 'badge-warning'}`}>{req.status || 'Waiting'}</span></td>
+                                                        <td className="text-slate-400">{formatDate(req.created_at)}</td>
+                                                        <td className="text-right">
+                                                            {req.customer_phone && (
+                                                                <a href={`https://wa.me/${String(req.customer_phone).replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${req.customer_name || ''}, ${req.product_name || 'your requested product'} is back in stock at JR Importers. Reply here and we will assist you.`)}`} target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-white mr-3">
+                                                                    <i className="fab fa-whatsapp"></i>
+                                                                </a>
+                                                            )}
+                                                            {req.status !== 'Notified' && (
+                                                                <button onClick={() => markStockAlertNotified(req)} className="text-blue-400 hover:text-white">
+                                                                    <i className="fas fa-check"></i>
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        {(data.stock_alert_requests || []).length === 0 && (
+                                            <div className="p-12 text-center text-slate-500">
+                                                <i className="fas fa-bell text-5xl mb-4 opacity-20"></i>
+                                                <div>No stock alert requests yet</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* CUSTOMER MESSAGES */}
+                            {view === 'messages' && (
+                                <div className="space-y-6 fade-in">
+                                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                        <div>
+                                            <h2 className="text-3xl font-bold text-white">Customer Messages</h2>
+                                            <p className="text-slate-400 mt-1">Webshop contact form enquiries and customer follow-ups.</p>
+                                        </div>
+                                        <button onClick={loadAllData} className="btn btn-secondary">
+                                            <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''}`}></i>
+                                            Refresh
+                                        </button>
+                                    </div>
+
+                                    <div className="grid gap-4 xl:grid-cols-2">
+                                        {(data.messages || []).map(message => (
+                                            <div key={message.id} className="glass-panel rounded-xl p-5">
+                                                <div className="flex items-start justify-between gap-4">
+                                                    <div>
+                                                        <div className="font-bold text-white">{message.name || 'Customer'}</div>
+                                                        <div className="mt-1 text-xs text-slate-500">{message.email || 'No email'} - {formatDateTime(message.created_at)}</div>
+                                                    </div>
+                                                    {message.email && (
+                                                        <a href={`mailto:${message.email}?subject=JR Importers enquiry&body=${encodeURIComponent(`Hi ${message.name || ''},\n\n`)}`} className="btn btn-sm btn-secondary">
+                                                            <i className="fas fa-reply"></i>
+                                                            Reply
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-300">{message.message}</p>
+                                            </div>
+                                        ))}
+                                        {(data.messages || []).length === 0 && (
+                                            <div className="glass-panel rounded-xl p-12 text-center text-slate-500 xl:col-span-2">
+                                                <i className="fas fa-envelope-open-text text-5xl mb-4 opacity-20"></i>
+                                                <div>No customer messages yet</div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -7138,9 +7524,8 @@ Date: ${new Date().toLocaleDateString()}`
                                             <div className="text-3xl font-bold text-yellow-400 mono">
                                                 {formatCurrency(data.orders.filter(o =>
                                                     o.created_at?.startsWith(new Date().toISOString().split('T')[0]) &&
-                                                    o.status === 'Paid' &&
-                                                    o.payment_method === 'Cash'
-                                                ).reduce((sum, o) => sum + (o.total_amount || 0), 0))}
+                                                    o.status === 'Paid'
+                                                ).reduce((sum, o) => sum + getPaymentComponentAmount(o, 'Cash'), 0))}
                                             </div>
                                         </div>
                                         <div className="glass-panel p-4 rounded-lg border-l-4 border-purple-500">
@@ -7192,9 +7577,8 @@ Date: ${new Date().toLocaleDateString()}`
                                                     <div className="font-semibold text-green-400 mono">
                                                         {formatCurrency((tillFloat || 0) + data.orders.filter(o =>
                                                             o.created_at?.startsWith(new Date().toISOString().split('T')[0]) &&
-                                                            o.status === 'Paid' &&
-                                                            o.payment_method === 'Cash'
-                                                        ).reduce((sum, o) => sum + (o.total_amount || 0), 0))}
+                                                            o.status === 'Paid'
+                                                        ).reduce((sum, o) => sum + getPaymentComponentAmount(o, 'Cash'), 0))}
                                                     </div>
                                                 </div>
                                             </div>
@@ -7611,7 +7995,7 @@ Date: ${new Date().toLocaleDateString()}`
                             )}
 
                             {/* PLACEHOLDER FOR OTHER VIEWS */}
-                            {!['dashboard', 'pos', 'products', 'orders', 'stock-alerts', 'suppliers', 'customers', 'sales-report', 'stock-report', 'profit-report', 'reverse-sales', 'online-orders', 'dispatch', 'online-payments', 'online-customers', 'abandoned-carts', 'hero-images', 'service-charges', 'invoices', 'purchase-orders', 'grv', 'till-management', 'expenses', 'users', 'settings', 'coupons', 'quotes', 'layby', 'debtors', 'stock-movements', 'stock-takes'].includes(view) && (
+                            {!['dashboard', 'pos', 'products', 'orders', 'stock-alerts', 'suppliers', 'customers', 'sales-report', 'stock-report', 'profit-report', 'reverse-sales', 'online-orders', 'dispatch', 'online-payments', 'special-orders', 'back-in-stock', 'messages', 'online-customers', 'abandoned-carts', 'hero-images', 'service-charges', 'invoices', 'purchase-orders', 'grv', 'till-management', 'expenses', 'users', 'settings', 'coupons', 'quotes', 'layby', 'debtors', 'stock-movements', 'stock-takes'].includes(view) && (
                                 <div className="glass-panel p-12 rounded-xl text-center fade-in">
                                     <i className="fas fa-check-circle text-6xl text-green-500 mb-4"></i>
                                     <h3 className="text-2xl font-bold mb-2">{view.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</h3>
@@ -7768,9 +8152,8 @@ Date: ${new Date().toLocaleDateString()}`
                                         <div className="text-2xl font-bold text-green-400 mono">
                                             {formatCurrency(tillFloat + data.orders.filter(o => 
                                                 o.created_at?.startsWith(new Date().toISOString().split('T')[0]) && 
-                                                o.status === 'Paid' && 
-                                                o.payment_method === 'Cash'
-                                            ).reduce((sum, o) => sum + o.total_amount, 0))}
+                                                o.status === 'Paid'
+                                            ).reduce((sum, o) => sum + getPaymentComponentAmount(o, 'Cash'), 0))}
                                         </div>
                                     </div>
                                 </div>

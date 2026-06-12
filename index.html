@@ -1246,6 +1246,27 @@
             const [heroImages, setHeroImages] = useState([]);
             const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
             const [selectedProductImage, setSelectedProductImage] = useState(0);
+            const [specialOrderForm, setSpecialOrderForm] = useState({
+                name: '',
+                email: '',
+                phone: '',
+                requestedProduct: '',
+                preferredColorStorage: '',
+                targetBudget: '',
+                city: '',
+                neededBy: '',
+                notes: ''
+            });
+            const [stockAlertForm, setStockAlertForm] = useState({
+                name: '',
+                email: '',
+                phone: '',
+                preferredColor: '',
+                channel: 'WhatsApp'
+            });
+            const [showSpecialOrderModal, setShowSpecialOrderModal] = useState(false);
+            const [showStockAlertModal, setShowStockAlertModal] = useState(false);
+            const [stockAlertProduct, setStockAlertProduct] = useState(null);
             const [shipForm, setShipForm] = useState({
                 firstName: '', lastName: '', phone: '', address: '', city: '', region: 'Khomas'
             });
@@ -1909,6 +1930,45 @@
                 }, {});
             }, [productColors]);
 
+            const getProductStockSummary = (product) => {
+                if (!product) return { total: 0, hasVariants: false, colors: [], label: 'Checking stock' };
+                const colors = productColors[product.id] || {};
+                const colorEntries = Object.entries(colors);
+                const hasVariants = colorEntries.length > 0;
+                const total = hasVariants
+                    ? colorEntries.reduce((sum, [, data]) => sum + Number(data.stock || 0), 0)
+                    : Number(product.stock || 0);
+                const colorsInStock = colorEntries
+                    .filter(([, data]) => Number(data.stock || 0) > 0)
+                    .map(([color, data]) => ({ color, stock: Number(data.stock || 0), image: data.image }));
+
+                return {
+                    total,
+                    hasVariants,
+                    colors: colorsInStock,
+                    label: total > 10 ? 'In stock now' : total > 0 ? `Only ${total} left` : 'Out of stock'
+                };
+            };
+
+            const getProductBadges = (product) => {
+                if (!product) return [];
+                const stockSummary = getProductStockSummary(product);
+                const createdAt = product.created_at ? new Date(product.created_at).getTime() : 0;
+                const isNew = createdAt && (Date.now() - createdAt) <= (1000 * 60 * 60 * 24 * 21);
+                const price = Number(product.price || 0);
+                const cost = Number(product.cost_price || 0);
+                const margin = price && cost ? ((price - cost) / price) * 100 : 0;
+                const badges = [];
+
+                if (product.featured || stockSummary.total >= 5) badges.push({ label: 'Best Seller', tone: 'lime' });
+                if (isNew) badges.push({ label: 'New Arrival', tone: 'blue' });
+                if (stockSummary.total > 0 && stockSummary.total <= 3) badges.push({ label: 'Low Stock', tone: 'red' });
+                if (margin >= 18 || price <= startingPrice * 1.35) badges.push({ label: 'Great Value', tone: 'amber' });
+                if (stockSummary.total <= 0) badges.push({ label: 'Special Order Available', tone: 'purple' });
+
+                return badges.slice(0, 3);
+            };
+
             const featuredProducts = useMemo(() => {
                 const candidates = inStockProducts
                     .filter(p => p.featured || Number(p.stock || 0) > 0)
@@ -2043,6 +2103,22 @@
                             {badge && (
                                 <span className="pill-badge pill-badge-soft absolute bottom-3 left-3">{badge}</span>
                             )}
+                            <div className="absolute right-3 top-3 flex max-w-[52%] flex-col items-end gap-1">
+                                {getProductBadges(product).slice(0, 2).map(dynamicBadge => (
+                                    <span
+                                        key={dynamicBadge.label}
+                                        className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${
+                                            dynamicBadge.tone === 'red' ? 'border-red-400/40 bg-red-500/20 text-red-200' :
+                                            dynamicBadge.tone === 'blue' ? 'border-blue-400/40 bg-blue-500/20 text-blue-200' :
+                                            dynamicBadge.tone === 'amber' ? 'border-amber-400/40 bg-amber-500/20 text-amber-100' :
+                                            dynamicBadge.tone === 'purple' ? 'border-purple-400/40 bg-purple-500/20 text-purple-200' :
+                                            'border-lime-400/40 bg-lime-500/20 text-lime-100'
+                                        }`}
+                                    >
+                                        {dynamicBadge.label}
+                                    </span>
+                                ))}
+                            </div>
                         </button>
 
                         <div className="flex flex-1 flex-col p-2">
@@ -2320,11 +2396,119 @@
             // STOCK NOTIFICATIONS
             const subscribeToStock = (productId) => {
                 setStockNotifications(prev => {
-                    const updated = [...prev, productId];
+                    const updated = [...new Set([...prev, productId])];
                     localStorage.setItem('stockNotifications', JSON.stringify(updated));
                     showNotification('You\'ll be notified when back in stock', 'success');
                     return updated;
                 });
+            };
+
+            const openStockAlertRequest = (product) => {
+                setStockAlertProduct(product);
+                setStockAlertForm({
+                    name: user?.user_metadata?.name || '',
+                    email: user?.email || '',
+                    phone: shipForm.phone || '',
+                    preferredColor: selectedColor || '',
+                    channel: 'WhatsApp'
+                });
+                setShowStockAlertModal(true);
+            };
+
+            const submitStockAlertRequest = async (e) => {
+                e.preventDefault();
+                const product = stockAlertProduct || viewProduct;
+
+                if (!product) {
+                    showNotification('Select a product first', 'error');
+                    return;
+                }
+                if (!stockAlertForm.email && !stockAlertForm.phone) {
+                    showNotification('Please enter an email or phone number', 'error');
+                    return;
+                }
+
+                subscribeToStock(product.id);
+
+                try {
+                    const { error } = await db.from('stock_alert_requests').insert({
+                        product_id: product.id,
+                        product_name: product.name,
+                        preferred_color: stockAlertForm.preferredColor || selectedColor || null,
+                        customer_name: stockAlertForm.name,
+                        customer_email: stockAlertForm.email,
+                        customer_phone: stockAlertForm.phone,
+                        channel: stockAlertForm.channel,
+                        status: 'Waiting'
+                    });
+                    if (error) throw error;
+                    showNotification('Back-in-stock request saved', 'success');
+                    setShowStockAlertModal(false);
+                    setStockAlertProduct(null);
+                } catch (error) {
+                    console.error('Stock alert request error:', error);
+                    showNotification('Saved locally. Admin table must be migrated for central tracking.', 'info');
+                    setShowStockAlertModal(false);
+                }
+            };
+
+            const openSpecialOrderRequest = (productName = '') => {
+                setSpecialOrderForm(prev => ({
+                    ...prev,
+                    name: user?.user_metadata?.name || prev.name,
+                    email: user?.email || prev.email,
+                    phone: shipForm.phone || prev.phone,
+                    requestedProduct: productName || prev.requestedProduct || viewProduct?.name || ''
+                }));
+                setShowSpecialOrderModal(true);
+            };
+
+            const submitSpecialOrderRequest = async (e) => {
+                e.preventDefault();
+
+                if (!specialOrderForm.requestedProduct.trim()) {
+                    showNotification('Please enter the product or model you want', 'error');
+                    return;
+                }
+                if (!specialOrderForm.email && !specialOrderForm.phone) {
+                    showNotification('Please enter an email or phone number', 'error');
+                    return;
+                }
+
+                const payload = {
+                    customer_name: specialOrderForm.name,
+                    customer_email: specialOrderForm.email,
+                    customer_phone: specialOrderForm.phone,
+                    requested_product: specialOrderForm.requestedProduct,
+                    preferred_color_storage: specialOrderForm.preferredColorStorage,
+                    target_budget: specialOrderForm.targetBudget ? Number(specialOrderForm.targetBudget) : null,
+                    city: specialOrderForm.city,
+                    needed_by: specialOrderForm.neededBy || null,
+                    notes: specialOrderForm.notes,
+                    status: 'New request'
+                };
+
+                try {
+                    const { error } = await db.from('special_order_requests').insert(payload);
+                    if (error) throw error;
+                    showNotification('Special order request sent', 'success');
+                    setShowSpecialOrderModal(false);
+                    setSpecialOrderForm({
+                        name: '',
+                        email: '',
+                        phone: '',
+                        requestedProduct: '',
+                        preferredColorStorage: '',
+                        targetBudget: '',
+                        city: '',
+                        neededBy: '',
+                        notes: ''
+                    });
+                } catch (error) {
+                    console.error('Special order request error:', error);
+                    window.open(buildWhatsAppLink(`Hi JR Importers, I want a special order: ${payload.requested_product}. Budget: ${payload.target_budget || 'not sure'}. Contact: ${payload.customer_phone || payload.customer_email}`), '_blank');
+                    showNotification('Opening WhatsApp handoff for special order', 'info');
+                }
             };
 
             // VOUCHER SYSTEM - Using secure server-side validation
@@ -4777,6 +4961,31 @@ Check admin: jrimporters.com/admin.html`;
                                                                 Complete payment within 24 hours or order will be cancelled
                                                             </div>
                                                         )}
+                                                        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                                                            {[
+                                                                { key: 'Pending', label: 'Pending payment', icon: 'clock' },
+                                                                { key: 'Paid', label: 'Confirmed', icon: 'check-circle' },
+                                                                { key: 'Processing', label: 'Packed', icon: 'box' },
+                                                                { key: 'Shipped', label: o.delivery_method === 'Pickup' ? 'Ready for pickup' : 'Courier dispatched', icon: o.delivery_method === 'Pickup' ? 'store' : 'truck' },
+                                                                { key: 'Delivered', label: 'Delivered/collected', icon: 'flag-checkered' }
+                                                            ].map((step, stepIndex, steps) => {
+                                                                const statusOrder = steps.map(s => s.key);
+                                                                const currentIndex = Math.max(0, statusOrder.indexOf(o.status));
+                                                                const done = stepIndex <= currentIndex || (o.status === 'Paid' && step.key === 'Pending');
+                                                                return (
+                                                                    <div key={step.key} className={`rounded-xl border px-3 py-2 ${done ? 'border-lime-500/30 bg-lime-500/10 text-lime-200' : 'border-slate-700 bg-slate-900/60 text-slate-500'}`}>
+                                                                        <i className={`fas fa-${step.icon} mr-1.5 text-[11px]`}></i>
+                                                                        <span className="text-[11px] font-bold">{step.label}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        {(o.courier_company || o.waybill_number) && (
+                                                            <div className="mt-3 rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs text-blue-200">
+                                                                <i className="fas fa-shipping-fast mr-2"></i>
+                                                                {o.courier_company || 'Courier'} {o.waybill_number ? `- Waybill ${o.waybill_number}` : ''}
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     <div className="flex flex-col md:items-end gap-3">
@@ -5674,6 +5883,23 @@ Check admin: jrimporters.com/admin.html`;
                                     <i className="fas fa-times"></i>
                                 </button>
 
+                                <div className="absolute left-4 top-4 z-20 flex max-w-[70%] flex-wrap gap-2">
+                                    {getProductBadges(viewProduct).map(badge => (
+                                        <span
+                                            key={badge.label}
+                                            className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
+                                                badge.tone === 'red' ? 'border-red-400/40 bg-red-500/15 text-red-300' :
+                                                badge.tone === 'blue' ? 'border-blue-400/40 bg-blue-500/15 text-blue-300' :
+                                                badge.tone === 'amber' ? 'border-amber-400/40 bg-amber-500/15 text-amber-300' :
+                                                badge.tone === 'purple' ? 'border-purple-400/40 bg-purple-500/15 text-purple-300' :
+                                                'border-lime-400/40 bg-lime-500/15 text-lime-300'
+                                            }`}
+                                        >
+                                            {badge.label}
+                                        </span>
+                                    ))}
+                                </div>
+
                                 <div className="flex flex-col md:flex-row max-h-[90vh]">
                                     {/* LEFT PANEL - Product Visuals */}
                                     <div className="md:w-[45%] p-4 sm:p-6 flex flex-col" style={{background: 'linear-gradient(180deg, rgba(30,41,59,0.5) 0%, rgba(15,23,42,0.8) 100%)'}}>
@@ -5741,9 +5967,17 @@ Check admin: jrimporters.com/admin.html`;
                                                             >
                                                                 {isSelected && <i className="fas fa-check mr-1 text-xs"></i>}
                                                                 {color}
+                                                                <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] ${
+                                                                    isSelected ? 'bg-black/15 text-black' : 'bg-slate-950 text-slate-400'
+                                                                }`}>
+                                                                    {data.stock} left
+                                                                </span>
                                                             </button>
                                                         );
                                                     })}
+                                                </div>
+                                                <div className="mt-3 text-xs text-slate-500">
+                                                    Stock is counted from available IMEI/serial units where variants are tracked.
                                                 </div>
                                             </div>
                                         )}
@@ -5881,8 +6115,8 @@ Check admin: jrimporters.com/admin.html`;
                                             );
                                         })()}
 
-                                        {/* Stock Status */}
-                                        <div className="flex items-center gap-2 mb-4">
+                                        {/* Stock Confidence */}
+                                        <div className="mb-4 grid gap-3 sm:grid-cols-3">
                                             {(() => {
                                                 // Get the actual stock to display
                                                 let displayStock = viewProduct.stock;
@@ -5893,20 +6127,52 @@ Check admin: jrimporters.com/admin.html`;
                                                     displayStock = productColors[viewProduct.id][selectedColor].stock;
                                                 }
                                                 
-                                                return displayStock > 0 ? (
+                                                return (
                                                     <>
-                                                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                                        <span className="text-green-400 font-semibold text-sm">
-                                                            {displayStock > 10 ? 'In Stock' : `Only ${displayStock} left!`}
-                                                        </span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                                        <span className="text-red-400 font-semibold text-sm">Out of Stock</span>
+                                                        <div className={`rounded-2xl border p-3 ${displayStock > 0 ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10'}`}>
+                                                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                                                                <span className={`h-2 w-2 rounded-full ${displayStock > 0 ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
+                                                                Stock
+                                                            </div>
+                                                            <div className={`mt-2 text-sm font-black ${displayStock > 0 ? 'text-green-300' : 'text-red-300'}`}>
+                                                                {displayStock > 10 ? 'In stock now' : displayStock > 0 ? `Only ${displayStock} left` : 'Out of stock'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="rounded-2xl border border-blue-500/25 bg-blue-500/10 p-3">
+                                                            <div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Delivery</div>
+                                                            <div className="mt-2 text-sm font-black text-blue-200">Pickup or courier</div>
+                                                            <div className="mt-1 text-[11px] text-slate-400">Courier shown at checkout</div>
+                                                        </div>
+                                                        <div className="rounded-2xl border border-lime-500/25 bg-lime-500/10 p-3">
+                                                            <div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Payment</div>
+                                                            <div className="mt-2 text-sm font-black text-lime-200">Secure checkout</div>
+                                                            <div className="mt-1 text-[11px] text-slate-400">Card or bank reference</div>
+                                                        </div>
                                                     </>
                                                 );
                                             })()}
+                                        </div>
+
+                                        <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                                            <div className="rounded-2xl border border-slate-700/70 bg-slate-950/35 p-3">
+                                                <div className="flex items-center gap-2 text-sm font-bold text-white">
+                                                    <i className="fas fa-shield-alt text-lime-400"></i>
+                                                    Warranty support
+                                                </div>
+                                                <p className="mt-1 text-xs leading-5 text-slate-400">JR Importers can confirm warranty terms for the exact device before final payment.</p>
+                                            </div>
+                                            <a
+                                                href={buildWhatsAppLink(`Hi JR Importers, I need help with ${viewProduct.name}.`)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 hover:bg-emerald-500/15"
+                                            >
+                                                <div className="flex items-center gap-2 text-sm font-bold text-white">
+                                                    <i className="fab fa-whatsapp text-emerald-400"></i>
+                                                    WhatsApp support
+                                                </div>
+                                                <p className="mt-1 text-xs leading-5 text-slate-400">Ask for photos, ETA, warranty, or a special bundle.</p>
+                                            </a>
                                         </div>
 
                                         {/* PRICE & CTA */}
@@ -5920,48 +6186,168 @@ Check admin: jrimporters.com/admin.html`;
                                                     </div>
                                                 </div>
                                                 
-                                                {viewProduct.stock > 0 ? (
-                                                    <button 
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            const hasColors = productColors[viewProduct.id] && Object.keys(productColors[viewProduct.id]).length > 0;
-                                                            if (hasColors && !selectedColor) {
-                                                                showNotification('Please select a color first', 'error');
-                                                                return;
-                                                            }
-                                                            addToCart(viewProduct, selectedColor);
-                                                            setViewProduct(null);
-                                                            setSelectedColor(null);
-                                                        }}
-                                                        className="group relative px-6 py-3 rounded-xl font-bold text-black overflow-hidden transition-all hover:scale-105 hover:shadow-2xl text-sm"
-                                                        style={{
-                                                            background: 'linear-gradient(135deg, #84cc16 0%, #65a30d 50%, #4d7c0f 100%)',
-                                                            boxShadow: '0 10px 40px rgba(132,204,22,0.3)'
-                                                        }}
+                                                <div className="flex flex-col gap-2 sm:flex-row">
+                                                    {getProductStockSummary(viewProduct).total > 0 ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                const hasColors = productColors[viewProduct.id] && Object.keys(productColors[viewProduct.id]).length > 0;
+                                                                if (hasColors && !selectedColor) {
+                                                                    showNotification('Please select a color first', 'error');
+                                                                    return;
+                                                                }
+                                                                addToCart(viewProduct, selectedColor);
+                                                                setViewProduct(null);
+                                                                setSelectedColor(null);
+                                                            }}
+                                                            className="group relative px-6 py-3 rounded-xl font-bold text-black overflow-hidden transition-all hover:scale-105 hover:shadow-2xl text-sm"
+                                                            style={{
+                                                                background: 'linear-gradient(135deg, #84cc16 0%, #65a30d 50%, #4d7c0f 100%)',
+                                                                boxShadow: '0 10px 40px rgba(132,204,22,0.3)'
+                                                            }}
+                                                        >
+                                                            <span className="relative z-10 flex items-center justify-center gap-2">
+                                                                <i className="fas fa-shopping-cart"></i>
+                                                                ADD TO CART
+                                                            </span>
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => openStockAlertRequest(viewProduct)}
+                                                            className="px-6 py-3 rounded-xl font-bold bg-slate-700 text-white hover:bg-slate-600 transition-all text-sm"
+                                                        >
+                                                            <i className="fas fa-bell mr-2"></i>
+                                                            Notify Me
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => openSpecialOrderRequest(viewProduct.name)}
+                                                        className="px-5 py-3 rounded-xl font-bold border border-purple-400/40 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 transition-all text-sm"
                                                     >
-                                                        <span className="relative z-10 flex items-center gap-2">
-                                                            <i className="fas fa-shopping-cart"></i>
-                                                            ADD TO CART
-                                                        </span>
+                                                        <i className="fas fa-magic mr-2"></i>
+                                                        Special Order
                                                     </button>
-                                                ) : (
-                                                    <button 
-                                                        onClick={() => {
-                                                            subscribeToStock(viewProduct.id);
-                                                            setViewProduct(null);
-                                                        }}
-                                                        className="px-6 py-3 rounded-xl font-bold bg-slate-700 text-white hover:bg-slate-600 transition-all text-sm"
-                                                    >
-                                                        <i className="fas fa-bell mr-2"></i>
-                                                        Notify Me
-                                                    </button>
-                                                )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+                                <div className="md:hidden absolute inset-x-0 bottom-0 border-t border-slate-700 bg-slate-950/95 p-3 backdrop-blur-xl">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Ready to buy</div>
+                                            <div className="text-lg font-black text-white">{formatMoney(viewProduct.price)}</div>
+                                        </div>
+                                        {getProductStockSummary(viewProduct).total > 0 ? (
+                                            <button
+                                                onClick={() => {
+                                                    const hasColors = productColors[viewProduct.id] && Object.keys(productColors[viewProduct.id]).length > 0;
+                                                    if (hasColors && !selectedColor) {
+                                                        showNotification('Please select a color first', 'error');
+                                                        return;
+                                                    }
+                                                    addToCart(viewProduct, selectedColor);
+                                                    setViewProduct(null);
+                                                    setSelectedColor(null);
+                                                }}
+                                                className="btn-primary rounded-xl px-5 py-3 text-sm font-black"
+                                            >
+                                                <i className="fas fa-cart-plus mr-2"></i>
+                                                Add
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => openStockAlertRequest(viewProduct)} className="secondary-button rounded-xl px-5 py-3 text-sm font-black">
+                                                <i className="fas fa-bell mr-2"></i>
+                                                Notify
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* SPECIAL ORDER REQUEST */}
+                    {showSpecialOrderModal && (
+                        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 modal-overlay">
+                            <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowSpecialOrderModal(false)}></div>
+                            <form onSubmit={submitSpecialOrderRequest} className="relative z-10 w-full max-w-2xl rounded-3xl border border-purple-400/25 bg-slate-950 p-5 shadow-2xl sm:p-6">
+                                <div className="mb-5 flex items-start justify-between gap-4">
+                                    <div>
+                                        <div className="text-xs font-black uppercase tracking-[0.18em] text-purple-300">Special order</div>
+                                        <h2 className="mt-2 text-2xl font-black text-white">Request any model</h2>
+                                        <p className="mt-2 text-sm leading-6 text-slate-400">Tell JR Importers what you need and the admin team can quote, track deposit, order status, arrival, and collection.</p>
+                                    </div>
+                                    <button type="button" onClick={() => setShowSpecialOrderModal(false)} className="h-10 w-10 rounded-full bg-slate-900 text-slate-400 hover:text-white">
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                </div>
+
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <input value={specialOrderForm.name} onChange={(e) => setSpecialOrderForm({ ...specialOrderForm, name: e.target.value })} placeholder="Name" className="glass-input rounded-xl px-4 py-3" />
+                                    <input value={specialOrderForm.phone} onChange={(e) => setSpecialOrderForm({ ...specialOrderForm, phone: e.target.value })} placeholder="Phone / WhatsApp" className="glass-input rounded-xl px-4 py-3" />
+                                    <input value={specialOrderForm.email} onChange={(e) => setSpecialOrderForm({ ...specialOrderForm, email: e.target.value })} placeholder="Email" className="glass-input rounded-xl px-4 py-3" />
+                                    <input value={specialOrderForm.city} onChange={(e) => setSpecialOrderForm({ ...specialOrderForm, city: e.target.value })} placeholder="City" className="glass-input rounded-xl px-4 py-3" />
+                                    <input value={specialOrderForm.requestedProduct} onChange={(e) => setSpecialOrderForm({ ...specialOrderForm, requestedProduct: e.target.value })} placeholder="Exact model or product" className="glass-input rounded-xl px-4 py-3 sm:col-span-2" required />
+                                    <input value={specialOrderForm.preferredColorStorage} onChange={(e) => setSpecialOrderForm({ ...specialOrderForm, preferredColorStorage: e.target.value })} placeholder="Color / storage / variant" className="glass-input rounded-xl px-4 py-3" />
+                                    <input type="number" value={specialOrderForm.targetBudget} onChange={(e) => setSpecialOrderForm({ ...specialOrderForm, targetBudget: e.target.value })} placeholder="Target budget N$" className="glass-input rounded-xl px-4 py-3" />
+                                    <input type="date" value={specialOrderForm.neededBy} onChange={(e) => setSpecialOrderForm({ ...specialOrderForm, neededBy: e.target.value })} className="glass-input rounded-xl px-4 py-3 sm:col-span-2" />
+                                    <textarea value={specialOrderForm.notes} onChange={(e) => setSpecialOrderForm({ ...specialOrderForm, notes: e.target.value })} placeholder="Extra details, supplier link, or bundle request" className="glass-input min-h-[110px] rounded-xl px-4 py-3 sm:col-span-2"></textarea>
+                                </div>
+
+                                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                                    <button type="submit" className="btn-primary rounded-xl px-5 py-3 font-black">
+                                        <i className="fas fa-paper-plane mr-2"></i>
+                                        Submit Request
+                                    </button>
+                                    <a
+                                        href={buildWhatsAppLink(`Hi JR Importers, I want a special order: ${specialOrderForm.requestedProduct || 'please assist me'}`)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="secondary-button inline-flex items-center justify-center rounded-xl px-5 py-3 font-black"
+                                    >
+                                        <i className="fab fa-whatsapp mr-2"></i>
+                                        WhatsApp Instead
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
+                    {/* BACK IN STOCK REQUEST */}
+                    {showStockAlertModal && (
+                        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 modal-overlay">
+                            <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowStockAlertModal(false)}></div>
+                            <form onSubmit={submitStockAlertRequest} className="relative z-10 w-full max-w-lg rounded-3xl border border-lime-400/25 bg-slate-950 p-5 shadow-2xl sm:p-6">
+                                <div className="mb-5 flex items-start justify-between gap-4">
+                                    <div>
+                                        <div className="text-xs font-black uppercase tracking-[0.18em] text-lime-300">Back in stock</div>
+                                        <h2 className="mt-2 text-2xl font-black text-white">Get notified</h2>
+                                        <p className="mt-2 text-sm leading-6 text-slate-400">{stockAlertProduct?.name || viewProduct?.name || 'This product'} will be tracked for follow-up.</p>
+                                    </div>
+                                    <button type="button" onClick={() => setShowStockAlertModal(false)} className="h-10 w-10 rounded-full bg-slate-900 text-slate-400 hover:text-white">
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                </div>
+
+                                <div className="grid gap-3">
+                                    <input value={stockAlertForm.name} onChange={(e) => setStockAlertForm({ ...stockAlertForm, name: e.target.value })} placeholder="Name" className="glass-input rounded-xl px-4 py-3" />
+                                    <input value={stockAlertForm.phone} onChange={(e) => setStockAlertForm({ ...stockAlertForm, phone: e.target.value })} placeholder="Phone / WhatsApp" className="glass-input rounded-xl px-4 py-3" />
+                                    <input value={stockAlertForm.email} onChange={(e) => setStockAlertForm({ ...stockAlertForm, email: e.target.value })} placeholder="Email" className="glass-input rounded-xl px-4 py-3" />
+                                    <input value={stockAlertForm.preferredColor} onChange={(e) => setStockAlertForm({ ...stockAlertForm, preferredColor: e.target.value })} placeholder="Preferred color or variant" className="glass-input rounded-xl px-4 py-3" />
+                                    <select value={stockAlertForm.channel} onChange={(e) => setStockAlertForm({ ...stockAlertForm, channel: e.target.value })} className="glass-input rounded-xl px-4 py-3">
+                                        <option>WhatsApp</option>
+                                        <option>Email</option>
+                                        <option>Phone</option>
+                                    </select>
+                                </div>
+
+                                <button type="submit" className="btn-primary mt-5 w-full rounded-xl px-5 py-3 font-black">
+                                    <i className="fas fa-bell mr-2"></i>
+                                    Save Alert
+                                </button>
+                            </form>
                         </div>
                     )}
 
@@ -6201,6 +6587,29 @@ Check admin: jrimporters.com/admin.html`;
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    )}
+
+                    {cart.length > 0 && !['checkout', 'auth'].includes(page) && !viewProduct && (
+                        <div className="fixed inset-x-3 bottom-20 z-[900] md:hidden">
+                            <button
+                                onClick={() => setShowCart(true)}
+                                className="flex w-full items-center justify-between rounded-2xl border border-lime-400/30 bg-slate-950/95 px-4 py-3 shadow-2xl backdrop-blur-xl"
+                            >
+                                <span className="flex items-center gap-3">
+                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime-500 text-black">
+                                        <i className="fas fa-shopping-cart"></i>
+                                    </span>
+                                    <span className="text-left">
+                                        <span className="block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Cart ready</span>
+                                        <span className="block text-sm font-black text-white">{cart.reduce((sum, item) => sum + Number(item.qty || 0), 0)} item(s)</span>
+                                    </span>
+                                </span>
+                                <span className="text-right">
+                                    <span className="block text-sm font-black text-lime-300">{formatMoney(cart.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.qty || 0)), 0))}</span>
+                                    <span className="text-xs text-slate-400">Checkout</span>
+                                </span>
+                            </button>
                         </div>
                     )}
 

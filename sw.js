@@ -26,6 +26,7 @@ const STATIC_ASSETS = [
     '/config.js',
     '/app-shell.js',
     '/manifest.webmanifest',
+    '/admin.webmanifest',
     '/icon.svg'
 ];
 
@@ -40,6 +41,8 @@ const BYPASS_URLS = [
     'fonts.googleapis.com',
     'fonts.gstatic.com',
     'fontawesome',
+    'onesignal.com',
+    'OneSignalSDKWorker.js',
     'api.',
     '/rest/v1/',
     '/auth/v1/',
