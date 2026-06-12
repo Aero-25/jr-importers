@@ -1241,6 +1241,8 @@
                 { sender: 'bot', text: 'Hi! 👋 How can I help you find the perfect device today?' }
             ]);
             const [chatInput, setChatInput] = useState('');
+            const [isChatThinking, setIsChatThinking] = useState(false);
+            const chatEndRef = React.useRef(null);
             const [heroImages, setHeroImages] = useState([]);
             const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
             const [selectedProductImage, setSelectedProductImage] = useState(0);
@@ -1267,6 +1269,19 @@
                     console.error('Error saving cart:', e);
                 }
             }, [cart]);
+
+            useEffect(() => {
+                setChatMessages([{
+                    sender: 'bot',
+                    text: 'Hi, I am the JR shopping assistant. Tell me your budget, brand, specs, or the exact model you want and I will check live stock, prices, and the best next step.'
+                }]);
+            }, []);
+
+            useEffect(() => {
+                if (showChat) {
+                    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            }, [chatMessages, isChatThinking, showChat]);
 
             // Image error fallback
             const handleImageError = (e) => {
@@ -2967,35 +2982,270 @@ Check admin: jrimporters.com/admin.html`;
                 }
             };
 
-            // CHAT BOT
-            const handleChatSubmit = () => {
-                if (!chatInput.trim()) return;
-                
-                setChatMessages(prev => [...prev, { sender: 'user', text: chatInput }]);
-                
-                setTimeout(() => {
-                    const response = generateBotResponse(chatInput);
-                    setChatMessages(prev => [...prev, { sender: 'bot', text: response }]);
-                }, 800);
-                
-                setChatInput('');
+            // SMART SHOPPING ASSISTANT
+            const CHAT_QUICK_ACTIONS = [
+                { label: 'Find a phone', prompt: 'Help me find the best phone for my budget' },
+                { label: 'In stock now', prompt: 'What products are in stock right now?' },
+                { label: 'Under N$5000', prompt: 'Show me the best phones under N$5000' },
+                { label: 'Special order', prompt: 'I want to place a special order for a product you do not have listed' }
+            ];
+
+            const buildWhatsAppLink = (message = 'Hi JR Importers, I need help with a webshop purchase.') => (
+                `${STORE_WHATSAPP_LINK}?text=${encodeURIComponent(message)}`
+            );
+
+            const normalizeChatText = (value) => String(value || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9\s]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            const getProductSearchText = (product) => normalizeChatText([
+                product.name,
+                product.brand,
+                product.category,
+                product.description,
+                product.spec_display,
+                product.spec_processor,
+                product.spec_ram,
+                product.spec_storage,
+                product.spec_battery,
+                product.spec_back_camera,
+                product.spec_front_camera,
+                product.spec_os,
+                product.spec_extras,
+                product.color
+            ].join(' '));
+
+            const parseBudgetFromChat = (input) => {
+                const text = normalizeChatText(input).replace(/\bnad\b/g, 'n');
+                const kMatch = text.match(/(?:under|below|max|budget|around|up to|less than|for)?\s*(?:n\s*)?(\d+(?:\.\d+)?)\s*k\b/);
+                if (kMatch) return Math.round(Number(kMatch[1]) * 1000);
+
+                const moneyMatches = [...text.matchAll(/(?:under|below|max|budget|around|up to|less than|for)?\s*(?:n\s*)?(\d{3,}(?:\s?\d{3})*(?:\.\d+)?)/g)]
+                    .map(match => Number(String(match[1]).replace(/\s/g, '')))
+                    .filter(amount => Number.isFinite(amount) && amount >= 500);
+
+                return moneyMatches.length ? Math.max(...moneyMatches) : null;
+            };
+
+            const detectChatIntent = (input) => {
+                const text = normalizeChatText(input);
+                const includesAny = (words) => words.some(word => text.includes(word));
+
+                if (includesAny(['special order', 'order in', 'source', 'import', 'not listed', 'not on website', 'can you get', 'looking for'])) return 'special-order';
+                if (includesAny(['deliver', 'delivery', 'shipping', 'courier', 'pickup', 'collect'])) return 'delivery';
+                if (includesAny(['pay', 'payment', 'eft', 'card', 'bank', 'dpo'])) return 'payment';
+                if (includesAny(['warranty', 'guarantee', 'return'])) return 'warranty';
+                if (includesAny(['compare', 'difference', 'which is better', 'versus', 'vs'])) return 'compare';
+                if (includesAny(['stock', 'available', 'have', 'in stock', 'left'])) return 'stock';
+                if (includesAny(['price', 'cost', 'budget', 'under', 'below', 'cheap', 'affordable'])) return 'budget';
+                if (includesAny(['camera', 'photo', 'selfie', 'video'])) return 'camera';
+                if (includesAny(['battery', 'charging', 'last long', 'power'])) return 'battery';
+                if (includesAny(['gaming', 'game', 'performance', 'fast', 'processor'])) return 'performance';
+                if (includesAny(['accessory', 'charger', 'cover', 'case', 'earphone', 'headphone', 'cable'])) return 'accessories';
+                return 'recommend';
+            };
+
+            const scoreProductForChat = (product, query, intent, budget) => {
+                const text = getProductSearchText(product);
+                const queryText = normalizeChatText(query);
+                const tokens = queryText
+                    .split(' ')
+                    .filter(token => token.length > 2 && !['show', 'give', 'best', 'with', 'for', 'the', 'and', 'phone', 'phones', 'need', 'want', 'have'].includes(token));
+                const stock = getTotalStock(product.id);
+                const price = Number(product.price || 0);
+                let score = stock > 0 ? 8 : -20;
+
+                tokens.forEach(token => {
+                    if (normalizeChatText(product.name).includes(token)) score += 8;
+                    if (normalizeChatText(product.brand).includes(token)) score += 6;
+                    if (normalizeChatText(product.category).includes(token)) score += 5;
+                    if (text.includes(token)) score += 3;
+                });
+
+                if (budget) {
+                    if (price > 0 && price <= budget) score += 12;
+                    if (price > budget) score -= 15 + Math.min(20, Math.round((price - budget) / 500));
+                }
+
+                const intentBoosts = {
+                    camera: ['camera', 'mp', 'selfie', 'pro', 'ultra', 'iphone', 'pixel', 'galaxy s'],
+                    battery: ['5000', '6000', 'battery', 'power', 'rugged', 'armor'],
+                    performance: ['snapdragon', 'dimensity', 'helio', 'gaming', 'pro', 'ultra', 'ram'],
+                    accessories: ['accessor', 'charger', 'case', 'cover', 'cable', 'ear', 'watch'],
+                    compare: ['pro', 'ultra', 'plus', 'note', 'galaxy', 'iphone']
+                };
+
+                (intentBoosts[intent] || []).forEach(keyword => {
+                    if (text.includes(keyword)) score += 5;
+                });
+
+                if (product.featured) score += 3;
+                return score;
+            };
+
+            const findChatProducts = (query, intent, limit = 4) => {
+                const budget = parseBudgetFromChat(query);
+                return products
+                    .map(product => ({
+                        product,
+                        score: scoreProductForChat(product, query, intent, budget),
+                        stock: getTotalStock(product.id)
+                    }))
+                    .filter(item => item.stock > 0 && item.score > -5)
+                    .sort((a, b) => b.score - a.score || Number(a.product.price || 0) - Number(b.product.price || 0))
+                    .slice(0, limit)
+                    .map(item => item.product);
+            };
+
+            const getAssistantInventorySummary = () => {
+                const availableProducts = products.filter(product => getTotalStock(product.id) > 0);
+                const prices = availableProducts.map(product => Number(product.price || 0)).filter(price => price > 0);
+                const minPrice = prices.length ? Math.min(...prices) : 0;
+                const maxPrice = prices.length ? Math.max(...prices) : 0;
+                const categories = [...new Set(availableProducts.map(product => product.category).filter(Boolean))].slice(0, 4);
+
+                return {
+                    availableProducts,
+                    totalUnits: availableProducts.reduce((sum, product) => sum + getTotalStock(product.id), 0),
+                    minPrice,
+                    maxPrice,
+                    categories
+                };
+            };
+
+            const summarizeChatProducts = (matches, budget = null) => {
+                if (!matches.length) return '';
+                const lead = matches[0];
+                const leadStock = getTotalStock(lead.id);
+                const budgetText = budget ? ` inside your ${formatMoney(budget)} budget` : '';
+                return `My strongest match${budgetText} is ${lead.name} at ${formatMoney(lead.price)} with ${leadStock} available. I added a few live-stock options below so you can view or add one straight to cart.`;
+            };
+
+            const buildSpecialOrderText = (input) => {
+                const request = String(input || '').trim();
+                return [
+                    'Special orders are welcome. Send us the exact model, preferred color/storage, target budget, and when you need it.',
+                    'I can pass the request to WhatsApp now with your message included so the team can confirm price, ETA, deposit, and availability.'
+                ].join(' ');
             };
 
             const generateBotResponse = (input) => {
-                const lower = input.toLowerCase();
-                if (lower.includes('price') || lower.includes('cost')) {
-                    return 'Our prices are competitive! Check out our phones starting from N$ 2,999. Need help finding something in your budget?';
+                const intent = detectChatIntent(input);
+                const budget = parseBudgetFromChat(input);
+                const inventory = getAssistantInventorySummary();
+
+                if (!products.length) {
+                    return {
+                        text: 'I am ready to help, but live stock is still loading. You can tell me what you need now, or continue on WhatsApp and the team will confirm availability.',
+                        actions: [
+                            { label: 'Special order', prompt: 'I want to special order a product' },
+                            { label: 'Delivery info', prompt: 'How does delivery work?' }
+                        ],
+                        whatsappText: `Hi JR Importers, I need help finding this item: ${input}`
+                    };
                 }
-                if (lower.includes('delivery') || lower.includes('shipping')) {
-                    return 'We offer courier delivery (N$ 150) or free pickup in Walvis Bay. Delivery takes 2-4 working days.';
+
+                if (intent === 'special-order') {
+                    return {
+                        text: buildSpecialOrderText(input),
+                        specialOrder: true,
+                        actions: [
+                            { label: 'What details?', prompt: 'What details do you need for a special order?' },
+                            { label: 'Check similar stock', prompt: `Do you have anything similar to ${input}?` }
+                        ],
+                        whatsappText: `Hi JR Importers, I want to place a special order. Request: ${input}. Please confirm price, ETA, deposit, and available options.`
+                    };
                 }
-                if (lower.includes('warranty')) {
-                    return 'All devices come with a 12-month manufacturer warranty. Physical/water damage not covered.';
+
+                if (intent === 'delivery') {
+                    return {
+                        text: 'We can guide you from product choice to checkout. Choose a product, add it to cart, then select courier delivery or Walvis Bay pickup at checkout. Courier is shown as N$150 in the webshop and the team will confirm dispatch details after payment.',
+                        actions: [
+                            { label: 'In stock now', prompt: 'Show me products in stock now' },
+                            { label: 'Payment options', prompt: 'What payment options do I have?' }
+                        ],
+                        whatsappText: 'Hi JR Importers, I need help with delivery or pickup for my order.'
+                    };
                 }
-                if (lower.includes('samsung') || lower.includes('galaxy')) {
-                    return 'We specialize in Samsung Galaxy phones! From the A-series to S-series flagships. What are you looking for?';
+
+                if (intent === 'payment') {
+                    return {
+                        text: 'At checkout you can use the site payment flow or bank-transfer reference flow. After checkout, JR Importers receives the order items, customer details, payment method, and delivery choice so the admin team can follow up cleanly.',
+                        actions: [
+                            { label: 'Start shopping', prompt: 'Help me pick a product to buy now' },
+                            { label: 'Delivery info', prompt: 'How does delivery work?' }
+                        ],
+                        whatsappText: 'Hi JR Importers, I need help with payment for a webshop order.'
+                    };
                 }
-                return 'I can help you find the perfect device! Try asking about prices, delivery, or specific products.';
+
+                if (intent === 'warranty') {
+                    return {
+                        text: 'Warranty can depend on the product and supplier, so the safest path is to confirm the exact device before payment. Pick the item you want and JR Importers can confirm warranty terms, invoice details, and any special conditions.',
+                        actions: [
+                            { label: 'Recommend device', prompt: 'Recommend a reliable phone in stock' },
+                            { label: 'Ask WhatsApp', prompt: 'I want warranty details on a product' }
+                        ],
+                        whatsappText: `Hi JR Importers, please confirm warranty details for: ${input}`
+                    };
+                }
+
+                const matches = findChatProducts(input, intent, intent === 'compare' ? 3 : 4);
+
+                if (matches.length) {
+                    const intentIntro = {
+                        stock: `Live stock check: we currently have ${inventory.totalUnits} units across ${inventory.availableProducts.length} active products.`,
+                        budget: budget ? `I found live-stock options around ${formatMoney(budget)}.` : 'I found live-stock options with current webshop pricing.',
+                        camera: 'For camera-first shoppers, I look for stronger camera wording, premium lines, and good current availability.',
+                        battery: 'For battery life, I prioritised larger battery specs, rugged/power models, and available units.',
+                        performance: 'For speed and gaming, I prioritised stronger processors, RAM/storage clues, and premium models.',
+                        accessories: 'Here are relevant accessories and add-ons that are currently available.',
+                        compare: 'Here are the best comparison candidates I found from live stock.',
+                        recommend: 'Here is the best live-stock shortlist based on what you asked for.'
+                    }[intent] || 'Here is the best live-stock shortlist based on what you asked for.';
+
+                    return {
+                        text: `${intentIntro} ${summarizeChatProducts(matches, budget)}`,
+                        products: matches,
+                        actions: [
+                            { label: 'Cheaper options', prompt: budget ? `Show cheaper options under ${formatMoney(Math.max(1000, budget - 1000))}` : 'Show me cheaper options' },
+                            { label: 'Better camera', prompt: 'Show me the best camera phones in stock' },
+                            { label: 'Special order', prompt: 'I want to special order another model' }
+                        ],
+                        whatsappText: `Hi JR Importers, I am interested in: ${matches.map(product => product.name).join(', ')}. My request was: ${input}`
+                    };
+                }
+
+                const priceLine = inventory.minPrice && inventory.maxPrice
+                    ? `Current listed prices run from ${formatMoney(inventory.minPrice)} to ${formatMoney(inventory.maxPrice)}.`
+                    : 'I could not read a price range yet.';
+
+                return {
+                    text: `I could not find an exact in-stock match for that request. ${priceLine} JR Importers can still help with a special order if you want a specific model, color, storage size, or supplier item.`,
+                    actions: [
+                        { label: 'Special order', prompt: `I want to special order: ${input}` },
+                        { label: 'All in stock', prompt: 'Show me what is in stock now' },
+                        { label: 'Under N$5000', prompt: 'Show me products under N$5000' }
+                    ],
+                    whatsappText: `Hi JR Importers, I could not find this on the webshop and want help: ${input}`
+                };
+            };
+
+            const handleChatSubmit = (value) => {
+                const message = typeof value === 'string' ? value : chatInput;
+                if (!message.trim()) return;
+
+                setChatMessages(prev => [...prev, { sender: 'user', text: message.trim() }]);
+                setChatInput('');
+                setIsChatThinking(true);
+
+                setTimeout(() => {
+                    const response = generateBotResponse(message);
+                    setChatMessages(prev => [...prev, { sender: 'bot', ...response }]);
+                    setIsChatThinking(false);
+                }, 500);
             };
 
             // CONTACT FORM
@@ -5957,13 +6207,13 @@ Check admin: jrimporters.com/admin.html`;
                     {/* CHAT WIDGET */}
                     <div className="chat-widget">
                         {showChat ? (
-                            <div className="glass-panel flex h-[560px] w-[min(24rem,calc(100vw-1rem))] flex-col rounded-3xl shadow-2xl md:h-[600px] md:w-96">
-                                <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+                            <div className="glass-panel flex h-[min(680px,calc(100vh-7rem))] w-[min(27rem,calc(100vw-1rem))] flex-col rounded-3xl shadow-2xl">
+                                <div className="p-5 border-b border-slate-700 flex justify-between items-center">
                                     <div>
-                                        <h3 className="font-bold text-white">Chat Support</h3>
+                                        <h3 className="font-bold text-white">JR Shopping Assistant</h3>
                                         <div className="flex items-center gap-2 text-xs text-slate-400">
                                             <div className="live-indicator"></div>
-                                            Online Now
+                                            Live stock and prices
                                         </div>
                                     </div>
                                     <button onClick={() => setShowChat(false)} className="text-slate-400 hover:text-white">
@@ -5971,23 +6221,132 @@ Check admin: jrimporters.com/admin.html`;
                                     </button>
                                 </div>
 
-                                <div className="flex-1 p-6 overflow-y-auto scroller space-y-4">
+                                <div className="flex-1 p-4 overflow-y-auto scroller space-y-4">
                                     {chatMessages.map((m, i) => (
                                         <div key={i} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                            <div className={`max-w-[80%] p-3 rounded-2xl ${
-                                                m.sender === 'user' 
-                                                    ? 'bg-lime-500 text-black' 
-                                                    : 'bg-slate-800 text-white'
+                                            <div className={`max-w-[92%] rounded-2xl p-3 ${
+                                                m.sender === 'user'
+                                                    ? 'bg-lime-500 text-black'
+                                                    : 'border border-slate-700 bg-slate-900/90 text-white'
                                             }`}>
-                                                {m.text}
+                                                <div className="whitespace-pre-line text-sm leading-6">{m.text}</div>
+
+                                                {m.products && m.products.length > 0 && (
+                                                    <div className="mt-3 space-y-2">
+                                                        {m.products.map(product => {
+                                                            const stock = getTotalStock(product.id);
+                                                            const image = product.image || product.image1 || 'https://via.placeholder.com/160x160/1a1f2e/84cc16?text=JR';
+                                                            return (
+                                                                <div key={product.id} className="rounded-2xl border border-slate-700 bg-black/30 p-2">
+                                                                    <div className="flex gap-3">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                openProduct(product);
+                                                                                setShowChat(false);
+                                                                            }}
+                                                                            className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-950 p-2"
+                                                                        >
+                                                                            <img src={image} alt={product.name} className="h-full w-full object-contain" />
+                                                                        </button>
+                                                                        <div className="min-w-0 flex-1">
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    openProduct(product);
+                                                                                    setShowChat(false);
+                                                                                }}
+                                                                                className="line-clamp-2 text-left text-sm font-black text-white hover:text-lime-300"
+                                                                            >
+                                                                                {product.name}
+                                                                            </button>
+                                                                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                                                                                <span>{product.brand || product.category || 'JR Importers'}</span>
+                                                                                <span className="text-lime-400">{stock} in stock</span>
+                                                                            </div>
+                                                                            <div className="mt-1 text-sm font-black text-lime-400">{formatMoney(product.price)}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="mt-2 grid grid-cols-2 gap-2">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                openProduct(product);
+                                                                                setShowChat(false);
+                                                                            }}
+                                                                            className="secondary-button rounded-xl px-3 py-2 text-xs font-bold"
+                                                                        >
+                                                                            View
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => addToCart(product)}
+                                                                            disabled={stock <= 0}
+                                                                            className="btn-primary rounded-xl px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50"
+                                                                        >
+                                                                            Add to cart
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {m.specialOrder && (
+                                                    <div className="mt-3 rounded-2xl border border-lime-400/30 bg-lime-400/10 p-3 text-xs leading-5 text-lime-100">
+                                                        Send model name, color/storage, budget, city, and preferred ETA. The team can confirm supplier price, deposit, and lead time.
+                                                    </div>
+                                                )}
+
+                                                {m.actions && m.actions.length > 0 && (
+                                                    <div className="mt-3 flex flex-wrap gap-2">
+                                                        {m.actions.map((action, actionIndex) => (
+                                                            <button
+                                                                key={`${i}-${actionIndex}`}
+                                                                onClick={() => handleChatSubmit(action.prompt || action.label || action)}
+                                                                className="rounded-full border border-slate-600 px-3 py-1.5 text-xs font-bold text-slate-200 hover:border-lime-400 hover:text-lime-300"
+                                                            >
+                                                                {action.label || action}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {m.whatsappText && (
+                                                    <a
+                                                        href={buildWhatsAppLink(m.whatsappText)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-black text-emerald-950 hover:bg-emerald-400"
+                                                    >
+                                                        <i className="fab fa-whatsapp"></i>
+                                                        Send to WhatsApp
+                                                    </a>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
+                                    {isChatThinking && (
+                                        <div className="flex justify-start">
+                                            <div className="rounded-2xl border border-slate-700 bg-slate-900/90 px-4 py-3 text-sm text-slate-300">
+                                                Checking stock, prices, and best options...
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div ref={chatEndRef}></div>
                                 </div>
 
                                 <div className="p-4 border-t border-slate-700">
+                                    <div className="mb-3 flex gap-2 overflow-x-auto pb-1 scroller">
+                                        {CHAT_QUICK_ACTIONS.map(action => (
+                                            <button
+                                                key={action.label}
+                                                onClick={() => handleChatSubmit(action.prompt)}
+                                                className="shrink-0 rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:border-lime-400 hover:text-lime-300"
+                                            >
+                                                {action.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                     <a
-                                        href={STORE_WHATSAPP_LINK}
+                                        href={buildWhatsAppLink('Hi JR Importers, I need help with a webshop purchase.')}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="secondary-button mb-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold"
@@ -6000,7 +6359,7 @@ Check admin: jrimporters.com/admin.html`;
                                             value={chatInput}
                                             onChange={(e) => setChatInput(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleChatSubmit()}
-                                            placeholder="Type your message..."
+                                            placeholder="Budget, brand, model, specs..."
                                             className="glass-input flex-1 px-4 py-3 rounded-xl"
                                         />
                                         <button 
