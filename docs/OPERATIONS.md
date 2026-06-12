@@ -28,6 +28,25 @@ margins, 5 suppliers, 8 customers, 3 coupons, 6 expenses, and 9 orders spread ov
 last month (mixed statuses). Order line items are enriched with each product's `id`,
 `cost` and `sku` so the Sales / Profit reports compute accurate cost of sale and margin.
 
+### IQ-Retail modules
+
+`supabase/migrations/20260612030000_iq_retail_modules.sql` adds the tables behind the
+full retail/accounting suite; `supabase/seed_iq_modules.sql` seeds demo data:
+
+- **Quotes** (`quotes`) — build in the POS via *Save as Quote*, then convert to a sale
+  (deducts stock, logs movements).
+- **Layby** (`laybys`) — start in the POS via *Save as Layby* with a deposit; record
+  instalments until the balance clears.
+- **Debtors / Creditors** (`account_transactions`) — accounts receivable & payable
+  ledgers with ageing buckets, statements, and receipt/payment capture.
+- **Stock Takes** (`stock_takes`) — physical count → variance → applies stock
+  adjustments and logs movements.
+- **Stock Movements** — read-only audit trail over `stock_movements`.
+
+`20260612040000_admin_creates_orders.sql` lets admins/staff create orders on behalf of
+customers (POS sales with a selected customer, quote conversions) — the prior RLS policy
+blocked this. All write paths were verified end-to-end via `.tooling/func.js`.
+
 ## Admin access
 
 Admin status is granted by a row in `public.users` with `role` in

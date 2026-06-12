@@ -651,6 +651,14 @@
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedCustomer, setSelectedCustomer] = useState(null);
             const searchInputRef = useRef(null);
+
+            // Ledger / quotes / layby / stock-take module state
+            const [payModal, setPayModal] = useState(null); // { kind:'debtor'|'creditor'|'layby', party, max }
+            const [payForm, setPayForm] = useState({ amount: '', method: 'Cash', reference: '', notes: '' });
+            const [ledgerDetail, setLedgerDetail] = useState(null); // selected party for statement drawer
+            const [moduleSearch, setModuleSearch] = useState('');
+            const [takeEdit, setTakeEdit] = useState(null); // stock take being counted
+            const [laybyDepositInput, setLaybyDepositInput] = useState('');
             
             // Split Payment States
             const [showSplitPayment, setShowSplitPayment] = useState(false);
@@ -972,7 +980,7 @@
                         }
                     };
                     
-                    const [products, orders, customers, suppliers, expenses, users, till_shifts, settings, hero_images, product_imeis, service_charges, invoices, purchase_orders, grvs, coupons, messages, special_order_requests, stock_alert_requests] = await Promise.all([
+                    const [products, orders, customers, suppliers, expenses, users, till_shifts, settings, hero_images, product_imeis, service_charges, invoices, purchase_orders, grvs, coupons, messages, special_order_requests, stock_alert_requests, quotes, laybys, account_transactions, stock_takes, stock_movements] = await Promise.all([
                         safeFetch('products', '*', { column: 'name' }),
                         safeFetch('orders', 'id, customer_name, customer_email, customer_phone, delivery_address, delivery_method, total_amount, status, payment_method, payment_reference, items, created_at, updated_at, courier_company, waybill_number, date_dispatched, picked_up_at, paid_at, reservation_expires_at, stock_reserved, stock_returned, user_id, customer_city, customer_region, coupon_code, coupon_discount, dpo_trans_ref', { column: 'created_at', asc: false }),
                         safeFetch('customers', '*', { column: 'name' }),
@@ -990,10 +998,15 @@
                         safeFetch('coupons', '*', { column: 'created_at', asc: false }),
                         safeFetch('messages', '*', { column: 'created_at', asc: false }),
                         safeFetch('special_order_requests', '*', { column: 'created_at', asc: false }),
-                        safeFetch('stock_alert_requests', '*', { column: 'created_at', asc: false })
+                        safeFetch('stock_alert_requests', '*', { column: 'created_at', asc: false }),
+                        safeFetch('quotes', '*', { column: 'created_at', asc: false }),
+                        safeFetch('laybys', '*', { column: 'created_at', asc: false }),
+                        safeFetch('account_transactions', '*', { column: 'txn_date', asc: false }),
+                        safeFetch('stock_takes', '*', { column: 'created_at', asc: false }),
+                        safeFetch('stock_movements', '*', { column: 'created_at', asc: false })
                     ]);
 
-                    setData(prev => ({ ...prev, products, orders, customers, suppliers, expenses, users, till_shifts, settings, hero_images, product_imeis, service_charges, invoices, purchase_orders, grvs, coupons, messages, special_order_requests, stock_alert_requests }));
+                    setData(prev => ({ ...prev, products, orders, customers, suppliers, expenses, users, till_shifts, settings, hero_images, product_imeis, service_charges, invoices, purchase_orders, grvs, coupons, messages, special_order_requests, stock_alert_requests, quotes, laybys, account_transactions, stock_takes, stock_movements }));
                     setDataLoaded(true);
                     setLoading(false);
 
@@ -1252,7 +1265,7 @@
                         customer_phone: selectedCustomer?.phone || 'N/A',
                         delivery_method: 'Pickup',
                         delivery_address: selectedCustomer?.address || 'In-Store Pickup',
-                        user_id: selectedCustomer?.id,
+                        user_id: null,
                         items: cart.map(item => {
                             const actualPrice = item.customPrice !== undefined ? item.customPrice : item.price;
                             const itemData = {
@@ -1890,6 +1903,165 @@
                 setTillDenominations({});
                 setModal(null);
                 loadAllData();
+            };
+
+            // ===== ACCOUNTS LEDGER (Debtors / Creditors) =====
+            // Roll the account_transactions ledger up into one balance per party.
+            const buildLedger = (accountType) => {
+                const txns = (data.account_transactions || []).filter(t => t.account_type === accountType);
+                const map = {};
+                txns.forEach(t => {
+                    const key = accountType === 'debtor' ? (t.customer_id || t.party_name) : (t.supplier_id || t.party_name);
+                    if (!map[key]) map[key] = { key, party_name: t.party_name, customer_id: t.customer_id, supplier_id: t.supplier_id, balance: 0, txns: [], lastDate: null, oldestUnpaid: null };
+                    map[key].balance += Number(t.amount || 0);
+                    map[key].txns.push(t);
+                    if (!map[key].lastDate || t.txn_date > map[key].lastDate) map[key].lastDate = t.txn_date;
+                    if (Number(t.amount) > 0 && (!map[key].oldestUnpaid || t.txn_date < map[key].oldestUnpaid)) map[key].oldestUnpaid = t.txn_date;
+                });
+                return Object.values(map).sort((a, b) => b.balance - a.balance);
+            };
+            const daysBetween = (dateStr) => dateStr ? Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)) : 0;
+            const agingBucket = (dateStr) => {
+                const d = daysBetween(dateStr);
+                if (d <= 30) return 'current'; if (d <= 60) return 'd30'; if (d <= 90) return 'd60'; return 'd90';
+            };
+            const recordAccountPayment = async () => {
+                if (!payModal) return;
+                const amount = Math.abs(parseFloat(payForm.amount) || 0);
+                if (amount <= 0) { showNotification('Enter a valid amount', 'error'); return; }
+                try {
+                    if (payModal.kind === 'layby') {
+                        const lb = payModal.party;
+                        const newPaid = Number(lb.paid_amount || 0) + amount;
+                        const newBalance = Math.max(0, Number(lb.total_amount || 0) - newPaid);
+                        const payments = [...(lb.payments || []), { amount, method: payForm.method, date: new Date().toISOString().slice(0,10), by: adminUser?.email || 'Admin' }];
+                        const { error } = await db.from('laybys').update({
+                            paid_amount: newPaid, balance_amount: newBalance, payments,
+                            status: newBalance <= 0 ? 'completed' : 'active'
+                        }).eq('id', lb.id);
+                        if (error) throw error;
+                        showNotification(newBalance <= 0 ? 'Layby fully paid & completed' : `Payment recorded — balance ${formatCurrency(newBalance)}`, 'success');
+                    } else {
+                        const isDebtor = payModal.kind === 'debtor';
+                        const { error } = await db.from('account_transactions').insert({
+                            account_type: payModal.kind,
+                            customer_id: isDebtor ? payModal.party.customer_id : null,
+                            supplier_id: isDebtor ? null : payModal.party.supplier_id,
+                            party_name: payModal.party.party_name,
+                            txn_type: 'payment',
+                            amount: -amount,
+                            method: payForm.method,
+                            reference: payForm.reference || null,
+                            doc_type: isDebtor ? 'receipt' : 'payment',
+                            notes: payForm.notes || null,
+                            created_by: adminUser?.email || 'Admin'
+                        });
+                        if (error) throw error;
+                        showNotification(isDebtor ? 'Receipt captured' : 'Supplier payment captured', 'success');
+                    }
+                    setPayModal(null);
+                    setPayForm({ amount: '', method: 'Cash', reference: '', notes: '' });
+                    loadAllData();
+                } catch (err) {
+                    showNotification('Could not record payment: ' + err.message, 'error');
+                }
+            };
+
+            // ===== QUOTES =====
+            const saveCartAsQuote = async () => {
+                if (cart.length === 0) { showNotification('Cart is empty', 'error'); return; }
+                const items = cart.map(i => ({ id: i.id, name: i.name, qty: i.qty, price: (i.customPrice !== undefined ? i.customPrice : i.price), cost: i.cost_price || 0 }));
+                const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+                try {
+                    const { error } = await db.from('quotes').insert({
+                        customer_id: selectedCustomer?.id || null,
+                        customer_name: selectedCustomer?.name || 'Walk-in Customer',
+                        customer_email: selectedCustomer?.email || null,
+                        customer_phone: selectedCustomer?.phone || null,
+                        items, subtotal_amount: total / 1.15, vat_amount: total - total / 1.15, total_amount: total,
+                        status: 'draft', valid_until: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+                        created_by: adminUser?.email || 'Admin'
+                    });
+                    if (error) throw error;
+                    setCart([]); setSelectedCustomer(null);
+                    showNotification('Quote saved', 'success');
+                    loadAllData(); setView('quotes');
+                } catch (err) { showNotification('Could not save quote: ' + err.message, 'error'); }
+            };
+            const updateQuoteStatus = async (quote, status) => {
+                try {
+                    const { error } = await db.from('quotes').update({ status }).eq('id', quote.id);
+                    if (error) throw error;
+                    showNotification(`Quote marked ${status}`, 'success'); loadAllData();
+                } catch (err) { showNotification('Update failed: ' + err.message, 'error'); }
+            };
+            const convertQuoteToSale = async (quote) => {
+                try {
+                    const { data: order, error } = await db.from('orders').insert({
+                        customer_name: quote.customer_name, customer_email: quote.customer_email || 'walk-in@jrimporters.com',
+                        customer_phone: quote.customer_phone, delivery_method: 'Pickup', delivery_address: 'In-Store Pickup',
+                        user_id: null, items: quote.items, total_amount: quote.total_amount,
+                        payment_method: 'On Account', status: 'Paid', notes: `Converted from quote ${quote.quote_number || quote.id}`
+                    }).select().single();
+                    if (error) throw error;
+                    for (const item of quote.items) {
+                        if (!item.id) continue;
+                        const { data: p } = await db.from('products').select('stock').eq('id', item.id).single();
+                        await db.from('products').update({ stock: (p?.stock || 0) - item.qty }).eq('id', item.id);
+                        await db.from('stock_movements').insert({ product_id: item.id, product_name: item.name, movement_type: 'Sale', quantity: -item.qty, reference_type: 'Quote', reference_id: String(quote.id), user_name: adminUser?.email || 'Admin' });
+                    }
+                    await db.from('quotes').update({ status: 'converted', converted_order_id: order.id }).eq('id', quote.id);
+                    showNotification('Quote converted to sale', 'success'); loadAllData();
+                } catch (err) { showNotification('Convert failed: ' + err.message, 'error'); }
+            };
+
+            // ===== LAYBY =====
+            const saveCartAsLayby = async (depositInput) => {
+                if (cart.length === 0) { showNotification('Cart is empty', 'error'); return; }
+                if (!selectedCustomer) { showNotification('Select a customer for a layby', 'error'); return; }
+                const deposit = Math.abs(parseFloat(depositInput) || 0);
+                const items = cart.map(i => ({ id: i.id, name: i.name, qty: i.qty, price: (i.customPrice !== undefined ? i.customPrice : i.price), cost: i.cost_price || 0 }));
+                const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+                try {
+                    const { error } = await db.from('laybys').insert({
+                        customer_id: selectedCustomer.id, customer_name: selectedCustomer.name, customer_phone: selectedCustomer.phone,
+                        items, total_amount: total, deposit_amount: deposit, paid_amount: deposit, balance_amount: Math.max(0, total - deposit),
+                        payments: deposit > 0 ? [{ amount: deposit, method: 'Cash', date: new Date().toISOString().slice(0,10), by: adminUser?.email || 'Admin' }] : [],
+                        status: 'active', due_date: new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10),
+                        created_by: adminUser?.email || 'Admin'
+                    });
+                    if (error) throw error;
+                    setCart([]); setSelectedCustomer(null);
+                    showNotification('Layby created', 'success'); loadAllData(); setView('layby');
+                } catch (err) { showNotification('Could not create layby: ' + err.message, 'error'); }
+            };
+            const cancelLayby = async (lb) => {
+                try { await db.from('laybys').update({ status: 'cancelled' }).eq('id', lb.id); showNotification('Layby cancelled', 'success'); loadAllData(); }
+                catch (err) { showNotification('Cancel failed: ' + err.message, 'error'); }
+            };
+
+            // ===== STOCK TAKE =====
+            const createStockTake = async () => {
+                const items = (data.products || []).map(p => ({ product_id: p.id, name: p.name, sku: p.sku, system_qty: p.stock || 0, counted_qty: p.stock || 0, variance: 0 }));
+                try {
+                    const { error } = await db.from('stock_takes').insert({
+                        reference: 'ST-' + Date.now().toString().slice(-6), status: 'in_progress',
+                        items, total_items: items.length, total_variance: 0, created_by: adminUser?.email || 'Admin'
+                    });
+                    if (error) throw error;
+                    showNotification('Stock take started — edit counts then apply', 'success'); loadAllData();
+                } catch (err) { showNotification('Could not start stock take: ' + err.message, 'error'); }
+            };
+            const applyStockTake = async (take) => {
+                try {
+                    for (const it of (take.items || [])) {
+                        if (!it.variance || !it.product_id) continue;
+                        await db.from('products').update({ stock: it.counted_qty }).eq('id', it.product_id);
+                        await db.from('stock_movements').insert({ product_id: it.product_id, product_name: it.name, movement_type: 'Adjustment', quantity: it.variance, reference_type: 'StockTake', reference_id: take.reference || String(take.id), user_name: adminUser?.email || 'Admin', notes: 'Stock take variance' });
+                    }
+                    await db.from('stock_takes').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', take.id);
+                    showNotification('Stock take applied — inventory adjusted', 'success'); loadAllData();
+                } catch (err) { showNotification('Apply failed: ' + err.message, 'error'); }
             };
 
             // ===== PRODUCT CRUD =====
@@ -3800,6 +3972,21 @@ Date: ${new Date().toLocaleDateString()}`
                                 </div>
                             </div>
 
+                            {/* PURCHASING LEDGER */}
+                            <div className="nav-group">
+                                <div className={`nav-group-header ${openGroups.includes('payables') ? 'open' : ''}`} onClick={() => toggleGroup('payables')}>
+                                    <div className="flex items-center gap-2">
+                                        <i className="fas fa-file-invoice-dollar"></i><span>Payables</span>
+                                    </div>
+                                    <i className="fas fa-chevron-down"></i>
+                                </div>
+                                <div className={`nav-group-content ${openGroups.includes('payables') ? 'open' : ''}`}>
+                                    <div className={`nav-item ${view === 'creditors' ? 'active' : ''}`} onClick={() => setView('creditors')}>
+                                        <i className="fas fa-hand-holding-usd"></i><span>Creditors</span>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* REPORTS */}
                             <div className="nav-group">
                                 <div className={`nav-group-header ${openGroups.includes('reports') ? 'open' : ''}`} onClick={() => toggleGroup('reports')}>
@@ -4763,6 +4950,29 @@ Date: ${new Date().toLocaleDateString()}`
                                                                 <i className="fas fa-exchange-alt mr-2"></i>
                                                                 Split Payment
                                                             </button>
+
+                                                            <div className="grid grid-cols-2 gap-2 pt-1">
+                                                                <button
+                                                                    onClick={saveCartAsQuote}
+                                                                    className="btn w-full py-3 text-sm bg-cyan-700 hover:bg-cyan-600 text-white shadow-lg"
+                                                                    title="Park this cart as a quotation"
+                                                                >
+                                                                    <i className="fas fa-file-invoice mr-2"></i>
+                                                                    Save as Quote
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (!selectedCustomer) { showNotification('Select a customer first for a layby', 'error'); return; }
+                                                                        const dep = window.prompt(`Layby deposit for ${selectedCustomer.name} (total ${formatCurrency(cartTotal.total)}):`, '0');
+                                                                        if (dep !== null) saveCartAsLayby(dep);
+                                                                    }}
+                                                                    className="btn w-full py-3 text-sm bg-fuchsia-700 hover:bg-fuchsia-600 text-white shadow-lg"
+                                                                    title="Reserve this cart on layby"
+                                                                >
+                                                                    <i className="fas fa-calendar-check mr-2"></i>
+                                                                    Save as Layby
+                                                                </button>
+                                                            </div>
                                                         </>
                                                     )}
                                                     
@@ -7252,6 +7462,310 @@ Date: ${new Date().toLocaleDateString()}`
                                 </div>
                             )}
 
+                            {/* DEBTORS (Accounts Receivable) */}
+                            {view === 'debtors' && (() => {
+                                const rows = buildLedger('debtor').filter(r => (r.party_name || '').toLowerCase().includes(moduleSearch.toLowerCase()));
+                                const totalOut = rows.reduce((s, r) => s + r.balance, 0);
+                                const aging = { current: 0, d30: 0, d60: 0, d90: 0 };
+                                rows.forEach(r => { if (r.balance > 0.005) aging[agingBucket(r.oldestUnpaid)] += r.balance; });
+                                const overdue = aging.d60 + aging.d90;
+                                return (
+                                    <div className="space-y-4 fade-in">
+                                        <div className="flex justify-between items-center flex-wrap gap-3">
+                                            <div>
+                                                <h2 className="text-xl font-bold text-white">Debtors · Accounts Receivable</h2>
+                                                <p className="text-sm text-slate-400">Money owed to JR Importers, with ageing &amp; receipts.</p>
+                                            </div>
+                                            <input value={moduleSearch} onChange={e => setModuleSearch(e.target.value)} placeholder="Search debtors..." className="glass-input px-4 py-2 rounded-lg w-72" />
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Total Outstanding</div><div className="text-2xl font-bold text-yellow-400 mono">{formatCurrency(totalOut)}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Accounts</div><div className="text-2xl font-bold text-white">{rows.length}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Overdue (60+ days)</div><div className="text-2xl font-bold text-red-400 mono">{formatCurrency(overdue)}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Current</div><div className="text-2xl font-bold text-green-400 mono">{formatCurrency(aging.current)}</div></div>
+                                        </div>
+                                        <div className="grid grid-cols-4 gap-3">
+                                            {[['Current', aging.current, 'text-green-400'], ['31–60 days', aging.d30, 'text-yellow-400'], ['61–90 days', aging.d60, 'text-orange-400'], ['90+ days', aging.d90, 'text-red-400']].map(([lbl, val, cls]) => (
+                                                <div key={lbl} className="glass-panel p-3 rounded-lg text-center"><div className="text-xs text-slate-500 uppercase tracking-wider">{lbl}</div><div className={`text-lg font-bold mono ${cls}`}>{formatCurrency(val)}</div></div>
+                                            ))}
+                                        </div>
+                                        <div className="glass-panel rounded-xl overflow-hidden">
+                                            <table className="data-table">
+                                                <thead><tr><th>Customer</th><th>Last Activity</th><th>Ageing</th><th className="text-right">Balance</th><th className="text-right">Actions</th></tr></thead>
+                                                <tbody>
+                                                    {rows.length === 0 ? (
+                                                        <tr><td colSpan="5" className="text-center py-12"><i className="fas fa-money-bill-wave text-4xl text-slate-700 mb-3"></i><div className="text-slate-400">No debtor accounts</div></td></tr>
+                                                    ) : rows.map(r => (
+                                                        <tr key={r.key}>
+                                                            <td className="font-semibold text-white">{r.party_name}</td>
+                                                            <td className="text-slate-400">{r.lastDate ? formatDate(r.lastDate) : '-'}</td>
+                                                            <td>{r.balance > 0.005 ? <span className={`badge ${agingBucket(r.oldestUnpaid) === 'current' ? 'badge-success' : agingBucket(r.oldestUnpaid) === 'd30' ? 'badge-info' : 'badge-danger'}`}>{daysBetween(r.oldestUnpaid)} days</span> : <span className="badge badge-secondary">Settled</span>}</td>
+                                                            <td className={`text-right font-bold mono ${r.balance > 0.005 ? 'text-yellow-400' : 'text-slate-500'}`}>{formatCurrency(r.balance)}</td>
+                                                            <td className="text-right whitespace-nowrap">
+                                                                <button onClick={() => setLedgerDetail({ ...r, accountType: 'debtor' })} className="text-blue-400 hover:text-white mr-3" title="Statement"><i className="fas fa-file-alt"></i></button>
+                                                                {r.balance > 0.005 && <button onClick={() => { setPayModal({ kind: 'debtor', party: r }); setPayForm({ amount: r.balance.toFixed(2), method: 'Cash', reference: '', notes: '' }); }} className="btn btn-primary btn-sm"><i className="fas fa-hand-holding-usd"></i> Receive</button>}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* CREDITORS (Accounts Payable) */}
+                            {view === 'creditors' && (() => {
+                                const rows = buildLedger('creditor').filter(r => (r.party_name || '').toLowerCase().includes(moduleSearch.toLowerCase()));
+                                const totalOwed = rows.reduce((s, r) => s + r.balance, 0);
+                                const aging = { current: 0, d30: 0, d60: 0, d90: 0 };
+                                rows.forEach(r => { if (r.balance > 0.005) aging[agingBucket(r.oldestUnpaid)] += r.balance; });
+                                const overdue = aging.d60 + aging.d90;
+                                return (
+                                    <div className="space-y-4 fade-in">
+                                        <div className="flex justify-between items-center flex-wrap gap-3">
+                                            <div>
+                                                <h2 className="text-xl font-bold text-white">Creditors · Accounts Payable</h2>
+                                                <p className="text-sm text-slate-400">What JR Importers owes suppliers, with ageing &amp; payments.</p>
+                                            </div>
+                                            <input value={moduleSearch} onChange={e => setModuleSearch(e.target.value)} placeholder="Search creditors..." className="glass-input px-4 py-2 rounded-lg w-72" />
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Total Payable</div><div className="text-2xl font-bold text-orange-400 mono">{formatCurrency(totalOwed)}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Suppliers Owed</div><div className="text-2xl font-bold text-white">{rows.filter(r => r.balance > 0.005).length}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Overdue (60+ days)</div><div className="text-2xl font-bold text-red-400 mono">{formatCurrency(overdue)}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Current</div><div className="text-2xl font-bold text-green-400 mono">{formatCurrency(aging.current)}</div></div>
+                                        </div>
+                                        <div className="grid grid-cols-4 gap-3">
+                                            {[['Current', aging.current, 'text-green-400'], ['31–60 days', aging.d30, 'text-yellow-400'], ['61–90 days', aging.d60, 'text-orange-400'], ['90+ days', aging.d90, 'text-red-400']].map(([lbl, val, cls]) => (
+                                                <div key={lbl} className="glass-panel p-3 rounded-lg text-center"><div className="text-xs text-slate-500 uppercase tracking-wider">{lbl}</div><div className={`text-lg font-bold mono ${cls}`}>{formatCurrency(val)}</div></div>
+                                            ))}
+                                        </div>
+                                        <div className="glass-panel rounded-xl overflow-hidden">
+                                            <table className="data-table">
+                                                <thead><tr><th>Supplier</th><th>Last Activity</th><th>Ageing</th><th className="text-right">Balance</th><th className="text-right">Actions</th></tr></thead>
+                                                <tbody>
+                                                    {rows.length === 0 ? (
+                                                        <tr><td colSpan="5" className="text-center py-12"><i className="fas fa-hand-holding-usd text-4xl text-slate-700 mb-3"></i><div className="text-slate-400">No creditor accounts</div></td></tr>
+                                                    ) : rows.map(r => (
+                                                        <tr key={r.key}>
+                                                            <td className="font-semibold text-white">{r.party_name}</td>
+                                                            <td className="text-slate-400">{r.lastDate ? formatDate(r.lastDate) : '-'}</td>
+                                                            <td>{r.balance > 0.005 ? <span className={`badge ${agingBucket(r.oldestUnpaid) === 'current' ? 'badge-success' : agingBucket(r.oldestUnpaid) === 'd30' ? 'badge-info' : 'badge-danger'}`}>{daysBetween(r.oldestUnpaid)} days</span> : <span className="badge badge-secondary">Settled</span>}</td>
+                                                            <td className={`text-right font-bold mono ${r.balance > 0.005 ? 'text-orange-400' : 'text-slate-500'}`}>{formatCurrency(r.balance)}</td>
+                                                            <td className="text-right whitespace-nowrap">
+                                                                <button onClick={() => setLedgerDetail({ ...r, accountType: 'creditor' })} className="text-blue-400 hover:text-white mr-3" title="Statement"><i className="fas fa-file-alt"></i></button>
+                                                                {r.balance > 0.005 && <button onClick={() => { setPayModal({ kind: 'creditor', party: r }); setPayForm({ amount: r.balance.toFixed(2), method: 'EFT', reference: '', notes: '' }); }} className="btn btn-primary btn-sm"><i className="fas fa-money-check-alt"></i> Pay</button>}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* QUOTES VIEW */}
+                            {view === 'quotes' && (() => {
+                                const quotes = (data.quotes || []).filter(q => (q.customer_name || '').toLowerCase().includes(moduleSearch.toLowerCase()));
+                                const openVal = quotes.filter(q => ['draft', 'sent', 'accepted'].includes(q.status)).reduce((s, q) => s + (q.total_amount || 0), 0);
+                                return (
+                                    <div className="space-y-4 fade-in">
+                                        <div className="flex justify-between items-center flex-wrap gap-3">
+                                            <div>
+                                                <h2 className="text-xl font-bold text-white">Quotes</h2>
+                                                <p className="text-sm text-slate-400">Build quotes in the POS (<b>Save as Quote</b>), then convert to a sale here.</p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <input value={moduleSearch} onChange={e => setModuleSearch(e.target.value)} placeholder="Search quotes..." className="glass-input px-4 py-2 rounded-lg w-64" />
+                                                <button onClick={() => setView('pos')} className="btn btn-primary"><i className="fas fa-plus"></i> New Quote (POS)</button>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Open Quote Value</div><div className="text-2xl font-bold text-cyan-400 mono">{formatCurrency(openVal)}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Sent</div><div className="text-2xl font-bold text-blue-400">{quotes.filter(q => q.status === 'sent').length}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Accepted</div><div className="text-2xl font-bold text-green-400">{quotes.filter(q => q.status === 'accepted').length}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Converted</div><div className="text-2xl font-bold text-white">{quotes.filter(q => q.status === 'converted').length}</div></div>
+                                        </div>
+                                        <div className="glass-panel rounded-xl overflow-hidden">
+                                            <table className="data-table">
+                                                <thead><tr><th>Quote #</th><th>Date</th><th>Customer</th><th>Items</th><th className="text-right">Total</th><th>Valid Until</th><th>Status</th><th className="text-right">Actions</th></tr></thead>
+                                                <tbody>
+                                                    {quotes.length === 0 ? (
+                                                        <tr><td colSpan="8" className="text-center py-12"><i className="fas fa-file-invoice text-4xl text-slate-700 mb-3"></i><div className="text-slate-400">No quotes yet — start one from the POS</div></td></tr>
+                                                    ) : quotes.map(q => (
+                                                        <tr key={q.id}>
+                                                            <td className="font-bold text-cyan-400">{q.quote_number || 'QUO-' + String(q.id).padStart(4, '0')}</td>
+                                                            <td className="text-slate-400">{formatDate(q.created_at)}</td>
+                                                            <td className="text-white">{q.customer_name}</td>
+                                                            <td className="text-slate-400">{(q.items || []).length}</td>
+                                                            <td className="text-right font-bold mono text-white">{formatCurrency(q.total_amount)}</td>
+                                                            <td className="text-slate-400">{q.valid_until ? new Date(q.valid_until).toLocaleDateString() : '-'}</td>
+                                                            <td><span className={`badge ${q.status === 'converted' ? 'badge-success' : q.status === 'accepted' ? 'badge-success' : q.status === 'sent' ? 'badge-info' : q.status === 'declined' || q.status === 'expired' ? 'badge-danger' : 'badge-secondary'}`}>{q.status}</span></td>
+                                                            <td className="text-right whitespace-nowrap">
+                                                                {q.status === 'draft' && <button onClick={() => updateQuoteStatus(q, 'sent')} className="text-blue-400 hover:text-white mr-3" title="Mark sent"><i className="fas fa-paper-plane"></i></button>}
+                                                                {q.status === 'sent' && <button onClick={() => updateQuoteStatus(q, 'accepted')} className="text-green-400 hover:text-white mr-3" title="Mark accepted"><i className="fas fa-thumbs-up"></i></button>}
+                                                                {q.status !== 'converted' && <button onClick={() => { if (confirm('Convert this quote to a sale? Stock will be deducted.')) convertQuoteToSale(q); }} className="btn btn-primary btn-sm"><i className="fas fa-cash-register"></i> Convert</button>}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* LAYBY VIEW */}
+                            {view === 'layby' && (() => {
+                                const laybys = (data.laybys || []).filter(l => (l.customer_name || '').toLowerCase().includes(moduleSearch.toLowerCase()));
+                                const active = laybys.filter(l => l.status === 'active');
+                                const outstanding = active.reduce((s, l) => s + (l.balance_amount || 0), 0);
+                                return (
+                                    <div className="space-y-4 fade-in">
+                                        <div className="flex justify-between items-center flex-wrap gap-3">
+                                            <div>
+                                                <h2 className="text-xl font-bold text-white">Layby · Lay-bye Sales</h2>
+                                                <p className="text-sm text-slate-400">Reserve stock on deposit. Start a layby from the POS (<b>Save as Layby</b>).</p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <input value={moduleSearch} onChange={e => setModuleSearch(e.target.value)} placeholder="Search laybys..." className="glass-input px-4 py-2 rounded-lg w-64" />
+                                                <button onClick={() => setView('pos')} className="btn btn-primary"><i className="fas fa-plus"></i> New Layby (POS)</button>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Active Laybys</div><div className="text-2xl font-bold text-white">{active.length}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Balance Outstanding</div><div className="text-2xl font-bold text-yellow-400 mono">{formatCurrency(outstanding)}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Collected To Date</div><div className="text-2xl font-bold text-green-400 mono">{formatCurrency(active.reduce((s, l) => s + (l.paid_amount || 0), 0))}</div></div>
+                                            <div className="glass-panel p-4 rounded-xl"><div className="text-sm text-slate-400">Completed</div><div className="text-2xl font-bold text-cyan-400">{laybys.filter(l => l.status === 'completed').length}</div></div>
+                                        </div>
+                                        <div className="glass-panel rounded-xl overflow-hidden">
+                                            <table className="data-table">
+                                                <thead><tr><th>Layby #</th><th>Customer</th><th>Items</th><th className="text-right">Total</th><th className="text-right">Paid</th><th className="text-right">Balance</th><th>Due</th><th>Status</th><th className="text-right">Actions</th></tr></thead>
+                                                <tbody>
+                                                    {laybys.length === 0 ? (
+                                                        <tr><td colSpan="9" className="text-center py-12"><i className="fas fa-calendar-check text-4xl text-slate-700 mb-3"></i><div className="text-slate-400">No laybys yet</div></td></tr>
+                                                    ) : laybys.map(l => (
+                                                        <tr key={l.id}>
+                                                            <td className="font-bold text-purple-300">{l.layby_number || 'LAY-' + String(l.id).padStart(4, '0')}</td>
+                                                            <td className="text-white">{l.customer_name}</td>
+                                                            <td className="text-slate-400">{(l.items || []).length}</td>
+                                                            <td className="text-right font-bold mono text-white">{formatCurrency(l.total_amount)}</td>
+                                                            <td className="text-right mono text-green-400">{formatCurrency(l.paid_amount)}</td>
+                                                            <td className="text-right font-bold mono text-yellow-400">{formatCurrency(l.balance_amount)}</td>
+                                                            <td className="text-slate-400">{l.due_date ? new Date(l.due_date).toLocaleDateString() : '-'}</td>
+                                                            <td><span className={`badge ${l.status === 'completed' ? 'badge-success' : l.status === 'cancelled' ? 'badge-danger' : 'badge-info'}`}>{l.status}</span></td>
+                                                            <td className="text-right whitespace-nowrap">
+                                                                {l.status === 'active' && <button onClick={() => { setPayModal({ kind: 'layby', party: l }); setPayForm({ amount: Number(l.balance_amount || 0).toFixed(2), method: 'Cash', reference: '', notes: '' }); }} className="btn btn-primary btn-sm mr-2"><i className="fas fa-coins"></i> Payment</button>}
+                                                                {l.status === 'active' && <button onClick={() => { if (confirm('Cancel this layby?')) cancelLayby(l); }} className="text-red-400 hover:text-white" title="Cancel"><i className="fas fa-times-circle"></i></button>}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* STOCK TAKES VIEW */}
+                            {view === 'stock-takes' && (
+                                <div className="space-y-4 fade-in">
+                                    <div className="flex justify-between items-center flex-wrap gap-3">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-white">Stock Takes</h2>
+                                            <p className="text-sm text-slate-400">Physical counts with variance reconciliation. Applying a count adjusts on-hand stock and logs movements.</p>
+                                        </div>
+                                        <button onClick={createStockTake} className="btn btn-primary"><i className="fas fa-clipboard-check"></i> New Stock Take</button>
+                                    </div>
+                                    {takeEdit && (
+                                        <div className="glass-panel rounded-xl p-4 space-y-3 border border-lime-500/30">
+                                            <div className="flex justify-between items-center">
+                                                <div className="font-bold text-white">Counting {takeEdit.reference} — enter physical quantities</div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={async () => { await db.from('stock_takes').update({ items: takeEdit.items, total_variance: takeEdit.items.reduce((s, i) => s + (i.variance || 0), 0) }).eq('id', takeEdit.id); showNotification('Counts saved', 'success'); setTakeEdit(null); loadAllData(); }} className="btn btn-secondary btn-sm">Save Progress</button>
+                                                    <button onClick={async () => { await db.from('stock_takes').update({ items: takeEdit.items, total_variance: takeEdit.items.reduce((s, i) => s + (i.variance || 0), 0) }).eq('id', takeEdit.id); await applyStockTake({ ...takeEdit }); setTakeEdit(null); }} className="btn btn-primary btn-sm"><i className="fas fa-check"></i> Apply &amp; Adjust Stock</button>
+                                                    <button onClick={() => setTakeEdit(null)} className="text-slate-400 hover:text-white px-2">✕</button>
+                                                </div>
+                                            </div>
+                                            <div className="max-h-80 overflow-auto">
+                                                <table className="data-table">
+                                                    <thead><tr><th>Product</th><th className="text-right">System</th><th className="text-right">Counted</th><th className="text-right">Variance</th></tr></thead>
+                                                    <tbody>
+                                                        {takeEdit.items.map((it, idx) => (
+                                                            <tr key={idx}>
+                                                                <td className="text-white">{it.name}</td>
+                                                                <td className="text-right mono text-slate-400">{it.system_qty}</td>
+                                                                <td className="text-right"><input type="number" value={it.counted_qty} onChange={e => { const v = parseInt(e.target.value) || 0; setTakeEdit(prev => { const items = prev.items.map((x, i) => i === idx ? { ...x, counted_qty: v, variance: v - x.system_qty } : x); return { ...prev, items }; }); }} className="glass-input px-2 py-1 rounded w-24 text-right" /></td>
+                                                                <td className={`text-right mono font-bold ${it.variance > 0 ? 'text-green-400' : it.variance < 0 ? 'text-red-400' : 'text-slate-500'}`}>{it.variance > 0 ? '+' : ''}{it.variance}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="glass-panel rounded-xl overflow-hidden">
+                                        <table className="data-table">
+                                            <thead><tr><th>Reference</th><th>Date</th><th className="text-right">Items</th><th className="text-right">Net Variance</th><th>Status</th><th className="text-right">Actions</th></tr></thead>
+                                            <tbody>
+                                                {(data.stock_takes || []).length === 0 ? (
+                                                    <tr><td colSpan="6" className="text-center py-12"><i className="fas fa-clipboard-check text-4xl text-slate-700 mb-3"></i><div className="text-slate-400">No stock takes yet</div></td></tr>
+                                                ) : (data.stock_takes || []).map(t => (
+                                                    <tr key={t.id}>
+                                                        <td className="font-bold text-lime-300">{t.reference}</td>
+                                                        <td className="text-slate-400">{formatDate(t.created_at)}</td>
+                                                        <td className="text-right text-slate-400">{(t.items || []).length}</td>
+                                                        <td className={`text-right mono font-bold ${t.total_variance > 0 ? 'text-green-400' : t.total_variance < 0 ? 'text-red-400' : 'text-slate-500'}`}>{t.total_variance > 0 ? '+' : ''}{t.total_variance}</td>
+                                                        <td><span className={`badge ${t.status === 'completed' ? 'badge-success' : t.status === 'cancelled' ? 'badge-danger' : 'badge-warning'}`}>{t.status === 'in_progress' ? 'In Progress' : t.status}</span></td>
+                                                        <td className="text-right whitespace-nowrap">
+                                                            {t.status === 'in_progress' && <button onClick={() => setTakeEdit({ ...t, items: (t.items || []).map(i => ({ ...i })) })} className="btn btn-primary btn-sm"><i className="fas fa-pen"></i> Count</button>}
+                                                            {t.status === 'completed' && <button onClick={() => setTakeEdit({ ...t, items: (t.items || []).map(i => ({ ...i })), _readonly: true })} className="text-blue-400 hover:text-white" title="View"><i className="fas fa-eye"></i></button>}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* STOCK MOVEMENTS VIEW */}
+                            {view === 'stock-movements' && (() => {
+                                const moves = (data.stock_movements || []).filter(m => (m.product_name || '').toLowerCase().includes(moduleSearch.toLowerCase()));
+                                return (
+                                    <div className="space-y-4 fade-in">
+                                        <div className="flex justify-between items-center flex-wrap gap-3">
+                                            <div>
+                                                <h2 className="text-xl font-bold text-white">Stock Movements</h2>
+                                                <p className="text-sm text-slate-400">Full audit trail of every stock in/out — sales, adjustments, receipts.</p>
+                                            </div>
+                                            <input value={moduleSearch} onChange={e => setModuleSearch(e.target.value)} placeholder="Search product..." className="glass-input px-4 py-2 rounded-lg w-72" />
+                                        </div>
+                                        <div className="glass-panel rounded-xl overflow-hidden">
+                                            <table className="data-table">
+                                                <thead><tr><th>Date</th><th>Product</th><th>Type</th><th className="text-right">Qty</th><th>Reference</th><th>By</th></tr></thead>
+                                                <tbody>
+                                                    {moves.length === 0 ? (
+                                                        <tr><td colSpan="6" className="text-center py-12"><i className="fas fa-exchange-alt text-4xl text-slate-700 mb-3"></i><div className="text-slate-400">No stock movements recorded</div></td></tr>
+                                                    ) : moves.slice(0, 300).map(m => (
+                                                        <tr key={m.id}>
+                                                            <td className="text-slate-400">{formatDateTime(m.created_at)}</td>
+                                                            <td className="text-white">{m.product_name}</td>
+                                                            <td><span className={`badge ${m.movement_type === 'Sale' ? 'badge-info' : m.movement_type === 'Adjustment' ? 'badge-warning' : 'badge-success'}`}>{m.movement_type}</span></td>
+                                                            <td className={`text-right mono font-bold ${Number(m.quantity) < 0 ? 'text-red-400' : 'text-green-400'}`}>{Number(m.quantity) > 0 ? '+' : ''}{m.quantity}</td>
+                                                            <td className="text-slate-400">{m.reference_type ? `${m.reference_type} ${m.reference_id || ''}` : '-'}</td>
+                                                            <td className="text-slate-500 text-sm">{m.user_name || '-'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             {/* PURCHASE ORDERS VIEW */}
                             {view === 'purchase-orders' && (
                                 <div className="space-y-4 fade-in">
@@ -7995,7 +8509,7 @@ Date: ${new Date().toLocaleDateString()}`
                             )}
 
                             {/* PLACEHOLDER FOR OTHER VIEWS */}
-                            {!['dashboard', 'pos', 'products', 'orders', 'stock-alerts', 'suppliers', 'customers', 'sales-report', 'stock-report', 'profit-report', 'reverse-sales', 'online-orders', 'dispatch', 'online-payments', 'special-orders', 'back-in-stock', 'messages', 'online-customers', 'abandoned-carts', 'hero-images', 'service-charges', 'invoices', 'purchase-orders', 'grv', 'till-management', 'expenses', 'users', 'settings', 'coupons', 'quotes', 'layby', 'debtors', 'stock-movements', 'stock-takes'].includes(view) && (
+                            {!['dashboard', 'pos', 'products', 'orders', 'stock-alerts', 'suppliers', 'customers', 'sales-report', 'stock-report', 'profit-report', 'reverse-sales', 'online-orders', 'dispatch', 'online-payments', 'special-orders', 'back-in-stock', 'messages', 'online-customers', 'abandoned-carts', 'hero-images', 'service-charges', 'invoices', 'purchase-orders', 'grv', 'till-management', 'expenses', 'users', 'settings', 'coupons', 'quotes', 'layby', 'debtors', 'creditors', 'stock-movements', 'stock-takes'].includes(view) && (
                                 <div className="glass-panel p-12 rounded-xl text-center fade-in">
                                     <i className="fas fa-check-circle text-6xl text-green-500 mb-4"></i>
                                     <h3 className="text-2xl font-bold mb-2">{view.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</h3>
@@ -8010,7 +8524,72 @@ Date: ${new Date().toLocaleDateString()}`
                     </main>
 
                     {/* ========== MODALS ========== */}
-                    
+
+                    {/* PAYMENT / RECEIPT MODAL (debtor / creditor / layby) */}
+                    {payModal && (
+                        <Modal isOpen={true} onClose={() => setPayModal(null)} title={payModal.kind === 'debtor' ? 'Receive Payment' : payModal.kind === 'creditor' ? 'Pay Supplier' : 'Layby Payment'} size="md">
+                            <form onSubmit={(e) => { e.preventDefault(); recordAccountPayment(); }} className="space-y-4">
+                                <div className="glass-panel p-3 rounded-lg flex justify-between items-center">
+                                    <span className="text-slate-400 text-sm">{payModal.kind === 'layby' ? (payModal.party.customer_name + ' · ' + (payModal.party.layby_number || '')) : payModal.party.party_name}</span>
+                                    <span className="font-bold mono text-yellow-400">{formatCurrency(payModal.kind === 'layby' ? payModal.party.balance_amount : payModal.party.balance)} due</span>
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-slate-400 mb-1">Amount</label>
+                                    <input type="number" step="0.01" autoFocus value={payForm.amount} onChange={e => setPayForm({ ...payForm, amount: e.target.value })} className="glass-input px-4 py-2 rounded-lg w-full" required />
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-slate-400 mb-1">Method</label>
+                                    <select value={payForm.method} onChange={e => setPayForm({ ...payForm, method: e.target.value })} className="glass-input px-4 py-2 rounded-lg w-full">
+                                        <option>Cash</option><option>Card</option><option>EFT</option><option>Bank Transfer</option>
+                                    </select>
+                                </div>
+                                {payModal.kind !== 'layby' && (
+                                    <div>
+                                        <label className="block text-sm text-slate-400 mb-1">Reference</label>
+                                        <input value={payForm.reference} onChange={e => setPayForm({ ...payForm, reference: e.target.value })} className="glass-input px-4 py-2 rounded-lg w-full" placeholder="Receipt / payment ref" />
+                                    </div>
+                                )}
+                                <div className="flex gap-2 justify-end pt-2">
+                                    <button type="button" onClick={() => setPayModal(null)} className="btn btn-secondary">Cancel</button>
+                                    <button type="submit" className="btn btn-primary"><i className="fas fa-check"></i> Record Payment</button>
+                                </div>
+                            </form>
+                        </Modal>
+                    )}
+
+                    {/* ACCOUNT STATEMENT DRAWER */}
+                    {ledgerDetail && (
+                        <Modal isOpen={true} onClose={() => setLedgerDetail(null)} title={`Statement · ${ledgerDetail.party_name}`} size="lg">
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center glass-panel p-3 rounded-lg">
+                                    <span className="text-slate-400">Closing balance</span>
+                                    <span className={`text-xl font-bold mono ${ledgerDetail.balance > 0.005 ? (ledgerDetail.accountType === 'creditor' ? 'text-orange-400' : 'text-yellow-400') : 'text-green-400'}`}>{formatCurrency(ledgerDetail.balance)}</span>
+                                </div>
+                                <div className="max-h-96 overflow-auto">
+                                    <table className="data-table">
+                                        <thead><tr><th>Date</th><th>Type</th><th>Reference</th><th className="text-right">Charge</th><th className="text-right">Payment</th></tr></thead>
+                                        <tbody>
+                                            {[...ledgerDetail.txns].sort((a, b) => (a.txn_date < b.txn_date ? -1 : 1)).map(t => (
+                                                <tr key={t.id}>
+                                                    <td className="text-slate-400">{formatDate(t.txn_date)}</td>
+                                                    <td><span className="badge badge-secondary">{t.txn_type}</span></td>
+                                                    <td className="text-slate-400">{t.reference || t.notes || '-'}</td>
+                                                    <td className="text-right mono text-slate-300">{Number(t.amount) > 0 ? formatCurrency(t.amount) : '-'}</td>
+                                                    <td className="text-right mono text-green-400">{Number(t.amount) < 0 ? formatCurrency(Math.abs(t.amount)) : '-'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {ledgerDetail.balance > 0.005 && (
+                                    <div className="flex justify-end">
+                                        <button onClick={() => { const kind = ledgerDetail.accountType; const party = ledgerDetail; setLedgerDetail(null); setPayModal({ kind, party }); setPayForm({ amount: ledgerDetail.balance.toFixed(2), method: kind === 'creditor' ? 'EFT' : 'Cash', reference: '', notes: '' }); }} className="btn btn-primary"><i className="fas fa-hand-holding-usd"></i> {ledgerDetail.accountType === 'creditor' ? 'Make Payment' : 'Receive Payment'}</button>
+                                    </div>
+                                )}
+                            </div>
+                        </Modal>
+                    )}
+
                     {/* OPEN TILL MODAL */}
                     {modal === 'open-till' && (
                         <Modal isOpen={true} onClose={() => setModal(null)} title="Open Till" size="md">
