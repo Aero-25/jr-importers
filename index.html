@@ -32,15 +32,25 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Space+Grotesk:wght@300;500;700&display=swap');
-        
-        :root { 
-            --brand: #84cc16; 
-            --dark: #020617;
-            --lime-glow: rgba(132, 204, 22, 0.4);
+        @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+        :root {
+            --brand: #a3e635;          /* electric chartreuse */
+            --brand-deep: #84cc16;
+            --brand-bright: #d9f99d;
+            --accent: #22d3ee;         /* cyan secondary */
+            --accent-2: #c084fc;       /* violet tertiary */
+            --ink: #f4f7f2;
+            --dark: #050806;
+            --surface: #0a0f0d;
+            --lime-glow: rgba(163, 230, 53, 0.42);
+            --font-display: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif;
+            --font-body: 'Hanken Grotesk', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', ui-monospace, monospace;
         }
-        * { font-family: 'Inter', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
-        h1, h2, h3, .brand-font { font-family: 'Space Grotesk', sans-serif; }
+        * { font-family: var(--font-body); margin: 0; padding: 0; box-sizing: border-box; }
+        h1, h2, h3, .brand-font, .display { font-family: var(--font-display); letter-spacing: -0.02em; }
+        .mono, .font-mono { font-family: var(--font-mono); }
         body { 
             background: linear-gradient(135deg, 
                 #020617 0%, 
@@ -1053,6 +1063,126 @@
                 animation: none;
             }
         }
+
+        /* ============================================================
+           ✦ 2026 REDESIGN — "Luminous Tech Atelier"
+           Distinctive type, aurora atmosphere, kinetic interactions.
+           ============================================================ */
+        body {
+            background:
+                radial-gradient(900px 600px at 12% -5%, rgba(163,230,53,0.14), transparent 60%),
+                radial-gradient(800px 700px at 92% 8%, rgba(34,211,238,0.12), transparent 55%),
+                radial-gradient(1000px 800px at 50% 110%, rgba(192,132,252,0.10), transparent 55%),
+                linear-gradient(180deg, #050806 0%, #060b09 40%, #04070a 100%) !important;
+            background-attachment: fixed !important;
+            color: var(--ink);
+            letter-spacing: -0.011em;
+        }
+        /* Fine grain overlay for depth */
+        body::after {
+            content: '';
+            position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.5;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+            mix-blend-mode: overlay;
+        }
+
+        /* Headings: tighter, brighter, display face */
+        h1, h2, h3 { color: var(--ink); }
+        .gradient-text {
+            background: linear-gradient(105deg, #ffffff 0%, var(--brand-bright) 45%, var(--brand) 70%, var(--accent) 105%);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .text-balance { text-wrap: balance; }
+
+        /* Refined glass surfaces */
+        .glass-card {
+            background: linear-gradient(180deg, rgba(18,26,22,0.72), rgba(8,13,11,0.72)) !important;
+            backdrop-filter: blur(18px) saturate(160%);
+            border: 1px solid rgba(163,230,53,0.10) !important;
+            box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 24px 60px -30px rgba(0,0,0,0.9) !important;
+        }
+        .glass-panel {
+            background: linear-gradient(180deg, rgba(16,24,20,0.86), rgba(7,11,10,0.9)) !important;
+            border: 1px solid rgba(255,255,255,0.06) !important;
+        }
+
+        /* Primary button — sharper, glossier, kinetic */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--brand-bright) 0%, var(--brand) 42%, var(--brand-deep) 100%) !important;
+            color: #06120a !important; letter-spacing: 0.01em !important; text-transform: none !important;
+            font-family: var(--font-display); font-weight: 700 !important;
+            box-shadow: 0 10px 30px -10px rgba(163,230,53,0.6), 0 0 0 1px rgba(163,230,53,0.25) inset !important;
+        }
+        .btn-primary:hover { transform: translateY(-2px) !important; box-shadow: 0 18px 44px -12px rgba(163,230,53,0.8), 0 0 0 1px rgba(217,249,157,0.4) inset !important; }
+
+        /* Kicker / eyebrow label */
+        .kicker {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            font-family: var(--font-mono); font-size: 0.66rem; font-weight: 700;
+            letter-spacing: 0.28em; text-transform: uppercase; color: var(--brand);
+        }
+        .kicker::before { content: ''; width: 1.6rem; height: 1px; background: linear-gradient(90deg, var(--brand), transparent); }
+
+        /* Scroll reveal */
+        .reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.7s cubic-bezier(.2,.7,.2,1), transform 0.7s cubic-bezier(.2,.7,.2,1); will-change: opacity, transform; }
+        .reveal.in { opacity: 1; transform: none; }
+        .reveal-delay-1 { transition-delay: 0.08s; } .reveal-delay-2 { transition-delay: 0.16s; }
+        .reveal-delay-3 { transition-delay: 0.24s; } .reveal-delay-4 { transition-delay: 0.32s; }
+
+        /* Category tiles — interactive, magnetic glow */
+        .cat-tile {
+            position: relative; overflow: hidden; border-radius: 1.4rem; padding: 1.15rem;
+            background: linear-gradient(160deg, rgba(20,28,24,0.8), rgba(8,12,11,0.85));
+            border: 1px solid rgba(255,255,255,0.07);
+            transition: transform .45s cubic-bezier(.2,.7,.2,1), border-color .45s, box-shadow .45s;
+            min-height: 168px; display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .cat-tile::before {
+            content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity .45s;
+            background: radial-gradient(420px 220px at var(--mx,50%) var(--my,0%), color-mix(in srgb, var(--tile, #a3e635) 26%, transparent), transparent 60%);
+        }
+        .cat-tile:hover { transform: translateY(-8px); border-color: color-mix(in srgb, var(--tile, #a3e635) 55%, transparent); box-shadow: 0 30px 60px -34px color-mix(in srgb, var(--tile, #a3e635) 70%, black); }
+        .cat-tile:hover::before { opacity: 1; }
+        .cat-ic {
+            width: 3rem; height: 3rem; border-radius: 0.95rem; display: grid; place-items: center; font-size: 1.15rem;
+            background: color-mix(in srgb, var(--tile, #a3e635) 16%, transparent);
+            color: var(--tile, #a3e635); border: 1px solid color-mix(in srgb, var(--tile, #a3e635) 30%, transparent);
+            transition: transform .45s;
+        }
+        .cat-tile:hover .cat-ic { transform: scale(1.08) rotate(-4deg); }
+        .cat-count { font-family: var(--font-mono); font-size: 0.7rem; color: rgba(244,247,242,0.55); }
+        .cat-name { font-family: var(--font-display); font-weight: 700; font-size: 1.06rem; color: #fff; line-height: 1.05; }
+        .cat-arrow { transition: transform .4s; }
+        .cat-tile:hover .cat-arrow { transform: translateX(5px); }
+
+        /* 3D tilt cards (driven by JS vars) */
+        .tilt { transform: perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)); transition: transform .15s ease-out; transform-style: preserve-3d; }
+
+        /* Brand marquee */
+        .marquee { display: flex; gap: 3rem; width: max-content; animation: marquee 38s linear infinite; }
+        .marquee:hover { animation-play-state: paused; }
+        @keyframes marquee { to { transform: translateX(-50%); } }
+        .marquee-mask { -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+
+        /* Hero spotlight that follows cursor */
+        .hero-spot { position: relative; }
+        .hero-spot::before {
+            content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; z-index: 0;
+            background: radial-gradient(520px 360px at var(--mx,30%) var(--my,30%), rgba(163,230,53,0.16), transparent 62%);
+            transition: background .25s;
+        }
+
+        /* Repairs strip */
+        .repair-card { transition: transform .4s cubic-bezier(.2,.7,.2,1), border-color .4s; }
+        .repair-card:hover { transform: translateY(-6px); border-color: rgba(34,211,238,0.45); }
+
+        /* Animated counter chip */
+        .stat-orb { font-family: var(--font-display); }
+
+        @media (prefers-reduced-motion: reduce) {
+            .reveal { opacity: 1 !important; transform: none !important; }
+            .marquee { animation: none; }
+        }
     </style>
 </head>
 <body>
@@ -1819,75 +1949,92 @@
 
             const HOME_FEATURES = [
                 {
-                    icon: 'bolt',
-                    title: 'Live stock confidence',
-                    text: 'Products, pricing, colors, and availability are pulled from the same inventory flow used by the admin team.'
+                    icon: 'layer-group',
+                    title: 'Everything tech',
+                    text: 'Phones, laptops, tablets, cameras, audio, gaming, drones, smart home and car tech — sourced and stocked under one roof.'
                 },
                 {
-                    icon: 'shield-alt',
-                    title: 'Secure checkout',
-                    text: 'Customers can place orders with account history, payment references, and admin follow-up already connected.'
+                    icon: 'screwdriver-wrench',
+                    title: 'Expert repairs',
+                    text: 'Phone screens, batteries, computer diagnostics and data recovery — fixed by certified technicians with a workmanship warranty.'
                 },
                 {
-                    icon: 'truck',
+                    icon: 'truck-fast',
                     title: 'Pickup or delivery',
-                    text: 'Walvis Bay service with nationwide delivery options and clear dispatch tracking from the admin console.'
+                    text: 'Walvis Bay walk-in store with fast nationwide delivery across Namibia and live dispatch tracking.'
                 },
                 {
-                    icon: 'balance-scale',
-                    title: 'Compare before buying',
-                    text: 'The storefront helps shoppers compare devices, save favourites, and continue browsing from recently viewed items.'
+                    icon: 'shield-halved',
+                    title: 'Genuine & guaranteed',
+                    text: 'Authentic, sealed products with secure checkout, real warranties and friendly after-sales support.'
                 }
             ];
 
             const SHOP_INTENTS = [
                 {
+                    id: 'capture',
+                    icon: 'camera-retro',
+                    title: 'Capture & create',
+                    text: 'Mirrorless cameras, action cams and drones for creators who want footage that pops.',
+                    query: 'camera drone gopro mirrorless',
+                    sort: 'featured',
+                    keywords: ['camera', 'drone', 'gopro', 'canon', 'sony', 'dji', 'mirrorless', 'lens', 'vlog']
+                },
+                {
+                    id: 'sound',
+                    icon: 'headphones',
+                    title: 'Sound & audio',
+                    text: 'Speakers, earbuds and headphones — from pocket portables to party-starting bass.',
+                    query: 'speaker headphones earbuds audio',
+                    sort: 'featured',
+                    keywords: ['speaker', 'headphone', 'earbud', 'buds', 'audio', 'jbl', 'sony', 'marshall', 'sound']
+                },
+                {
+                    id: 'workplay',
+                    icon: 'laptop',
+                    title: 'Work & play',
+                    text: 'Laptops, tablets and gaming gear powerful enough for the office and the weekend.',
+                    query: 'laptop tablet gaming playstation',
+                    sort: 'featured',
+                    keywords: ['laptop', 'macbook', 'tablet', 'ipad', 'gaming', 'playstation', 'xbox', 'console', 'ryzen', 'intel']
+                },
+                {
+                    id: 'connected',
+                    icon: 'house-signal',
+                    title: 'Home & car tech',
+                    text: 'Smart home, security cameras, dash cams and tyre monitors for a connected life.',
+                    query: 'smart home car tech tpms dash',
+                    sort: 'featured',
+                    keywords: ['smart', 'home', 'echo', 'tapo', 'bulb', 'car', 'tpms', 'dash', 'jump', 'tyre', 'camera']
+                },
+                {
                     id: 'value',
                     icon: 'tags',
                     title: 'Best value',
-                    text: 'Strong everyday phones with sensible pricing and enough storage for real life.',
-                    query: 'a redmi note spark hot',
+                    text: 'Dependable everyday devices with honest pricing — phones, accessories and more.',
+                    query: 'value affordable a redmi',
                     sort: 'price-low',
-                    maxMultiplier: 1.8,
-                    keywords: ['a0', 'a1', 'redmi', 'note', 'spark', 'hot', 'value', 'lite']
-                },
-                {
-                    id: 'camera',
-                    icon: 'camera-retro',
-                    title: 'Camera first',
-                    text: 'Prioritise sharper sensors, better selfie cameras, and social-ready devices.',
-                    query: 'camera pro ultra',
-                    sort: 'featured',
-                    keywords: ['camera', 'mp', 'pro', 'ultra', 'iphone', 'pixel', 'galaxy s']
-                },
-                {
-                    id: 'battery',
-                    icon: 'battery-full',
-                    title: 'Battery life',
-                    text: 'Devices built for long days, travel, work, and customers who hate charging twice.',
-                    query: '5000 6000 battery power',
-                    sort: 'featured',
-                    keywords: ['5000', '6000', 'battery', 'power', 'armor', 'm']
-                },
-                {
-                    id: 'premium',
-                    icon: 'gem',
-                    title: 'Premium picks',
-                    text: 'Flagship and near-flagship phones with stronger displays, cameras, and performance.',
-                    query: 'pro ultra s24 iphone pixel oneplus',
-                    sort: 'price-high',
-                    keywords: ['pro', 'ultra', 'iphone', 'pixel', 'oneplus', 's23', 's24', 'fold', 'flip']
-                },
-                {
-                    id: 'accessories',
-                    icon: 'headphones',
-                    title: 'Accessories',
-                    text: 'Add-ons, wearables, audio, protection, and service items around the phone purchase.',
-                    query: 'accessories earphones case charger',
-                    sort: 'featured',
-                    keywords: ['accessor', 'ear', 'case', 'charger', 'watch', 'cable', 'adapter']
+                    maxMultiplier: 2.2,
+                    keywords: ['a15', 'a55', 'redmi', 'note', 'value', 'lite', 'charger', 'cable', 'bulb', 'tpms']
                 }
             ];
+
+            // Per-category presentation (icon + accent) for the Shop by Category showcase.
+            const CATEGORY_META = {
+                'Smartphones': { icon: 'mobile-screen-button', color: '#a3e635', blurb: 'iPhone · Samsung · Pixel' },
+                'Laptops':     { icon: 'laptop',               color: '#22d3ee', blurb: 'Apple · Dell · HP · Lenovo' },
+                'Tablets':     { icon: 'tablet-screen-button', color: '#c084fc', blurb: 'iPad · Galaxy Tab' },
+                'Audio':       { icon: 'headphones-simple',    color: '#fb923c', blurb: 'Speakers · earbuds · cans' },
+                'Cameras':     { icon: 'camera-retro',         color: '#f472b6', blurb: 'Mirrorless · action · vlog' },
+                'Car Tech':    { icon: 'car-side',             color: '#60a5fa', blurb: 'TPMS · dash cams · power' },
+                'Smart Home':  { icon: 'house-signal',         color: '#2dd4bf', blurb: 'Alexa · cameras · lighting' },
+                'Gaming':      { icon: 'gamepad',              color: '#a78bfa', blurb: 'Consoles · controllers' },
+                'Drones':      { icon: 'helicopter',           color: '#38bdf8', blurb: 'DJI · aerial · 4K' },
+                'Wearables':   { icon: 'clock',                color: '#34d399', blurb: 'Smartwatches · bands' },
+                'Accessories': { icon: 'plug',                 color: '#94a3b8', blurb: 'Chargers · power · cables' },
+                'Repairs':     { icon: 'screwdriver-wrench',   color: '#22d3ee', blurb: 'Screens · batteries · PCs' }
+            };
+            const categoryMeta = (name) => CATEGORY_META[name] || { icon: 'cube', color: '#a3e635', blurb: 'Explore range' };
 
             const CATEGORY_OPTIONS = useMemo(() => {
                 const existing = [...new Set(products.map(p => p.category).filter(Boolean))];
@@ -1903,6 +2050,7 @@
             };
 
             const inStockProducts = useMemo(() => products.filter(p => Number(p.stock || 0) > 0), [products]);
+            const repairServices = useMemo(() => products.filter(p => p.category === 'Repairs'), [products]);
             const brandCount = useMemo(() => new Set(products.map(p => p.brand).filter(Boolean)).size, [products]);
             const startingPrice = useMemo(() => {
                 const prices = inStockProducts.map(p => Number(p.price || 0)).filter(price => price > 0);
@@ -1917,6 +2065,18 @@
                     return acc;
                 }, { all: products.length });
             }, [products]);
+
+            // Scroll-reveal: fade/slide sections in as they enter the viewport.
+            useEffect(() => {
+                const els = Array.from(document.querySelectorAll('.reveal:not(.in)'));
+                if (!els.length) return;
+                if (!('IntersectionObserver' in window)) { els.forEach(e => e.classList.add('in')); return; }
+                const io = new IntersectionObserver((entries) => {
+                    entries.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+                }, { threshold: 0.1, rootMargin: '0px 0px -6% 0px' });
+                els.forEach(e => io.observe(e));
+                return () => io.disconnect();
+            }, [page, products, isLoading]);
 
             const activeFilterCount = [
                 cat !== 'all',
@@ -2248,14 +2408,14 @@
                         <div className="relative z-10 mx-auto grid h-full max-w-7xl items-center gap-8 px-5 pt-12 md:grid-cols-[1.05fr_0.95fr] md:px-8">
                             <div className="max-w-3xl">
                                 <div className="pill-badge pill-badge-accent mb-5">
-                                    <i className="fas fa-signal"></i>
-                                    Live stock storefront
+                                    <i className="fas fa-bolt"></i>
+                                    Namibia’s tech superstore
                                 </div>
-                                <h1 className="text-4xl font-black leading-[0.95] tracking-tight text-white sm:text-6xl lg:text-7xl">
-                                    Premium phones, ready when you are.
+                                <h1 className="display text-4xl font-extrabold leading-[0.92] tracking-tight text-white sm:text-6xl lg:text-7xl">
+                                    Everything tech.<br /><span className="gradient-text">One trusted store.</span>
                                 </h1>
                                 <p className="mt-5 max-w-xl text-sm leading-7 text-slate-300 md:text-base">
-                                    Shop JR Importers with live inventory, secure checkout, color tracking, and fast admin follow-up from one connected system.
+                                    Phones, laptops, cameras, audio, gaming, drones, smart home and car tech — plus expert repairs. Shop live stock with secure checkout and fast delivery across Namibia.
                                 </p>
                                 <div className="mt-7 flex flex-wrap gap-3">
                                     <button onClick={() => handleCategoryBrowse('all')} className="btn-primary rounded-full px-6 py-3 text-sm">
@@ -4122,6 +4282,110 @@ Check admin: jrimporters.com/admin.html`;
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* SHOP BY CATEGORY — full breadth showcase */}
+                                <div className="section-shell">
+                                    <div className="mb-7 flex flex-wrap items-end justify-between gap-4 reveal">
+                                        <div>
+                                            <div className="kicker mb-3">The whole store</div>
+                                            <h2 className="display text-3xl font-extrabold text-white md:text-5xl text-balance">
+                                                Far more than phones.
+                                            </h2>
+                                            <p className="mt-3 max-w-xl text-sm leading-7 text-slate-400">
+                                                Twelve departments of genuine tech — tap any aisle to dive in.
+                                            </p>
+                                        </div>
+                                        <button onClick={() => handleCategoryBrowse('all')} className="btn-primary rounded-full px-6 py-3 text-sm">
+                                            Browse everything <i className="fas fa-arrow-right ml-2"></i>
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                                        {Object.keys(CATEGORY_META)
+                                            .filter(name => (categoryCounts[name] || 0) > 0)
+                                            .sort((a, b) => (categoryCounts[b] || 0) - (categoryCounts[a] || 0))
+                                            .map((name, i) => {
+                                                const meta = categoryMeta(name);
+                                                return (
+                                                    <button
+                                                        key={name}
+                                                        onClick={() => handleCategoryBrowse(name)}
+                                                        className={`cat-tile reveal reveal-delay-${(i % 4) + 1} text-left`}
+                                                        style={{ '--tile': meta.color }}
+                                                        onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`); e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`); }}
+                                                    >
+                                                        <div className="relative z-10 flex items-start justify-between">
+                                                            <span className="cat-ic"><i className={`fas fa-${meta.icon}`}></i></span>
+                                                            <span className="cat-count">{categoryCounts[name] || 0}</span>
+                                                        </div>
+                                                        <div className="relative z-10">
+                                                            <div className="cat-name">{name}</div>
+                                                            <div className="mt-1 text-[11px] text-slate-500">{meta.blurb}</div>
+                                                            <div className="mt-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" style={{ color: meta.color }}>
+                                                                Shop <i className="fas fa-arrow-right cat-arrow text-[10px]"></i>
+                                                            </div>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                    </div>
+                                </div>
+
+                                {/* BRAND MARQUEE */}
+                                <div className="section-shell">
+                                    <div className="marquee-mask overflow-hidden py-2">
+                                        <div className="marquee items-center">
+                                            {[...Array(2)].flatMap((_, dup) =>
+                                                ['Apple','Samsung','Google','Sony','JBL','Marshall','Canon','DJI','GoPro','Xiaomi','Microsoft','Amazon','TP-Link','Anker','Logitech'].map((brand) => (
+                                                    <span key={brand + dup} className="display whitespace-nowrap text-xl font-bold text-slate-600 transition-colors hover:text-lime-300 md:text-2xl">
+                                                        {brand}
+                                                    </span>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* REPAIRS & SERVICES */}
+                                {repairServices.length > 0 && (
+                                    <div className="section-shell">
+                                        <div className="glass-panel hero-spot relative overflow-hidden rounded-[2rem] p-6 md:p-10 reveal"
+                                            onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`); e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`); }}>
+                                            <div className="relative z-10 grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+                                                <div>
+                                                    <div className="kicker mb-3" style={{ color: 'var(--accent)' }}>Repair lab</div>
+                                                    <h2 className="display text-3xl font-extrabold text-white md:text-4xl text-balance">
+                                                        Broken? <span className="gradient-text">We fix that.</span>
+                                                    </h2>
+                                                    <p className="mt-4 max-w-md text-sm leading-7 text-slate-400">
+                                                        Cracked screens, dying batteries, slow laptops, lost data — our certified technicians get your tech back to life, most repairs same-day with a workmanship warranty.
+                                                    </p>
+                                                    <div className="mt-6 flex flex-wrap gap-3">
+                                                        <a href={`https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent('Hi JR Importers, I need a repair quote for:')}`} target="_blank" rel="noopener noreferrer" className="btn-primary rounded-full px-6 py-3 text-sm">
+                                                            <i className="fab fa-whatsapp mr-2"></i> Book a repair
+                                                        </a>
+                                                        <button onClick={() => handleCategoryBrowse('Repairs')} className="secondary-button rounded-full px-6 py-3 text-sm">
+                                                            View services
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="grid gap-3 sm:grid-cols-2">
+                                                    {repairServices.slice(0, 4).map((svc) => (
+                                                        <button key={svc.id} onClick={() => openProduct(svc)} className="repair-card group flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-left">
+                                                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg" style={{ background: 'rgba(34,211,238,0.12)', color: 'var(--accent)' }}>
+                                                                <i className={`fas fa-${categoryMeta('Repairs').icon}`}></i>
+                                                            </span>
+                                                            <div className="min-w-0">
+                                                                <div className="truncate text-sm font-bold text-white">{svc.name}</div>
+                                                                <div className="mt-0.5 text-xs text-slate-400">from <span className="mono font-bold" style={{ color: 'var(--accent)' }}>{formatMoney(svc.price)}</span></div>
+                                                            </div>
+                                                            <i className="fas fa-arrow-right ml-auto text-xs text-slate-600 transition-transform group-hover:translate-x-1 group-hover:text-cyan-300"></i>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* SHOP BY INTENT */}
                                 <div className="section-shell">
