@@ -1250,6 +1250,18 @@
         .scroll-cue { animation: cue 1.8s ease-in-out infinite; }
         @keyframes cue { 0%,100% { transform: translateY(0); opacity: .65; } 50% { transform: translateY(8px); opacity: 1; } }
 
+        /* ===== Shop group tabs + brand sidebar ===== */
+        .group-tab{display:inline-flex;align-items:center;gap:.6rem;padding:.8rem 1.5rem;border-radius:999px;font-family:var(--font-display);font-weight:700;font-size:1rem;color:#c9d1c6;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);transition:all .25s cubic-bezier(.2,.7,.2,1);cursor:pointer}
+        .group-tab:hover{color:#fff;border-color:rgba(163,230,53,.45);transform:translateY(-1px)}
+        .group-tab.active{color:#06120a;background:linear-gradient(135deg,var(--brand-bright),var(--brand) 58%,var(--brand-deep));border-color:transparent;box-shadow:0 12px 30px -10px rgba(163,230,53,.65)}
+        .group-tab .gt-count{font-family:var(--font-mono);font-size:.72rem;padding:.05rem .45rem;border-radius:999px;background:rgba(0,0,0,.18)}
+        .group-tab.active .gt-count{background:rgba(0,0,0,.18)}
+        .brand-row{display:flex;align-items:center;justify-content:space-between;width:100%;padding:.72rem .95rem;border-radius:.85rem;color:#c9d1c6;border:1px solid transparent;transition:all .2s;font-weight:600;font-size:.96rem;cursor:pointer;text-align:left}
+        .brand-row:hover{background:rgba(255,255,255,.05);color:#fff}
+        .brand-row.active{background:rgba(163,230,53,.12);border-color:rgba(163,230,53,.38);color:#fff}
+        .brand-count{font-family:var(--font-mono);font-size:.72rem;color:rgba(244,247,242,.5)}
+        .brand-row.active .brand-count{color:var(--brand)}
+
         @media (prefers-reduced-motion: reduce) {
             .reveal { opacity: 1 !important; transform: none !important; }
             .marquee, .marquee-rev { animation: none; }
@@ -1426,6 +1438,7 @@
             const [myOrders, setMyOrders] = useState([]);
             const [cat, setCat] = useState('all');
             const [brandFilter, setBrandFilter] = useState('all');
+            const [group, setGroup] = useState('phones'); // 'phones' | 'tablets' | 'misc'
             const [searchQuery, setSearchQuery] = useState('');
             const deferredSearchQuery = useDeferredValue(searchQuery);
             const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -1988,9 +2001,13 @@
                 // Hide out of stock products
                 result = result.filter(p => p.stock > 0);
 
-                // Category filter
-                if (cat !== 'all') {
-                    result = result.filter(p => p.category === cat);
+                // Top-level group filter: Phones / Tablets / Miscellaneous
+                if (group === 'phones') {
+                    result = result.filter(p => p.category === 'Smartphones');
+                } else if (group === 'tablets') {
+                    result = result.filter(p => p.category === 'Tablets');
+                } else {
+                    result = result.filter(p => p.category !== 'Smartphones' && p.category !== 'Tablets');
                 }
 
                 // Brand filter
@@ -2039,7 +2056,23 @@
                 }
 
                 return result;
-            }, [products, cat, brandFilter, searchQuery, sortBy]);
+            }, [products, group, brandFilter, searchQuery, sortBy]);
+
+            // Brands available within the currently selected group (for the brand sidebar).
+            const groupBrands = useMemo(() => {
+                const inGroup = (p) => group === 'phones' ? p.category === 'Smartphones'
+                    : group === 'tablets' ? p.category === 'Tablets'
+                    : (p.category !== 'Smartphones' && p.category !== 'Tablets');
+                const counts = {};
+                products.filter(p => p.stock > 0 && inGroup(p)).forEach(p => {
+                    const b = p.brand || 'Other';
+                    counts[b] = (counts[b] || 0) + 1;
+                });
+                return Object.entries(counts).map(([brand, count]) => ({ brand, count })).sort((a, b) => b.count - a.count);
+            }, [products, group]);
+
+            // Reset the brand filter whenever the shopper switches group.
+            useEffect(() => { setBrandFilter('all'); }, [group]);
 
             const HOME_FEATURES = [
                 {
@@ -4715,10 +4748,10 @@ Check admin: jrimporters.com/admin.html`;
                                                     <span className="intro-badge"><i className="fas fa-screwdriver-wrench text-lime-400"></i> Expert repairs</span>
                                                 </div>
                                                 <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-                                                    <button onClick={() => { handleCategoryBrowse('Smartphones'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="btn-primary rounded-full px-8 py-4 text-base">
+                                                    <button onClick={() => { setGroup('phones'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="btn-primary rounded-full px-8 py-4 text-base">
                                                         <i className="fas fa-mobile-screen-button mr-2"></i> Shop phones
                                                     </button>
-                                                    <button onClick={() => document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' })} className="secondary-button rounded-full px-7 py-4 text-base">
+                                                    <button onClick={() => { setGroup('misc'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="secondary-button rounded-full px-7 py-4 text-base">
                                                         Browse everything
                                                     </button>
                                                 </div>
@@ -4754,71 +4787,67 @@ Check admin: jrimporters.com/admin.html`;
                                             </div>
                                         </div>
 
-                                        <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                                            <div className="h-scroll flex items-center gap-2 pb-1">
-                                                {CATEGORY_OPTIONS.map((option) => (
-                                                    <button
-                                                        key={option}
-                                                        onClick={() => handleCategoryBrowse(option)}
-                                                        className={`nav-chip ${cat === option ? 'border-lime-500/40 bg-lime-500/12 text-white' : ''}`}
-                                                    >
-                                                        {formatCategoryLabel(option)}
-                                                        <span className="rounded-full bg-black/20 px-2 py-0.5 text-[10px] text-slate-400">
-                                                            {categoryCounts[option] || 0}
-                                                        </span>
+                                        <div className="mt-7 flex flex-wrap items-center gap-2.5">
+                                            {[
+                                                { id: 'phones', label: 'Phones', icon: 'mobile-screen-button' },
+                                                { id: 'tablets', label: 'Tablets', icon: 'tablet-screen-button' },
+                                                { id: 'misc', label: 'Miscellaneous', icon: 'shapes' }
+                                            ].map((t) => {
+                                                const n = products.filter(p => Number(p.stock || 0) > 0 && (t.id === 'phones' ? p.category === 'Smartphones' : t.id === 'tablets' ? p.category === 'Tablets' : (p.category !== 'Smartphones' && p.category !== 'Tablets'))).length;
+                                                return (
+                                                    <button key={t.id} onClick={() => setGroup(t.id)} className={`group-tab ${group === t.id ? 'active' : ''}`}>
+                                                        <i className={`fas fa-${t.icon}`}></i>
+                                                        {t.label}
+                                                        <span className="gt-count">{n}</span>
                                                     </button>
-                                                ))}
-                                            </div>
-
-                                            <div className="flex flex-wrap gap-2">
-                                                <button
-                                                    onClick={() => setShowFilters(!showFilters)}
-                                                    className="secondary-button inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold lg:hidden"
-                                                >
-                                                    <i className="fas fa-sliders text-xs"></i>
-                                                    {showFilters ? 'Hide Filters' : 'Show Filters'}
-                                                    {activeFilterCount > 0 && (
-                                                        <span className="rounded-full bg-lime-500 px-2 py-0.5 text-[11px] font-bold text-black">
-                                                            {activeFilterCount}
-                                                        </span>
-                                                    )}
-                                                </button>
-
-                                                {activeFilterCount > 0 && (
-                                                    <button
-                                                        onClick={clearBrowseFilters}
-                                                        className="secondary-button inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold"
-                                                    >
-                                                        <i className="fas fa-rotate-left text-xs"></i>
-                                                        Reset
-                                                    </button>
-                                                )}
-                                            </div>
+                                                );
+                                            })}
+                                            <button
+                                                onClick={() => setShowFilters(!showFilters)}
+                                                className="secondary-button ml-auto inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold lg:hidden"
+                                            >
+                                                <i className="fas fa-sliders text-xs"></i> Brands
+                                                {brandFilter !== 'all' && <span className="rounded-full bg-lime-500 px-2 py-0.5 text-[11px] font-bold text-black">1</span>}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="flex gap-4 md:gap-6">
-                                    {/* SIDEBAR FILTERS */}
-                                    <div className={`${showFilters ? 'fixed inset-0 z-50 lg:relative lg:inset-auto' : 'hidden'} lg:block w-full lg:w-80`}>
-                                        <div className="lg:hidden absolute inset-0 bg-black/50" onClick={() => setShowFilters(false)}></div>
+                                    {/* BRAND SIDEBAR (per group) */}
+                                    <div className={`${showFilters ? 'fixed inset-0 z-50 lg:relative lg:inset-auto' : 'hidden'} lg:block w-full lg:w-72 flex-shrink-0`}>
+                                        <div className="lg:hidden absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFilters(false)}></div>
 
-                                        <div className={showFilters ? 'relative mx-auto mt-32 max-w-sm lg:mx-0 lg:mt-0' : ''}>
-                                            <StoreFilterPanel
-                                                activeCategory={cat}
-                                                activeBrand={brandFilter}
-                                                sortBy={sortBy}
-                                                categoryCounts={categoryCounts}
-                                                activeFilterCount={activeFilterCount}
-                                                onCategoryChange={handleCategoryBrowse}
-                                                onBrandChange={setBrandFilter}
-                                                onSortChange={setSortBy}
-                                                onClear={() => {
-                                                    clearBrowseFilters();
-                                                    setShowFilters(false);
-                                                }}
-                                                onClose={() => setShowFilters(false)}
-                                            />
+                                        <div className={showFilters ? 'relative mx-auto mt-24 max-w-xs lg:mx-0 lg:mt-0' : ''}>
+                                            <div className="glass-panel rounded-2xl p-5 lg:sticky lg:top-24">
+                                                <div className="mb-4 flex items-center justify-between">
+                                                    <div className="kicker">{group === 'phones' ? 'Phone brands' : group === 'tablets' ? 'Tablet brands' : 'Brands'}</div>
+                                                    <button className="text-slate-400 hover:text-white lg:hidden" onClick={() => setShowFilters(false)}><i className="fas fa-times"></i></button>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <button onClick={() => { setBrandFilter('all'); setShowFilters(false); }} className={`brand-row ${brandFilter === 'all' ? 'active' : ''}`}>
+                                                        <span>All {group === 'phones' ? 'phones' : group === 'tablets' ? 'tablets' : 'products'}</span>
+                                                        <span className="brand-count">{groupBrands.reduce((s, b) => s + b.count, 0)}</span>
+                                                    </button>
+                                                    {groupBrands.map((b) => (
+                                                        <button key={b.brand} onClick={() => { setBrandFilter(b.brand); setShowFilters(false); }} className={`brand-row ${brandFilter === b.brand ? 'active' : ''}`}>
+                                                            <span>{b.brand}</span>
+                                                            <span className="brand-count">{b.count}</span>
+                                                        </button>
+                                                    ))}
+                                                    {groupBrands.length === 0 && <div className="px-2 py-3 text-sm text-slate-500">No stock in this group yet.</div>}
+                                                </div>
+                                                <div className="mt-5 border-t border-white/10 pt-4">
+                                                    <div className="kicker mb-2">Sort</div>
+                                                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="glass-input w-full rounded-lg px-3 py-2.5 text-sm">
+                                                        <option value="featured">Featured</option>
+                                                        <option value="price-low">Price: Low to High</option>
+                                                        <option value="price-high">Price: High to Low</option>
+                                                        <option value="newest">Newest</option>
+                                                        <option value="name">Name A–Z</option>
+                                                    </select>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -4826,8 +4855,8 @@ Check admin: jrimporters.com/admin.html`;
                                     <div className="flex-1">
                                         <div className="flex justify-between items-center mb-4 md:mb-6">
                                             <div>
-                                                <h2 className="text-xl md:text-2xl font-bold text-white">All Products</h2>
-                                                <p className="text-slate-400 text-xs md:text-sm">{filtered.length} products found</p>
+                                                <h2 className="text-xl md:text-2xl font-bold text-white">{brandFilter !== 'all' ? brandFilter : group === 'phones' ? 'Phones' : group === 'tablets' ? 'Tablets' : 'Everything else'}</h2>
+                                                <p className="text-slate-400 text-xs md:text-sm">{filtered.length} {filtered.length === 1 ? 'product' : 'products'}</p>
                                             </div>
                                         </div>
 
