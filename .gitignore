@@ -25,3 +25,12 @@ build/
 .seed_body.json
 
 .cf_token
+mobile/node_modules/
+mobile/android/
+mobile/www/config.js
+mobile/www/app-shell.js
+mobile/www/sw.js
+mobile/www/icon.svg
+mobile/www/OneSignalSDKWorker.js
+mobile/www/admin.webmanifest
+mobile/www/offline.html

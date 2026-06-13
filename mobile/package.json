@@ -1,0 +1,20 @@
+{
+  "name": "jr-importers-admin-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "JR Importers Admin — native Android shell (Capacitor) with OneSignal push.",
+  "scripts": {
+    "copy:web": "node copy-web.js",
+    "build": "npm run copy:web && npx cap sync android"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.2.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/core": "^6.2.0",
+    "onesignal-cordova-plugin": "^5.2.13"
+  }
+}

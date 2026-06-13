@@ -1,0 +1,88 @@
+name: Build Admin APK
+
+# Builds the JR Importers Admin Android app (Capacitor) in the cloud and publishes
+# the APK as a downloadable artifact + a GitHub Release. No local Android toolchain needed.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - 'admin.html'
+      - 'config.js'
+      - 'app-shell.js'
+      - '.github/workflows/build-apk.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm install
+
+      - name: Bundle admin web app
+        working-directory: mobile
+        run: node copy-web.js
+
+      - name: Add Android platform
+        working-directory: mobile
+        run: npx cap add android
+
+      - name: Generate icons & splash
+        working-directory: mobile
+        run: npx capacitor-assets generate --android || echo "asset generation skipped"
+
+      - name: Sync Capacitor
+        working-directory: mobile
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: mobile/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: |
+          mkdir -p out
+          cp mobile/android/app/build/outputs/apk/debug/app-debug.apk out/JR-Importers-Admin.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JR-Importers-Admin-APK
+          path: out/JR-Importers-Admin.apk
+          if-no-files-found: error
+
+      - name: Publish to Release (android-latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: JR Importers Admin — latest APK
+          body: |
+            Latest JR Importers Admin Android build.
+            Download `JR-Importers-Admin.apk`, enable "Install unknown apps", and install.
+            Push notifications require the OneSignal App ID in config.js + Firebase configured in OneSignal.
+          files: out/JR-Importers-Admin.apk
+          make_latest: true

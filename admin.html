@@ -837,9 +837,39 @@
                 }
             }, []);
 
+            // True when running inside the native Android/iOS Capacitor shell (the APK).
+            const isNativeApp = () => !!(window.Capacitor?.isNativePlatform?.() || window.cordova);
+            const nativeOneSignal = () => (window.plugins && window.plugins.OneSignal) || null;
+
             useEffect(() => {
                 if (!ONESIGNAL_APP_ID || !isAuthenticated) return;
 
+                // ---- NATIVE (APK) push via the OneSignal Capacitor/Cordova plugin (FCM) ----
+                if (isNativeApp()) {
+                    const start = (attempt = 0) => {
+                        const OS = nativeOneSignal();
+                        if (!OS) { if (attempt < 20) return setTimeout(() => start(attempt + 1), 400); return; }
+                        try {
+                            OS.initialize(ONESIGNAL_APP_ID);
+                            if (adminUser?.id && OS.login) OS.login(adminUser.id);
+                            if (OS.User?.addTags) OS.User.addTags({ app: 'jr-admin', role: 'admin', email: adminUser?.email || 'unknown' });
+                            if (OS.Notifications?.requestPermission) {
+                                OS.Notifications.requestPermission(true).then((accepted) => {
+                                    setPushStatus(accepted ? 'Enabled (app)' : 'Ready to enable');
+                                }).catch(() => setPushStatus('Ready to enable'));
+                            } else {
+                                setPushStatus('Enabled (app)');
+                            }
+                        } catch (error) {
+                            console.error('Native OneSignal init error:', error);
+                            setPushStatus('Setup needs attention');
+                        }
+                    };
+                    start();
+                    return;
+                }
+
+                // ---- WEB push via the OneSignal web SDK ----
                 window.OneSignalDeferred = window.OneSignalDeferred || [];
                 window.OneSignalDeferred.push(async (OneSignal) => {
                     try {
@@ -871,6 +901,19 @@
             const enableAdminNotifications = () => {
                 if (!ONESIGNAL_APP_ID) {
                     showNotification('Add ONESIGNAL_APP_ID in config.js first', 'error');
+                    return;
+                }
+
+                if (isNativeApp()) {
+                    const OS = nativeOneSignal();
+                    if (OS?.Notifications?.requestPermission) {
+                        OS.Notifications.requestPermission(true).then((accepted) => {
+                            setPushStatus(accepted ? 'Enabled (app)' : 'Permission declined');
+                            showNotification(accepted ? 'Admin notifications enabled' : 'Notification permission declined', accepted ? 'success' : 'warning');
+                        }).catch((error) => showNotification('Unable to enable notifications: ' + error.message, 'error'));
+                    } else {
+                        showNotification('Push plugin still loading — try again in a moment.', 'info');
+                    }
                     return;
                 }
 
