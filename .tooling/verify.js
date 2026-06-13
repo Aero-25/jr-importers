@@ -5,8 +5,8 @@ const fs = require('fs');
 const path = require('path');
 
 const BASE = 'http://127.0.0.1:8787';
-const ADMIN_EMAIL = 'admin@jrimporters.com';
-const ADMIN_PASS = 'JRimporters#2026';
+const ADMIN_EMAIL = process.env.JR_ADMIN_EMAIL || 'admin@jrimporters.com';
+const ADMIN_PASS = process.env.JR_ADMIN_PASS || '';
 const outDir = path.join(__dirname, '..', '.shots', 'verify');
 fs.mkdirSync(outDir, { recursive: true });
 

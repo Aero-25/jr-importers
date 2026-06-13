@@ -20,8 +20,8 @@ const clickNav = async (page, label) => page.evaluate((lbl) => {
   await page.goto(BASE + '/admin.html', { waitUntil: 'networkidle' });
   const emailInput = await page.waitForSelector('input[type="email"], input[name="email"]', { timeout: 45000 }).catch(() => null);
   if (emailInput) {
-    await page.fill('input[type="email"], input[name="email"]', 'admin@jrimporters.com');
-    await page.fill('input[type="password"]', 'JRimporters#2026');
+    await page.fill('input[type="email"], input[name="email"]', process.env.JR_ADMIN_EMAIL || 'admin@jrimporters.com');
+    await page.fill('input[type="password"]', process.env.JR_ADMIN_PASS || '');
     await page.keyboard.press('Enter');
   }
   await page.waitForSelector('.nav-item', { timeout: 30000 });
