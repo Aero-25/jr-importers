@@ -1234,10 +1234,27 @@
         .tilt-card .product-media-shell { transform: translateZ(34px); }
         .tilt-card:hover .product-media-img { transform: scale(1.04) translateZ(20px); }
 
+        /* ===== Cinematic store intro (scroll-past cover) ===== */
+        .store-intro { will-change: opacity, transform; }
+        .marquee-rev { animation: marquee 52s linear infinite reverse; }
+        .intro-img {
+            height: 150px; width: 232px; flex: 0 0 auto; object-fit: cover; border-radius: 1.1rem;
+            border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 24px 50px -28px rgba(0,0,0,0.9);
+        }
+        @media (max-width: 640px) { .intro-img { height: 108px; width: 168px; } }
+        .intro-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.55rem 1rem; border-radius: 999px;
+            font-size: 0.78rem; font-weight: 600; color: #d7e9c6;
+            background: rgba(163,230,53,0.08); border: 1px solid rgba(163,230,53,0.22); backdrop-filter: blur(8px);
+        }
+        .scroll-cue { animation: cue 1.8s ease-in-out infinite; }
+        @keyframes cue { 0%,100% { transform: translateY(0); opacity: .65; } 50% { transform: translateY(8px); opacity: 1; } }
+
         @media (prefers-reduced-motion: reduce) {
             .reveal { opacity: 1 !important; transform: none !important; }
-            .marquee { animation: none; }
+            .marquee, .marquee-rev { animation: none; }
             .tilt-card { transform: none !important; }
+            .scroll-cue { animation: none; }
         }
     </style>
 </head>
@@ -1565,6 +1582,27 @@
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
             }, [cat, brandFilter]);
+
+            // Cinematic intro: fade + parallax away as the shopper scrolls past it.
+            useEffect(() => {
+                if (page !== 'shop') return;
+                let raf = 0;
+                const onScroll = () => {
+                    cancelAnimationFrame(raf);
+                    raf = requestAnimationFrame(() => {
+                        const el = document.getElementById('store-intro');
+                        if (!el) return;
+                        const h = el.offsetHeight || window.innerHeight;
+                        const p = Math.min(1, Math.max(0, window.scrollY / (h * 0.85)));
+                        el.style.opacity = String(1 - p);
+                        el.style.transform = `translateY(${window.scrollY * 0.25}px) scale(${1 - p * 0.04})`;
+                        el.style.pointerEvents = p > 0.95 ? 'none' : 'auto';
+                    });
+                };
+                window.addEventListener('scroll', onScroll, { passive: true });
+                onScroll();
+                return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); };
+            }, [page]);
 
             // Scroll to top when closing cart or opening checkout
             useEffect(() => {
@@ -4632,7 +4670,56 @@ Check admin: jrimporters.com/admin.html`;
                         {/* SHOP PAGE */}
                         {page === 'shop' && (
                             <div className="page-shell px-4 py-6 md:px-6 md:py-8">
-                                <div className="section-shell">
+                                {/* ===== CINEMATIC STORE INTRO — scroll past into the shop ===== */}
+                                {(() => {
+                                    const pics = [...products]
+                                        .filter(p => p.image || p.image1)
+                                        .sort((a, b) => (a.category === 'Smartphones' ? -1 : 0) - (b.category === 'Smartphones' ? -1 : 0))
+                                        .map(p => p.image || p.image1);
+                                    const wall = pics.length ? pics : [LOGO_URL];
+                                    const rowA = [...wall, ...wall].slice(0, 16);
+                                    const rowB = [...wall].reverse().concat([...wall].reverse()).slice(0, 16);
+                                    return (
+                                        <section id="store-intro" className="store-intro relative -mx-4 -mt-6 mb-6 overflow-hidden md:-mx-6 md:-mt-8" style={{ minHeight: '92vh' }}>
+                                            <div className="absolute inset-0 flex flex-col justify-center gap-5 opacity-[0.5]">
+                                                <div className="marquee items-center gap-5">
+                                                    {rowA.map((src, i) => <img key={'a'+i} src={src} onError={handleImageError} className="intro-img" alt="" />)}
+                                                </div>
+                                                <div className="marquee-rev items-center gap-5">
+                                                    {rowB.map((src, i) => <img key={'b'+i} src={src} onError={handleImageError} className="intro-img" alt="" />)}
+                                                </div>
+                                            </div>
+                                            <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 80% at 50% 30%, rgba(5,8,6,0.55), rgba(5,8,6,0.86) 60%, #050806 100%)' }}></div>
+                                            <div className="relative z-10 mx-auto flex min-h-[92vh] max-w-4xl flex-col items-center justify-center px-6 text-center">
+                                                <div className="intro-badge mb-6"><i className="fas fa-bolt text-lime-400"></i> Namibia’s home of genuine phones</div>
+                                                <h1 className="display text-4xl font-extrabold leading-[0.95] tracking-tight text-white text-balance sm:text-6xl md:text-7xl">
+                                                    The latest <span className="gradient-text">phones</span>,<br className="hidden sm:block" /> and everything tech.
+                                                </h1>
+                                                <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 md:text-lg">
+                                                    Smartphones are our specialty — sealed, genuine and warrantied — alongside laptops, audio, cameras, car tech and expert repairs. Shipped fast across Namibia from Walvis Bay.
+                                                </p>
+                                                <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+                                                    <span className="intro-badge"><i className="fas fa-shield-halved text-lime-400"></i> Genuine & warrantied</span>
+                                                    <span className="intro-badge"><i className="fas fa-truck-fast text-lime-400"></i> Nationwide delivery</span>
+                                                    <span className="intro-badge"><i className="fas fa-screwdriver-wrench text-lime-400"></i> Expert repairs</span>
+                                                </div>
+                                                <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+                                                    <button onClick={() => { handleCategoryBrowse('Smartphones'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="btn-primary rounded-full px-8 py-4 text-base">
+                                                        <i className="fas fa-mobile-screen-button mr-2"></i> Shop phones
+                                                    </button>
+                                                    <button onClick={() => document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' })} className="secondary-button rounded-full px-7 py-4 text-base">
+                                                        Browse everything
+                                                    </button>
+                                                </div>
+                                                <button onClick={() => document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' })} className="scroll-cue mt-14 flex flex-col items-center gap-2 text-xs uppercase tracking-[0.3em] text-slate-400">
+                                                    Scroll to shop
+                                                    <i className="fas fa-chevron-down text-lime-400"></i>
+                                                </button>
+                                            </div>
+                                        </section>
+                                    );
+                                })()}
+                                <div id="store-grid" className="section-shell scroll-mt-24">
                                     <div className="glass-panel rounded-[2rem] border border-slate-800/80 p-6 md:p-8">
                                         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                                             <div className="max-w-3xl">
@@ -5177,7 +5264,7 @@ Check admin: jrimporters.com/admin.html`;
                                                         className="w-5 h-5 rounded border-slate-600 text-lime-500 focus:ring-lime-500 flex-shrink-0"
                                                     />
                                                     <span className="text-sm md:text-base text-slate-300 leading-relaxed">
-                                                        I agree to the <a href="terms.html" target="_blank" className="text-lime-500 hover:text-lime-400 underline font-medium">Terms & Conditions</a> and <a href="privacy.html" target="_blank" className="text-lime-500 hover:text-lime-400 underline font-medium">Privacy Policy</a>
+                                                        I agree to the <a href="terms.html" target="_blank" className="text-lime-500 hover:text-lime-400 underline font-medium">Terms & Conditions</a> and <a href="privacy.html" target="_blank" className="text-lime-500 hover:text-lime-400 underline font-medium">Privacy Policy</a>, and I understand that <strong className="text-white">all sales are final and no refunds are given</strong>.
                                                     </span>
                                                 </label>
                                             </div>
