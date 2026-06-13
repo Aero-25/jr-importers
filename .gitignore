@@ -23,3 +23,5 @@ build/
 .tooling/node_modules/
 .shots/
 .seed_body.json
+
+.cf_token
