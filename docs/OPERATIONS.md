@@ -47,6 +47,17 @@ full retail/accounting suite; `supabase/seed_iq_modules.sql` seeds demo data:
 customers (POS sales with a selected customer, quote conversions) — the prior RLS policy
 blocked this. All write paths were verified end-to-end via `.tooling/func.js`.
 
+### Documents & ledger integration
+
+- **Printable PDFs** (jsPDF + autotable): Quote, Invoice, Layby agreement, GRV, and
+  account Statements — via `generateDocument()` / `printQuote` / `printLayby` /
+  `printStatement` / `generateInvoice`. Verified generating real downloads.
+- **Operations post to the ledgers automatically:** completing a **GRV** posts a
+  creditor bill (A/P); creating an **invoice for a customer** posts a debtor charge
+  (A/R) and marking it paid posts the receipt. Posts are idempotent (guarded by
+  `doc_type` + `doc_id`). Fixed a latent bug where the invoice form matched customers
+  with `parseInt` on a UUID (so every invoice showed "Cash Customer").
+
 ## Admin access
 
 Admin status is granted by a row in `public.users` with `role` in

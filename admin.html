@@ -2922,6 +2922,117 @@ Date: ${new Date().toLocaleDateString()}`
                 }
             };
 
+            // ===== UNIVERSAL DOCUMENT PDF (Quote / Layby / Statement) =====
+            // opts: { title, number, dateLabel, meta:[{label,value}], party:{name,email,phone},
+            //         columns:[...], rows:[[...]], totals:[{label,value,bold}], footnote, filename }
+            const generateDocument = (opts) => {
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    const primary = [16, 185, 129], dark = [15, 20, 25];
+                    doc.setFillColor(...dark); doc.rect(0, 0, 210, 50, 'F');
+                    doc.setFontSize(26); doc.setFont(undefined, 'bold'); doc.setTextColor(...primary);
+                    doc.text('JR IMPORTERS', 20, 24);
+                    doc.setFontSize(9); doc.setTextColor(255, 255, 255); doc.setFont(undefined, 'normal');
+                    doc.text('Phones & Electronics · Walvis Bay, Namibia', 20, 31);
+                    doc.text('Tel: +264 81 562 9203', 20, 36);
+                    doc.text('Email: sales@jrimporters.com', 20, 41);
+                    doc.setFontSize(22); doc.setFont(undefined, 'bold'); doc.setTextColor(...primary);
+                    doc.text(opts.title, 190, 24, { align: 'right' });
+                    doc.setFontSize(11); doc.setTextColor(255, 255, 255); doc.setFont(undefined, 'normal');
+                    if (opts.number) doc.text(`${opts.number}`, 190, 31, { align: 'right' });
+                    if (opts.dateLabel) doc.text(opts.dateLabel, 190, 37, { align: 'right' });
+                    doc.setTextColor(0, 0, 0);
+
+                    let y = 64;
+                    if (opts.party) {
+                        doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(...dark);
+                        doc.text(opts.partyLabel || 'CUSTOMER:', 20, y);
+                        doc.setFontSize(10); doc.setFont(undefined, 'normal'); doc.setTextColor(0, 0, 0);
+                        y += 7; doc.text(String(opts.party.name || ''), 20, y);
+                        if (opts.party.email) { y += 5; doc.text(String(opts.party.email), 20, y); }
+                        if (opts.party.phone) { y += 5; doc.text(String(opts.party.phone), 20, y); }
+                    }
+                    if (opts.meta && opts.meta.length) {
+                        let my = 64;
+                        opts.meta.forEach(m => { doc.setFontSize(9); doc.setTextColor(100); doc.text(`${m.label}: ${m.value}`, 190, my, { align: 'right' }); my += 5; });
+                        doc.setTextColor(0, 0, 0);
+                    }
+                    y += 8;
+
+                    if (opts.columns && opts.rows) {
+                        doc.autoTable({
+                            startY: y,
+                            head: [opts.columns],
+                            body: opts.rows,
+                            theme: 'striped',
+                            headStyles: { fillColor: dark, textColor: [255, 255, 255], fontStyle: 'bold' },
+                            styles: { fontSize: 9, cellPadding: 2.5 },
+                            alternateRowStyles: { fillColor: [244, 247, 245] },
+                            margin: { left: 20, right: 20 }
+                        });
+                        y = doc.lastAutoTable.finalY + 6;
+                    }
+                    if (opts.totals && opts.totals.length) {
+                        opts.totals.forEach(t => {
+                            doc.setFont(undefined, t.bold ? 'bold' : 'normal');
+                            doc.setFontSize(t.bold ? 12 : 10);
+                            doc.setTextColor(...(t.bold ? primary : [60, 60, 60]));
+                            doc.text(t.label, 140, y); doc.text(String(t.value), 190, y, { align: 'right' });
+                            y += t.bold ? 8 : 6;
+                        });
+                    }
+                    doc.setTextColor(120); doc.setFontSize(8); doc.setFont(undefined, 'normal');
+                    if (opts.footnote) doc.text(opts.footnote, 105, 278, { align: 'center', maxWidth: 175 });
+                    doc.text('Thank you for your business — JR Importers', 105, 288, { align: 'center' });
+                    doc.save(opts.filename || 'document.pdf');
+                    showNotification(`${opts.title} PDF generated`, 'success');
+                    return true;
+                } catch (err) {
+                    console.error('Document generation error:', err);
+                    showNotification('Failed to generate document: ' + err.message, 'error');
+                    return false;
+                }
+            };
+
+            const printQuote = (q) => generateDocument({
+                title: 'QUOTATION', number: q.quote_number || 'QUO-' + String(q.id).padStart(4, '0'),
+                dateLabel: `Date: ${new Date(q.created_at).toLocaleDateString('en-GB')}`,
+                meta: [{ label: 'Valid until', value: q.valid_until ? new Date(q.valid_until).toLocaleDateString('en-GB') : '—' }, { label: 'Status', value: q.status }],
+                party: { name: q.customer_name, email: q.customer_email, phone: q.customer_phone },
+                columns: ['Item', 'Qty', 'Unit Price', 'Line Total'],
+                rows: (q.items || []).map(i => [i.name, i.qty, formatCurrency(i.price), formatCurrency(i.price * i.qty)]),
+                totals: [{ label: 'Subtotal (excl. VAT)', value: formatCurrency(q.subtotal_amount) }, { label: 'VAT (15%)', value: formatCurrency(q.vat_amount) }, { label: 'TOTAL', value: formatCurrency(q.total_amount), bold: true }],
+                footnote: 'This quotation is valid until the date shown above. Prices subject to stock availability.',
+                filename: `Quote-${q.quote_number || q.id}.pdf`
+            });
+            const printLayby = (l) => generateDocument({
+                title: 'LAYBY AGREEMENT', number: l.layby_number || 'LAY-' + String(l.id).padStart(4, '0'),
+                dateLabel: `Date: ${new Date(l.created_at).toLocaleDateString('en-GB')}`,
+                meta: [{ label: 'Due date', value: l.due_date ? new Date(l.due_date).toLocaleDateString('en-GB') : '—' }, { label: 'Status', value: l.status }],
+                party: { name: l.customer_name, phone: l.customer_phone },
+                columns: ['Item', 'Qty', 'Unit Price', 'Line Total'],
+                rows: (l.items || []).map(i => [i.name, i.qty, formatCurrency(i.price), formatCurrency(i.price * i.qty)]),
+                totals: [{ label: 'Goods Total', value: formatCurrency(l.total_amount), bold: true }, { label: 'Paid To Date', value: formatCurrency(l.paid_amount) }, { label: 'Balance Outstanding', value: formatCurrency(l.balance_amount), bold: true }],
+                footnote: 'Goods remain the property of JR Importers until paid in full. Deposits are non-refundable.',
+                filename: `Layby-${l.layby_number || l.id}.pdf`
+            });
+            const printStatement = (acct) => {
+                const sorted = [...(acct.txns || [])].sort((a, b) => (a.txn_date < b.txn_date ? -1 : 1));
+                let running = 0;
+                return generateDocument({
+                    title: 'STATEMENT', number: acct.party_name,
+                    dateLabel: `As at ${new Date().toLocaleDateString('en-GB')}`,
+                    meta: [{ label: 'Account', value: acct.accountType === 'creditor' ? 'Payable' : 'Receivable' }, { label: 'Balance', value: formatCurrency(acct.balance) }],
+                    party: { name: acct.party_name }, partyLabel: acct.accountType === 'creditor' ? 'SUPPLIER:' : 'CUSTOMER:',
+                    columns: ['Date', 'Type', 'Reference', 'Charge', 'Payment', 'Balance'],
+                    rows: sorted.map(t => { running += Number(t.amount || 0); return [new Date(t.txn_date).toLocaleDateString('en-GB'), t.txn_type, t.reference || '—', Number(t.amount) > 0 ? formatCurrency(t.amount) : '—', Number(t.amount) < 0 ? formatCurrency(Math.abs(t.amount)) : '—', formatCurrency(running)]; }),
+                    totals: [{ label: 'CLOSING BALANCE', value: formatCurrency(acct.balance), bold: true }],
+                    footnote: 'Please settle outstanding balances by the due date. Contact us with any queries.',
+                    filename: `Statement-${acct.party_name.replace(/[^a-z0-9]+/gi, '-')}.pdf`
+                });
+            };
+
             // ===== REPORTS =====
             const generateSalesReport = () => {
                 // Filter orders by date range
@@ -7435,18 +7546,24 @@ Date: ${new Date().toLocaleDateString()}`
                                                             }`}>{inv.status || 'Draft'}</span>
                                                         </td>
                                                         <td className="text-right">
-                                                            <button className="text-blue-400 hover:text-white mr-2" title="View">
-                                                                <i className="fas fa-eye"></i>
-                                                            </button>
-                                                            <button className="text-purple-400 hover:text-white mr-2" title="Print">
+                                                            <button onClick={() => generateInvoice({ id: inv.id, created_at: inv.created_at, customer_name: inv.customer_name, customer_email: inv.customer_email || '', customer_phone: inv.customer_phone, items: inv.items, total_amount: inv.total_amount, status: inv.status })} className="text-purple-400 hover:text-white mr-2" title="Print / PDF">
                                                                 <i className="fas fa-print"></i>
-                                                            </button>
-                                                            <button className="text-green-400 hover:text-white mr-2" title="Send">
-                                                                <i className="fas fa-paper-plane"></i>
                                                             </button>
                                                             {inv.status !== 'paid' && (
                                                                 <button onClick={async () => {
                                                                     await db.from('invoices').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', inv.id);
+                                                                    // Settle the matching debtor charge with a receipt
+                                                                    if (inv.customer_id) {
+                                                                        const already = (data.account_transactions || []).some(t => t.account_type === 'debtor' && t.doc_type === 'receipt' && String(t.doc_id) === String(inv.id));
+                                                                        if (!already) {
+                                                                            await db.from('account_transactions').insert({
+                                                                                account_type: 'debtor', customer_id: inv.customer_id, party_name: inv.customer_name,
+                                                                                txn_type: 'payment', amount: -(inv.total_amount || 0), reference: 'INV-' + inv.id + ' paid',
+                                                                                doc_type: 'receipt', doc_id: String(inv.id), notes: 'Invoice settled',
+                                                                                txn_date: new Date().toISOString().slice(0, 10), created_by: adminUser?.email || 'Admin'
+                                                                            });
+                                                                        }
+                                                                    }
                                                                     loadAllData();
                                                                     showNotification('Invoice marked as paid', 'success');
                                                                 }} className="text-yellow-400 hover:text-white" title="Mark Paid">
@@ -7604,6 +7721,7 @@ Date: ${new Date().toLocaleDateString()}`
                                                             <td className="text-slate-400">{q.valid_until ? new Date(q.valid_until).toLocaleDateString() : '-'}</td>
                                                             <td><span className={`badge ${q.status === 'converted' ? 'badge-success' : q.status === 'accepted' ? 'badge-success' : q.status === 'sent' ? 'badge-info' : q.status === 'declined' || q.status === 'expired' ? 'badge-danger' : 'badge-secondary'}`}>{q.status}</span></td>
                                                             <td className="text-right whitespace-nowrap">
+                                                                <button onClick={() => printQuote(q)} className="text-purple-400 hover:text-white mr-3" title="Print / PDF"><i className="fas fa-print"></i></button>
                                                                 {q.status === 'draft' && <button onClick={() => updateQuoteStatus(q, 'sent')} className="text-blue-400 hover:text-white mr-3" title="Mark sent"><i className="fas fa-paper-plane"></i></button>}
                                                                 {q.status === 'sent' && <button onClick={() => updateQuoteStatus(q, 'accepted')} className="text-green-400 hover:text-white mr-3" title="Mark accepted"><i className="fas fa-thumbs-up"></i></button>}
                                                                 {q.status !== 'converted' && <button onClick={() => { if (confirm('Convert this quote to a sale? Stock will be deducted.')) convertQuoteToSale(q); }} className="btn btn-primary btn-sm"><i className="fas fa-cash-register"></i> Convert</button>}
@@ -7657,6 +7775,7 @@ Date: ${new Date().toLocaleDateString()}`
                                                             <td className="text-slate-400">{l.due_date ? new Date(l.due_date).toLocaleDateString() : '-'}</td>
                                                             <td><span className={`badge ${l.status === 'completed' ? 'badge-success' : l.status === 'cancelled' ? 'badge-danger' : 'badge-info'}`}>{l.status}</span></td>
                                                             <td className="text-right whitespace-nowrap">
+                                                                <button onClick={() => printLayby(l)} className="text-purple-400 hover:text-white mr-3" title="Print agreement"><i className="fas fa-print"></i></button>
                                                                 {l.status === 'active' && <button onClick={() => { setPayModal({ kind: 'layby', party: l }); setPayForm({ amount: Number(l.balance_amount || 0).toFixed(2), method: 'Cash', reference: '', notes: '' }); }} className="btn btn-primary btn-sm mr-2"><i className="fas fa-coins"></i> Payment</button>}
                                                                 {l.status === 'active' && <button onClick={() => { if (confirm('Cancel this layby?')) cancelLayby(l); }} className="text-red-400 hover:text-white" title="Cancel"><i className="fas fa-times-circle"></i></button>}
                                                             </td>
@@ -7955,7 +8074,7 @@ Date: ${new Date().toLocaleDateString()}`
                                                             <button onClick={() => { setModalData({ grv: grv }); setModal('grv-details'); }} className="text-blue-400 hover:text-white mr-2" title="View Details">
                                                                 <i className="fas fa-eye"></i>
                                                             </button>
-                                                            <button className="text-purple-400 hover:text-white mr-2" title="Print">
+                                                            <button onClick={() => generateDocument({ title: 'GOODS RECEIVED', number: 'GRV-' + grv.id, dateLabel: `Date: ${new Date(grv.created_at).toLocaleDateString('en-GB')}`, meta: [{ label: 'Supplier Inv', value: grv.supplier_invoice_no || '—' }, { label: 'Status', value: grv.status }], party: { name: grv.supplier_name }, partyLabel: 'SUPPLIER:', columns: ['Item', 'Qty Recv', 'Unit Cost', 'Line Total'], rows: (grv.items || []).map(i => [i.product_name || i.name, i.qty_received, formatCurrency(i.cost_price), formatCurrency((i.qty_received || 0) * (i.cost_price || 0))]), totals: [{ label: 'TOTAL', value: formatCurrency((grv.items || []).reduce((s, i) => s + (i.qty_received || 0) * (i.cost_price || 0), 0)), bold: true }], footnote: 'Goods received voucher.', filename: `GRV-${grv.id}.pdf` })} className="text-purple-400 hover:text-white mr-2" title="Print / PDF">
                                                                 <i className="fas fa-print"></i>
                                                             </button>
                                                             {grv.status !== 'completed' && (
@@ -7980,8 +8099,20 @@ Date: ${new Date().toLocaleDateString()}`
                                                                         }
                                                                     }
                                                                     await db.from('grvs').update({ status: 'completed' }).eq('id', grv.id);
+                                                                    // Post the goods received as a creditor bill (accounts payable)
+                                                                    const grvTotal = (grv.items || []).reduce((s, i) => s + ((i.qty_received || 0) * (i.cost_price || 0)), 0);
+                                                                    const alreadyPosted = (data.account_transactions || []).some(t => t.account_type === 'creditor' && t.doc_type === 'grv' && String(t.doc_id) === String(grv.id));
+                                                                    if (grvTotal > 0 && !alreadyPosted) {
+                                                                        await db.from('account_transactions').insert({
+                                                                            account_type: 'creditor', supplier_id: grv.supplier_id ? parseInt(grv.supplier_id) : null,
+                                                                            party_name: grv.supplier_name, txn_type: 'bill', amount: grvTotal,
+                                                                            reference: grv.supplier_invoice_no || ('GRV-' + grv.id), doc_type: 'grv', doc_id: String(grv.id),
+                                                                            notes: 'Goods received', txn_date: grv.invoice_date || new Date().toISOString().slice(0, 10),
+                                                                            created_by: adminUser?.email || 'Admin'
+                                                                        });
+                                                                    }
                                                                     loadAllData();
-                                                                    showNotification('GRV completed - Stock updated!', 'success');
+                                                                    showNotification('GRV completed — stock updated & supplier account posted', 'success');
                                                                 }} className="text-green-400 hover:text-white" title="Complete & Add Stock">
                                                                     <i className="fas fa-check-circle"></i>
                                                                 </button>
@@ -8581,11 +8712,12 @@ Date: ${new Date().toLocaleDateString()}`
                                         </tbody>
                                     </table>
                                 </div>
-                                {ledgerDetail.balance > 0.005 && (
-                                    <div className="flex justify-end">
+                                <div className="flex justify-between items-center">
+                                    <button onClick={() => printStatement(ledgerDetail)} className="btn btn-secondary"><i className="fas fa-print"></i> Print Statement</button>
+                                    {ledgerDetail.balance > 0.005 && (
                                         <button onClick={() => { const kind = ledgerDetail.accountType; const party = ledgerDetail; setLedgerDetail(null); setPayModal({ kind, party }); setPayForm({ amount: ledgerDetail.balance.toFixed(2), method: kind === 'creditor' ? 'EFT' : 'Cash', reference: '', notes: '' }); }} className="btn btn-primary"><i className="fas fa-hand-holding-usd"></i> {ledgerDetail.accountType === 'creditor' ? 'Make Payment' : 'Receive Payment'}</button>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         </Modal>
                     )}
@@ -10652,22 +10784,33 @@ Date: ${new Date().toLocaleDateString()}`
                                     <div className="flex gap-3">
                                         <button type="button" onClick={() => setModal(null)} className="btn btn-secondary flex-1">Cancel</button>
                                         <button type="button" onClick={async () => {
-                                            const customer = data.customers.find(c => c.id === parseInt(invoiceCustomerId));
+                                            const customer = data.customers.find(c => String(c.id) === String(invoiceCustomerId));
                                             const subtotal = invoiceItems.reduce((sum, i) => sum + (i.qty * i.price), 0);
+                                            const total = subtotal * 1.15;
                                             try {
-                                                await db.from('invoices').insert({
+                                                const { data: newInv, error } = await db.from('invoices').insert({
                                                     customer_id: invoiceCustomerId || null,
                                                     customer_name: customer?.name || 'Cash Customer',
                                                     customer_email: customer?.email || '',
                                                     items: invoiceItems,
                                                     subtotal_amount: subtotal,
                                                     vat_amount: subtotal * 0.15,
-                                                    total_amount: subtotal * 1.15,
+                                                    total_amount: total,
                                                     due_date: invoiceDueDate,
                                                     status: 'draft',
                                                     created_at: new Date().toISOString()
-                                                });
-                                                showNotification('Invoice created!', 'success');
+                                                }).select().single();
+                                                if (error) throw error;
+                                                // Post to the customer's debtor account (accounts receivable)
+                                                if (customer && total > 0) {
+                                                    await db.from('account_transactions').insert({
+                                                        account_type: 'debtor', customer_id: customer.id, party_name: customer.name,
+                                                        txn_type: 'invoice', amount: total, reference: 'INV-' + newInv.id,
+                                                        doc_type: 'invoice', doc_id: String(newInv.id), notes: 'Invoice on account',
+                                                        txn_date: new Date().toISOString().slice(0, 10), created_by: adminUser?.email || 'Admin'
+                                                    });
+                                                }
+                                                showNotification(customer ? 'Invoice created & posted to debtor account' : 'Invoice created!', 'success');
                                                 setModal(null);
                                                 loadAllData();
                                             } catch (err) {
