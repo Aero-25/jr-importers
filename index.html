@@ -1379,7 +1379,7 @@
         function App() {
             console.log('App component rendering...');
             // STATE MANAGEMENT
-            const [page, setPage] = useState('home');
+            const [page, setPage] = useState('shop');
             const [products, setProducts] = useState([]);
             const [isLoading, setIsLoading] = useState(true);
             const [cart, setCart] = useState(() => {
@@ -4040,7 +4040,7 @@ Check admin: jrimporters.com/admin.html`;
                     {/* FLOATING HEADER */}
                     <nav className="header-island fixed top-0 left-0 right-0 z-[9999] px-4 md:px-10 py-2.5 md:py-4 flex items-center justify-between max-w-full">
                         {/* LEFT: Logo */}
-                        <button onClick={() => setPage('home')} className="flex items-center gap-2 md:gap-4 cursor-pointer hover:scale-105 transition-transform duration-300 group flex-shrink-0">
+                        <button onClick={() => setPage('shop')} className="flex items-center gap-2 md:gap-4 cursor-pointer hover:scale-105 transition-transform duration-300 group flex-shrink-0">
                             <div className="relative">
                                 <img src={LOGO_URL} className="w-9 h-9 md:w-12 md:h-12 rounded-full border-2 border-lime-500 shadow-lg shadow-lime-500/50 group-hover:shadow-lime-500/80 transition-shadow" alt="JR Importers Logo" />
                                 <div className="absolute -inset-1 bg-lime-500/20 rounded-full blur-md group-hover:bg-lime-500/40 transition-all"></div>
@@ -4636,31 +4636,22 @@ Check admin: jrimporters.com/admin.html`;
                                     <div className="glass-panel rounded-[2rem] border border-slate-800/80 p-6 md:p-8">
                                         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                                             <div className="max-w-3xl">
-                                                <div className="section-kicker mb-3">Store catalog</div>
-                                                <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">
-                                                    Find the right device faster.
+                                                <div className="kicker mb-3">JR Importers</div>
+                                                <h1 className="display text-3xl font-extrabold tracking-tight text-white md:text-5xl text-balance">
+                                                    Shop the latest <span className="gradient-text">tech</span>.
                                                 </h1>
-                                                <p className="mt-3 text-sm leading-7 text-slate-400 md:text-base">
-                                                    The catalog now keeps filters, search, and sorting clearer on small screens while staying connected to the same live inventory and checkout flow.
+                                                <p className="mt-3 text-sm leading-7 text-slate-400">
+                                                    Genuine phones, laptops, audio, cameras & more — delivered across Namibia.
                                                 </p>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                                <div className="hero-stat">
-                                                    <div className="text-2xl font-black text-white">{filtered.length}</div>
-                                                    <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">Results</div>
-                                                </div>
-                                                <div className="hero-stat">
-                                                    <div className="text-2xl font-black text-white">{activeFilterCount}</div>
-                                                    <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">Filters</div>
-                                                </div>
-                                                <div className="hero-stat">
-                                                    <div className="text-2xl font-black text-white">{brandCount}</div>
-                                                    <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">Brands</div>
-                                                </div>
-                                                <div className="hero-stat">
-                                                    <div className="text-2xl font-black text-white">{startingPrice > 0 ? formatMoney(startingPrice) : 'Soon'}</div>
-                                                    <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">Entry price</div>
+                                                <div className="relative mt-6 w-full max-w-xl">
+                                                    <i className="fas fa-magnifying-glass absolute left-5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                                                    <input
+                                                        type="search"
+                                                        value={searchQuery}
+                                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                                        placeholder="Search products…"
+                                                        className="glass-input w-full rounded-full py-4 pl-12 pr-5 text-base"
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
@@ -5221,7 +5212,7 @@ Check admin: jrimporters.com/admin.html`;
                                     <button 
                                         onClick={async () => {
                                             await db.auth.signOut();
-                                            setPage('home');
+                                            setPage('shop');
                                             setUser(null);
                                         }}
                                         className="px-6 py-3 bg-slate-800 text-red-400 rounded-xl font-bold uppercase text-xs hover:bg-slate-700 transition"
@@ -5414,7 +5405,7 @@ Check admin: jrimporters.com/admin.html`;
                                         } else {
                                             setUser(data.user);
                                             showNotification('Welcome back!', 'success');
-                                            setPage('home');
+                                            setPage('shop');
                                             setAuthForm({ email: '', password: '', confirmPassword: '', name: '' });
                                         }
                                     }
@@ -5718,7 +5709,7 @@ Check admin: jrimporters.com/admin.html`;
                     {!['checkout', 'auth'].includes(page) && !viewProduct && (
                         <div className="mobile-dock md:hidden">
                             <button
-                                onClick={() => setPage('home')}
+                                onClick={() => setPage('shop')}
                                 className={`dock-button ${page === 'home' ? 'active' : ''}`}
                             >
                                 <i className="fas fa-house text-sm"></i>
