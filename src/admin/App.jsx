@@ -1,153 +1,161 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
-import { Toast } from './components/Toast.jsx';
-import { useAdminData } from './hooks/useAdminData';
-import { formatCurrency } from './lib/format';
-import { getLowStockSuggestions } from './modules/stock/lowStock';
+import React, { useState, Suspense, lazy } from 'react';
+import { Icon, Spinner } from './components/ui.jsx';
+import { useAuth, useData, useRoute, useTill, navigate } from './lib/store.jsx';
+import { cashierName } from './lib/db.js';
 
-const ProductsModule = lazy(() => import('./modules/products/ProductsModule.jsx').then((module) => ({ default: module.ProductsModule })));
-const OrdersModule = lazy(() => import('./modules/orders/OrdersModule.jsx').then((module) => ({ default: module.OrdersModule })));
-const StockModule = lazy(() => import('./modules/stock/StockModule.jsx').then((module) => ({ default: module.StockModule })));
+const Dashboard = lazy(() => import('./views/Dashboard.jsx'));
+const POS = lazy(() => import('./views/POS.jsx'));
+const CashUp = lazy(() => import('./views/CashUp.jsx'));
+const Stock = lazy(() => import('./views/Stock.jsx'));
+const Invoices = lazy(() => import('./views/Invoices.jsx'));
+const Sales = lazy(() => import('./views/Sales.jsx'));
+const People = lazy(() => import('./views/People.jsx'));
+const Expenses = lazy(() => import('./views/Expenses.jsx'));
+const Reports = lazy(() => import('./views/Reports.jsx'));
+const Settings = lazy(() => import('./views/Settings.jsx'));
 
-function LoginScreen({ onSignIn, loading }) {
+const NAV = [
+  { group: 'Sell', items: [
+    { id: 'pos', label: 'Point of sale', icon: Icon.pos },
+  ] },
+  { group: 'Operate', items: [
+    { id: 'cashup', label: 'Cash up', icon: Icon.cash },
+    { id: 'stock', label: 'Stock & products', icon: Icon.box },
+    { id: 'sales', label: 'Sales & orders', icon: Icon.receipt },
+    { id: 'invoices', label: 'Invoices', icon: Icon.invoice },
+  ] },
+  { group: 'Manage', items: [
+    { id: 'people', label: 'Customers & suppliers', icon: Icon.users },
+    { id: 'expenses', label: 'Expenses', icon: Icon.wallet },
+  ] },
+  { group: 'Insights', items: [
+    { id: 'dashboard', label: 'Dashboard', icon: Icon.grid },
+    { id: 'reports', label: 'Reports', icon: Icon.chart },
+    { id: 'settings', label: 'Settings', icon: Icon.cog },
+  ] },
+];
+const FLAT = NAV.flatMap((g) => g.items);
+const TITLES = Object.fromEntries(FLAT.map((i) => [i.id, i.label]));
+const TABS = ['pos', 'stock', 'sales', 'cashup', 'dashboard'];
+
+const VIEWS = { dashboard: Dashboard, pos: POS, cashup: CashUp, stock: Stock, invoices: Invoices, sales: Sales, people: People, expenses: Expenses, reports: Reports, settings: Settings };
+
+function Login() {
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-
-  async function submit(event) {
-    event.preventDefault();
-    setError('');
-    try {
-      await onSignIn(email, password);
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const submit = async (e) => {
+    e.preventDefault(); setErr(''); setBusy(true);
+    try { await signIn(email, password); } catch (e2) { setErr(e2?.message || 'Sign in failed'); } finally { setBusy(false); }
+  };
   return (
-    <main className="login-screen">
-      <form className="login-card" onSubmit={submit}>
-        <p className="eyebrow">JR Importers</p>
-        <h1>Admin Login</h1>
-        <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" required />
-        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" required />
-        {error && <div className="form-error">{error}</div>}
-        <button className="button primary" type="submit" disabled={loading}>Sign In</button>
+    <div className="login">
+      <form className="login__card" onSubmit={submit}>
+        <div className="login__logo">J<i>R</i></div>
+        <div className="eyebrow">JR Importers</div>
+        <h1>Staff sign in</h1>
+        <p>Point of sale &amp; back office — Windhoek.</p>
+        <div className="field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" placeholder="you@jrimporters.com" /></div>
+        <div className="field"><label>Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" /></div>
+        {err && <div className="form-error">{err}</div>}
+        <button className="btn btn--primary btn--block btn--lg" type="submit" disabled={busy}>{busy ? <Spinner /> : 'Sign in'}</button>
       </form>
-    </main>
+    </div>
   );
 }
 
-export function App() {
-  const { db, session, authLoading, data, loading, refresh, signIn, signOut } = useAdminData();
-  const [view, setView] = useState('dashboard');
-  const [toast, setToast] = useState(null);
-
-  function notify(message, type = 'info') {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 3500);
-  }
-
-  const stats = useMemo(() => {
-    const onlineOrders = data.orders.filter((order) => order.payment_method !== 'Cash');
-    const paidOrders = onlineOrders.filter((order) => order.status === 'Paid');
-    return {
-      products: data.products.length,
-      onlineOrders: onlineOrders.length,
-      lowStock: getLowStockSuggestions(data.products).length,
-      revenue: paidOrders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0)
-    };
-  }, [data.orders, data.products]);
-
-  if (authLoading) {
-    return <main className="loading-screen">Checking admin session...</main>;
-  }
-
-  if (!session) {
-    return <LoginScreen onSignIn={signIn} loading={loading} />;
-  }
-
-  const nav = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'products', label: 'Products' },
-    { id: 'orders', label: 'Online Orders' },
-    { id: 'stock', label: 'Low Stock' }
-  ];
-
+function Rail({ view }) {
+  const { user, signOut } = useAuth();
+  const data = useData();
+  const { openShift } = useTill();
+  const lowCount = (data.products || []).filter((p) => Number(p.stock || 0) <= Number(p.reorder_level || 10) && Number(p.stock || 0) >= 0).length;
+  const pendingOrders = (data.orders || []).filter((o) => String(o.status).toLowerCase() === 'pending').length;
+  const badges = { stock: lowCount, sales: pendingOrders };
   return (
-    <div className="admin-app">
-      <Toast toast={toast} onClose={() => setToast(null)} />
-      <aside className="sidebar">
-        <div className="brand-block">
-          <span>JR</span>
-          <div>
-            <strong>JR Importers</strong>
-            <small>Modular Admin</small>
-          </div>
-        </div>
-        <nav>
-          {nav.map((item) => (
-            <button key={item.id} className={view === item.id ? 'active' : ''} type="button" onClick={() => setView(item.id)}>
-              {item.label}
+    <aside className="rail">
+      <div className="rail__brand">
+        <span className="rail__logo">J<i>R</i></span>
+        <span className="rail__title">JR Importers<small>POS · ADMIN</small></span>
+      </div>
+      {NAV.map((g) => (
+        <div key={g.group}>
+          <div className="rail__group">{g.group}</div>
+          {g.items.map((it) => (
+            <button key={it.id} className={`rail__link ${view === it.id ? 'is-active' : ''}`} onClick={() => navigate(`/${it.id}`)}>
+              <it.icon /> {it.label}
+              {badges[it.id] > 0 && <span className="pill">{badges[it.id]}</span>}
             </button>
           ))}
-        </nav>
-        <button className="button ghost" type="button" onClick={signOut}>Sign Out</button>
-      </aside>
+        </div>
+      ))}
+      <div className="rail__spacer" />
+      <div className="rail__user">
+        <span className="login__logo" style={{ width: 34, height: 34, fontSize: 14, marginBottom: 0, borderRadius: 10 }}><Icon.user width={16} height={16} /></span>
+        <div style={{ minWidth: 0 }}>
+          <b>{cashierName(user)}</b>
+          <small>{openShift ? 'Till open' : 'Till closed'}</small>
+        </div>
+        <button className="icon-btn" onClick={signOut} aria-label="Sign out" style={{ marginLeft: 'auto' }}><Icon.logout /></button>
+      </div>
+    </aside>
+  );
+}
 
-      <main className="main-panel">
+function TabBar({ view }) {
+  const data = useData();
+  const lowCount = (data.products || []).filter((p) => Number(p.stock || 0) <= Number(p.reorder_level || 10)).length;
+  const tabIcons = { pos: Icon.pos, stock: Icon.box, sales: Icon.receipt, cashup: Icon.cash, dashboard: Icon.grid };
+  const tabLabels = { pos: 'Sell', stock: 'Stock', sales: 'Sales', cashup: 'Cash', dashboard: 'More' };
+  return (
+    <nav className="tabbar">
+      {TABS.map((id) => {
+        const I = tabIcons[id];
+        return (
+          <button key={id} className={`tab ${view === id ? 'is-active' : ''}`} onClick={() => navigate(`/${id}`)}>
+            {id === 'stock' && lowCount > 0 && <span className="pill" />}
+            <I /> {tabLabels[id]}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+export default function App() {
+  const { ready, user, isAdmin } = useAuth();
+  const { view } = useRoute();
+  const { refresh, loading } = useData();
+
+  if (!ready) return <div className="loading-screen">Checking session…</div>;
+  if (!user) return <Login />;
+
+  const Current = VIEWS[view] || Dashboard;
+  const isPos = view === 'pos';
+
+  return (
+    <div className="app">
+      <Rail view={view} />
+      <main className="main">
         <header className="topbar">
+          <button className="icon-btn menu-btn" onClick={() => navigate('/dashboard')} aria-label="Menu"><Icon.menu /></button>
           <div>
-            <p className="eyebrow">Signed in</p>
-            <h2>{session.user.email}</h2>
+            <h1>{TITLES[view] || 'JR Importers'}</h1>
+            {!isAdmin && <div className="topbar__sub" style={{ color: 'var(--warn)' }}>Limited access — ask an owner to enable admin</div>}
           </div>
-          <button className="button ghost" type="button" onClick={refresh} disabled={loading}>
-            {loading ? 'Refreshing...' : 'Refresh'}
+          <div className="topbar__spacer" />
+          <button className="icon-btn icon-btn--bd" onClick={refresh} aria-label="Refresh data" title="Refresh">
+            {loading ? <Spinner /> : <Icon.refresh />}
           </button>
         </header>
-
-        {view === 'dashboard' && (
-          <section className="module">
-            <header className="module-header">
-              <div>
-                <h1>Dashboard</h1>
-                <p>Focused Vite admin for product, order, and stock workflows.</p>
-              </div>
-            </header>
-            <div className="cards-grid">
-              <article><span>Products</span><strong>{stats.products}</strong></article>
-              <article><span>Online Orders</span><strong>{stats.onlineOrders}</strong></article>
-              <article><span>Low Stock</span><strong>{stats.lowStock}</strong></article>
-              <article><span>Paid Revenue</span><strong>{formatCurrency(stats.revenue)}</strong></article>
-            </div>
-          </section>
-        )}
-
-        <Suspense fallback={<section className="module">Loading module...</section>}>
-          {view === 'products' && (
-            <ProductsModule
-              db={db}
-              products={data.products}
-              productImeis={data.product_imeis}
-              onRefresh={refresh}
-              notify={notify}
-            />
-          )}
-
-          {view === 'orders' && (
-            <OrdersModule db={db} orders={data.orders} onRefresh={refresh} notify={notify} />
-          )}
-
-          {view === 'stock' && (
-            <StockModule
-              db={db}
-              products={data.products}
-              suppliers={data.suppliers}
-              onRefresh={refresh}
-              notify={notify}
-            />
-          )}
-        </Suspense>
+        <div className={`content ${isPos ? 'content--flush' : ''}`}>
+          <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}><Spinner size={26} /></div>}>
+            <Current />
+          </Suspense>
+        </div>
       </main>
+      <TabBar view={view} />
     </div>
   );
 }

@@ -1,14 +1,18 @@
 {
   "appId": "com.jrimporters.admin",
-  "appName": "JR Importers Admin",
+  "appName": "JR Importers POS",
   "webDir": "www",
   "android": {
     "allowMixedContent": false,
-    "backgroundColor": "#050806"
+    "backgroundColor": "#0A0E16"
   },
   "server": {
+    "url": "https://jrimporters.com/admin-app/",
     "androidScheme": "https",
     "allowNavigation": [
+      "jrimporters.com",
+      "*.jrimporters.com",
+      "jr-importers-web.pages.dev",
       "jr-importers.pages.dev",
       "*.supabase.co",
       "secure.3gdirectpay.com",

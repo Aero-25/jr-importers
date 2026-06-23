@@ -49,6 +49,11 @@ jobs:
         working-directory: mobile
         run: npx cap add android
 
+      - name: Add camera permission to AndroidManifest
+        working-directory: mobile
+        run: |
+          node -e "const fs=require('fs');const p='android/app/src/main/AndroidManifest.xml';let x=fs.readFileSync(p,'utf8');if(!x.includes('android.permission.CAMERA')){x=x.replace('<application','    <uses-permission android:name=\"android.permission.CAMERA\" />\n    <uses-feature android:name=\"android.hardware.camera\" android:required=\"false\" />\n\n    <application');fs.writeFileSync(p,x);console.log('camera permission added');}else{console.log('camera permission already present');}"
+
       - name: Generate icons & splash
         working-directory: mobile
         run: npx capacitor-assets generate --android || echo "asset generation skipped"
@@ -79,10 +84,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
-          name: JR Importers Admin — latest APK
+          name: JR Importers POS — latest APK
           body: |
-            Latest JR Importers Admin Android build.
+            Latest JR Importers POS / Admin Android build.
             Download `JR-Importers-Admin.apk`, enable "Install unknown apps", and install.
-            Push notifications require the OneSignal App ID in config.js + Firebase configured in OneSignal.
+
+            - Loads the live admin at https://jrimporters.com/admin-app/ (always up to date).
+            - Camera barcode scanning enabled (grant the camera permission on first scan).
+            - Sign in with your staff account.
           files: out/JR-Importers-Admin.apk
           make_latest: true
