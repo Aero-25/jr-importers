@@ -1,0 +1,71 @@
+// Postbuild: assemble dist/ into a Cloudflare Pages publish directory.
+//
+// Vite emits the multi-page build under dist/src/<app>/index.html with hashed
+// assets in dist/assets (absolute /assets/... URLs, so files can be relocated
+// freely). This script promotes the redesigned storefront to the site root,
+// tucks the in-progress React admin under /admin-app/, and copies the static
+// runtime files the site still serves (legacy admin, PWA, payment worker).
+
+import { promises as fs } from 'node:fs';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const dist = path.join(root, 'dist');
+
+const log = (m) => console.log(`[postbuild] ${m}`);
+
+async function move(from, to) {
+  if (!existsSync(from)) return false;
+  await fs.mkdir(path.dirname(to), { recursive: true });
+  await fs.rename(from, to);
+  return true;
+}
+
+async function copyIn(file) {
+  const from = path.join(root, file);
+  if (!existsSync(from)) { log(`skip (missing): ${file}`); return; }
+  const to = path.join(dist, file);
+  await fs.mkdir(path.dirname(to), { recursive: true });
+  await fs.copyFile(from, to);
+  log(`copied: ${file}`);
+}
+
+async function run() {
+  if (!existsSync(dist)) throw new Error('dist/ not found — run vite build first');
+
+  // 1) Redesigned storefront becomes the site homepage.
+  if (await move(path.join(dist, 'src/storefront/index.html'), path.join(dist, 'index.html'))) {
+    log('storefront -> /index.html');
+  }
+
+  // 2) New React admin lives under /admin-app/ (legacy admin.html stays primary).
+  if (await move(path.join(dist, 'src/admin/index.html'), path.join(dist, 'admin-app/index.html'))) {
+    log('react admin -> /admin-app/index.html');
+  }
+
+  // 3) Drop the now-empty src/ scaffolding from the output.
+  await fs.rm(path.join(dist, 'src'), { recursive: true, force: true });
+
+  // 4) Carry over the static runtime files the deployed site still needs.
+  const staticFiles = [
+    '_worker.js',          // Pages advanced-mode worker: /api/* + static fallthrough
+    'config.js',           // runtime Supabase/worker config (window.JR_CONFIG)
+    'icon.svg',
+    'manifest.webmanifest',
+    'admin.webmanifest',
+    'sw.js',
+    'offline.html',
+    'privacy.html',
+    'terms.html',
+    'admin.html',          // full legacy admin/POS (primary admin for now)
+    'app-shell.js',
+    'OneSignalSDKWorker.js',
+  ];
+  for (const f of staticFiles) await copyIn(f);
+
+  log('done — dist/ is ready for Cloudflare Pages (output directory: dist)');
+}
+
+run().catch((e) => { console.error(e); process.exit(1); });
