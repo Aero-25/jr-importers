@@ -1,0 +1,36 @@
+.DS_Store
+Thumbs.db
+
+# Local/editor files
+.vscode/
+.idea/
+*.swp
+
+# Supabase local/runtime artifacts
+.env
+.env.*
+!.env.example
+.supabase/
+supabase/.temp/
+
+# Logs and dependency folders if tooling is added later
+*.log
+node_modules/
+dist/
+build/
+
+# Local QA tooling and generated screenshots
+.tooling/node_modules/
+.shots/
+.seed_body.json
+
+.cf_token
+mobile/node_modules/
+mobile/android/
+mobile/www/config.js
+mobile/www/app-shell.js
+mobile/www/sw.js
+mobile/www/icon.svg
+mobile/www/OneSignalSDKWorker.js
+mobile/www/admin.webmanifest
+mobile/www/offline.html

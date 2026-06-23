@@ -1,0 +1,1 @@
+{"name":"jr-tooling","private":true,"dependencies":{"playwright":"^1.60.0","wrangler":"^4.100.0"}}

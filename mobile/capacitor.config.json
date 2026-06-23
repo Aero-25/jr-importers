@@ -1,0 +1,22 @@
+{
+  "appId": "com.jrimporters.admin",
+  "appName": "JR Importers Admin",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#050806"
+  },
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "jr-importers.pages.dev",
+      "*.supabase.co",
+      "secure.3gdirectpay.com",
+      "api.emailjs.com",
+      "*.onesignal.com"
+    ]
+  },
+  "plugins": {
+    "CapacitorHttp": { "enabled": false }
+  }
+}
