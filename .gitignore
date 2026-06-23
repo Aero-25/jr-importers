@@ -34,3 +34,6 @@ mobile/www/icon.svg
 mobile/www/OneSignalSDKWorker.js
 mobile/www/admin.webmanifest
 mobile/www/offline.html
+
+.supabase_token
+.cf_token
