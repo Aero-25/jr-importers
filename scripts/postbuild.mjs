@@ -40,15 +40,21 @@ async function run() {
     log('storefront -> /index.html');
   }
 
-  // 2) New React admin lives under /admin-app/ (legacy admin.html stays primary).
-  if (await move(path.join(dist, 'src/admin/index.html'), path.join(dist, 'admin-app/index.html'))) {
-    log('react admin -> /admin-app/index.html');
+  // 2) New React POS/admin is the primary admin, served at /admin.
+  //    Also mirror it at /admin-app/ so already-installed APKs keep working.
+  if (await move(path.join(dist, 'src/admin/index.html'), path.join(dist, 'admin/index.html'))) {
+    log('react admin -> /admin/index.html');
+    await fs.mkdir(path.join(dist, 'admin-app'), { recursive: true });
+    await fs.copyFile(path.join(dist, 'admin/index.html'), path.join(dist, 'admin-app/index.html'));
+    log('react admin mirrored -> /admin-app/index.html');
   }
 
   // 3) Drop the now-empty src/ scaffolding from the output.
   await fs.rm(path.join(dist, 'src'), { recursive: true, force: true });
 
   // 4) Carry over the static runtime files the deployed site still needs.
+  //    NOTE: legacy admin.html is parked at /admin-legacy.html (not /admin) —
+  //    the new POS owns /admin now.
   const staticFiles = [
     '_worker.js',          // Pages advanced-mode worker: /api/* + static fallthrough
     'config.js',           // runtime Supabase/worker config (window.JR_CONFIG)
@@ -59,11 +65,16 @@ async function run() {
     'offline.html',
     'privacy.html',
     'terms.html',
-    'admin.html',          // full legacy admin/POS (primary admin for now)
     'app-shell.js',
     'OneSignalSDKWorker.js',
   ];
   for (const f of staticFiles) await copyIn(f);
+
+  // Park the legacy admin out of the way (keep it reachable as a backup).
+  if (existsSync(path.join(root, 'admin.html'))) {
+    await fs.copyFile(path.join(root, 'admin.html'), path.join(dist, 'admin-legacy.html'));
+    log('legacy admin -> /admin-legacy.html');
+  }
 
   log('done — dist/ is ready for Cloudflare Pages (output directory: dist)');
 }

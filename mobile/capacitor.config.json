@@ -7,7 +7,7 @@
     "backgroundColor": "#0A0E16"
   },
   "server": {
-    "url": "https://jrimporters.com/admin-app/",
+    "url": "https://jrimporters.com/admin/",
     "androidScheme": "https",
     "allowNavigation": [
       "jrimporters.com",
