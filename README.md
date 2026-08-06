@@ -1,33 +1,81 @@
 # JR Importers
 
-Static storefront, admin/POS dashboard, Cloudflare Worker payment endpoints, and Supabase schema for JR Importers.
+Storefront and retail/POS console for a Namibian electronics importer, on
+Supabase with a Cloudflare Worker for DPO payments.
 
-## Important Files
+- **Storefront** — catalogue, product pages, cart, checkout, customer accounts
+- **Retail console** — POS terminal, orders, dispatch, stock, documents, ledger
+- **Supabase** — 25 tables, RLS on every one, stock integrity enforced in SQL
+- **PWA** — offline shell, installable; the console also ships as an Android APK
+  via Capacitor (`mobile/`)
 
-- `index.html` - customer storefront.
-- `admin.html` - retail manager/admin/POS interface.
-- `_worker.js` - Cloudflare Worker endpoints for DPO token creation and verification.
-- `config.js` - runtime Supabase and worker configuration.
-- `supabase/migrations/` - database schema, functions, RLS policies, and storage bucket setup.
-- `docs/MIGRATION.md` - new Supabase project migration checklist.
+## Quick start
 
-## Configure Supabase
-
-Update `config.js` after creating the new Supabase project:
-
-```js
-window.JR_CONFIG = Object.freeze({
-    SUPABASE_URL: 'https://your-project.supabase.co',
-    SUPABASE_ANON_KEY: 'your-anon-key',
-    LOGO_URL: '/icon.svg',
-    AERO_LOGO_URL: '/icon.svg',
-    SMS_WORKER_URL: '',
-    WHATSAPP_WORKER_URL: ''
-});
+```bash
+npm install
+npm run dev          # storefront at /index.html, console at /admin.html
 ```
 
-Apply the migration in `supabase/migrations/20260612000000_initial_jr_importers_schema.sql`, then promote the first admin user as shown in `docs/MIGRATION.md`.
+| Command | Does |
+| --- | --- |
+| `npm run dev` | Vite dev server, both entries |
+| `npm run build` | typecheck, then build to `dist/` |
+| `npm run typecheck` | TypeScript only |
+| `npm run gen:types` | regenerate `src/lib/database.types.ts` from the linked Supabase project |
 
-## Local Preview
+## Configuration
 
-Because this is a static app, serve the folder from a local web server so `/config.js`, `/app-shell.js`, and the service worker resolve correctly.
+Copy `.env.example` to `.env` and fill in:
+
+```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-publishable-key
+```
+
+Build-time `VITE_*` values win; otherwise the app falls back to
+`window.JR_CONFIG` in `app/public/config.js`. That fallback is deliberate — the
+Android shell and the Cloudflare deploy swap that file to retarget an
+environment without rebuilding.
+
+The anon key is safe to commit; RLS is the real boundary. A service-role key is
+not, and does not belong in this repository.
+
+## Database
+
+Migrations are in `supabase/migrations/`, applied in filename order.
+
+**`20260806000000_stock_integrity_and_rls_hardening.sql` is not optional.** It
+closes two policies that let any signed-in customer rewrite any product's stock
+or mark any IMEI sold, and it adds the `reserve_order_stock` /
+`release_order_stock` functions that checkout and the POS both depend on.
+Without it, placing an order fails.
+
+See [docs/MIGRATION.md](docs/MIGRATION.md) for the new-project checklist and
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the code is organised and
+why.
+
+## Layout
+
+```
+app/            Vite entries + static assets (config.js, icons, manifests, legal)
+src/lib/        schema types, Supabase client, money/VAT/date formatting
+src/ui/         design system shared by both apps
+src/data/       React Query hooks, one module per domain
+src/shop/       storefront
+src/admin/      retail console
+supabase/       migrations
+mobile/         Capacitor Android shell for the console
+_worker.js      Cloudflare Worker — DPO payment token creation and verification
+```
+
+## Deployment
+
+`.github/workflows/deploy-pages.yml` installs, typechecks, builds and publishes
+`dist/` on every push to `main`. Set `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` as repository secrets.
+
+## Note for local development on Windows
+
+If this repository lives inside a OneDrive-synced folder, exclude `node_modules/`
+and `dist/` from sync. A cold build otherwise takes upwards of fifteen minutes
+against roughly ten seconds of real work.
