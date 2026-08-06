@@ -49,9 +49,48 @@ export default {
       return handleVerifyToken(request);
     }
 
-    return env.ASSETS.fetch(request);
+    return serveAsset(request, env);
   }
 };
+
+/**
+ * Static assets, with an SPA fallback for the storefront.
+ *
+ * A `_worker.js` at the root puts Pages in advanced mode, where `_redirects`
+ * and the automatic `404.html` handling are both bypassed — this worker owns
+ * routing, and `env.ASSETS` simply 404s on anything without a matching file.
+ *
+ * The storefront uses history routing, so `/shop`, `/product/…` and the
+ * `/jobcard/<token>` link customers open from WhatsApp have no file behind
+ * them. Those must resolve to the storefront shell rather than 404.
+ *
+ * Only navigation requests are rewritten. A missing image or script must keep
+ * returning 404, otherwise a typo'd asset URL silently returns HTML and the
+ * failure surfaces much later as a confusing parse error.
+ *
+ * `/admin` is excluded: the console is its own document, and it uses hash
+ * routing, so it never produces an unmatched path of its own.
+ */
+async function serveAsset(request, env) {
+  const response = await env.ASSETS.fetch(request);
+  if (response.status !== 404) return response;
+
+  const url = new URL(request.url);
+  const wantsHtml = (request.headers.get('accept') || '').includes('text/html');
+  const isAdmin = url.pathname === '/admin' || url.pathname.startsWith('/admin/');
+
+  if (request.method !== 'GET' || !wantsHtml || isAdmin) return response;
+
+  const shell = await env.ASSETS.fetch(new Request(new URL('/index.html', url), request));
+  if (!shell.ok) return response;
+
+  // 200, not a redirect: the browser keeps the deep link in the address bar
+  // and the router reads it on boot.
+  return new Response(shell.body, {
+    status: 200,
+    headers: shell.headers
+  });
+}
 
 function isAllowedOrigin(origin) {
   return ALLOWED_ORIGIN_PATTERNS.some((pattern) => pattern.test(origin));
