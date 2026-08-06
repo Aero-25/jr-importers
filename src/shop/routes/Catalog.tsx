@@ -7,6 +7,7 @@ import { money } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Button, EmptyState, ErrorState, Select } from '@/ui';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
+import { ChipRail } from '../components/ChipRail';
 import { useSeo, breadcrumbJsonLd } from '../seo';
 
 const SORTS: Array<{ value: CatalogSort; label: string }> = [
@@ -87,6 +88,8 @@ export default function Catalog() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
+      <ChipRail className="-mx-4 mb-6" />
+
       <header className="mb-6">
         <h1 className="font-display text-3xl font-bold tracking-tight text-ink">{title}</h1>
         <p className="mt-1 text-sm text-ink-muted">

@@ -1,18 +1,22 @@
 /*
- * JR Importers colour tokens — navy, lime and grey on white.
+ * JR Importers — Liquid Glass.
  *
- * Values are bare `R G B` triplets so Tailwind can apply `<alpha-value>`.
+ * Apple's Liquid Glass is a *material*, not a colour scheme: it ships in both
+ * light and dark. So the ground is a token like everything else.
  *
- * On the use of lime: at ~1.5:1 against white it is unreadable as text, so it
- * is never used for one. It is an action surface — lime fill, deep navy label,
- * around 8:1 — which reads brighter than lime text ever could while staying
- * legible in sunlight on a phone.
+ *   [data-field="light"]  white with soft navy/lime blooms   (default)
+ *   [data-field="navy"]   the deep navy light field
  *
- * Navy carries text and structure; grey carries separation; white is the page.
+ * Glass tokens are separate from surface tokens because a glass panel is not a
+ * lighter surface — it is a translucency, an edge highlight and a blur, and all
+ * three have to change together when the ground changes.
+ *
+ * On lime: never a text colour. At ~1.5:1 on white it is unreadable. It is an
+ * action surface — lime fill, deep navy label, ~8:1.
  */
 
 :root,
-[data-theme='light'] {
+[data-field='light'] {
   --c-canvas: 255 255 255;
   --c-surface: 255 255 255;
   --c-raised: 246 248 251;
@@ -24,7 +28,6 @@
   --c-ink-subtle: 138 152 170;
   --c-ink-inverse: 255 255 255;
 
-  /* Navy */
   --c-brand-50: 239 244 249;
   --c-brand-100: 216 228 240;
   --c-brand-200: 176 199 223;
@@ -36,7 +39,6 @@
   --c-brand-800: 9 27 45;
   --c-brand-900: 6 18 31;
 
-  /* Lime */
   --c-lime-300: 217 249 157;
   --c-lime-400: 190 242 100;
   --c-lime-500: 163 230 53;
@@ -52,14 +54,93 @@
   --c-info: 23 65 107;
   --c-info-soft: 226 236 246;
 
+  /* ── Glass ─────────────────────────────────────────────────────────── */
+  /* Tint is white-on-light so panels read as frosted rather than dirty. */
+  --glass-tint: 255 255 255;
+  --glass-alpha: 0.62;
+  --glass-alpha-strong: 0.82;
+  --glass-border: 13 38 63;
+  --glass-border-alpha: 0.10;
+  /* The specular highlight along the top edge, where light catches. */
+  --glass-specular: 255 255 255;
+  --glass-specular-alpha: 0.9;
+  --glass-blur: 22px;
+  --glass-shadow: 0 18px 44px -22px rgb(13 38 63 / 0.30);
+
+  /* The ambient field behind everything. */
+  --field-base: 255 255 255;
+  --field-bloom-a: 163 230 53;
+  --field-bloom-a-alpha: 0.18;
+  --field-bloom-b: 23 65 107;
+  --field-bloom-b-alpha: 0.14;
+  --field-bloom-c: 132 204 22;
+  --field-bloom-c-alpha: 0.10;
+
   color-scheme: light;
 }
 
-/*
- * Dark variant, offered only in the POS console. A late stock take under
- * workshop lighting is a different problem from a shop floor at midday, so
- * staff can switch; the storefront stays light.
- */
+[data-field='navy'] {
+  --c-canvas: 7 22 39;
+  --c-surface: 11 30 52;
+  --c-raised: 16 40 66;
+  --c-overlay: 21 50 80;
+  --c-hairline: 44 74 110;
+
+  --c-ink: 236 243 251;
+  --c-ink-muted: 168 190 214;
+  --c-ink-subtle: 122 148 178;
+  --c-ink-inverse: 7 22 39;
+
+  --c-brand-50: 6 18 31;
+  --c-brand-100: 200 222 245;
+  --c-brand-200: 168 200 232;
+  --c-brand-300: 148 186 224;
+  --c-brand-400: 116 160 208;
+  --c-brand-500: 86 134 190;
+  --c-brand-600: 62 108 164;
+  --c-brand-700: 210 228 246;
+  --c-brand-800: 9 27 45;
+  --c-brand-900: 6 18 31;
+
+  --c-lime-300: 217 249 157;
+  --c-lime-400: 190 242 100;
+  --c-lime-500: 163 230 53;
+  --c-lime-600: 132 204 22;
+  --c-lime-700: 190 242 100;
+
+  --c-success: 74 214 130;
+  --c-success-soft: 18 52 36;
+  --c-warn: 240 176 64;
+  --c-warn-soft: 58 44 18;
+  --c-danger: 248 113 113;
+  --c-danger-soft: 62 26 30;
+  --c-info: 148 186 224;
+  --c-info-soft: 20 44 72;
+
+  /* Tint flips to white-on-dark at much lower alpha — the same 0.62 that
+     frosts a light ground would wash a dark one out completely. */
+  --glass-tint: 255 255 255;
+  --glass-alpha: 0.10;
+  --glass-alpha-strong: 0.16;
+  --glass-border: 255 255 255;
+  --glass-border-alpha: 0.20;
+  --glass-specular: 255 255 255;
+  --glass-specular-alpha: 0.42;
+  --glass-blur: 26px;
+  --glass-shadow: 0 20px 50px -24px rgb(0 0 0 / 0.7);
+
+  --field-base: 7 22 39;
+  --field-bloom-a: 163 230 53;
+  --field-bloom-a-alpha: 0.30;
+  --field-bloom-b: 56 132 214;
+  --field-bloom-b-alpha: 0.40;
+  --field-bloom-c: 163 230 53;
+  --field-bloom-c-alpha: 0.16;
+
+  color-scheme: dark;
+}
+
+/* The console keeps its own light/dark switch, unchanged by the shop's field. */
 [data-theme='dark'] {
   --c-canvas: 8 16 26;
   --c-surface: 13 24 38;
@@ -72,22 +153,11 @@
   --c-ink-subtle: 110 130 154;
   --c-ink-inverse: 8 16 26;
 
-  --c-brand-50: 6 18 31;
-  --c-brand-100: 9 27 45;
-  --c-brand-200: 13 38 63;
   --c-brand-300: 143 180 219;
   --c-brand-400: 108 152 199;
   --c-brand-500: 74 124 180;
   --c-brand-600: 56 100 152;
-  --c-brand-700: 40 76 120;
-  --c-brand-800: 26 54 88;
-  --c-brand-900: 16 36 60;
-
-  --c-lime-300: 217 249 157;
-  --c-lime-400: 190 242 100;
-  --c-lime-500: 163 230 53;
-  --c-lime-600: 132 204 22;
-  --c-lime-700: 101 163 13;
+  --c-brand-700: 210 228 246;
 
   --c-success: 74 214 130;
   --c-success-soft: 18 52 36;
@@ -97,6 +167,12 @@
   --c-danger-soft: 62 26 30;
   --c-info: 125 176 232;
   --c-info-soft: 20 40 64;
+
+  --glass-tint: 255 255 255;
+  --glass-alpha: 0.08;
+  --glass-border: 255 255 255;
+  --glass-border-alpha: 0.16;
+  --glass-specular-alpha: 0.32;
 
   color-scheme: dark;
 }

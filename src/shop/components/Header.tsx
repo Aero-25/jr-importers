@@ -51,10 +51,10 @@ export function Header() {
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 border-b transition-colors duration-200',
-        scrolled
-          ? 'border-hairline bg-canvas/90 backdrop-blur-lg'
-          : 'border-transparent bg-canvas',
+        'sticky top-0 z-40 transition-all duration-300',
+        // Glass only once there is content behind it to refract. Frosting an
+        // empty header at the top of the page just looks like a grey bar.
+        scrolled ? 'glass glass-strong border-b' : 'border-b border-transparent',
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4">

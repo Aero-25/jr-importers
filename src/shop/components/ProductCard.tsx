@@ -4,6 +4,7 @@ import type { ProductRow } from '@/lib/database.types';
 import { money, slugify } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Badge, Button, StockBadge } from '@/ui';
+import { useSpecular } from '@/ui/effects';
 import { useCart } from '@/data/cart';
 import { useToast } from '@/ui';
 
@@ -23,6 +24,7 @@ export function ProductCard({
 }) {
   const { add } = useCart();
   const toast = useToast();
+  const { specularProps } = useSpecular<HTMLElement>();
   const outOfStock = product.stock <= 0;
 
   function addToCart() {
@@ -36,10 +38,11 @@ export function ProductCard({
 
   return (
     <article
+      {...specularProps}
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-card border border-hairline bg-surface',
-        'transition-[transform,box-shadow,border-color] duration-200 ease-out',
-        'hover:-translate-y-1 hover:border-brand-300 hover:shadow-lift',
+        'group glass sheen relative flex flex-col overflow-hidden rounded-2xl',
+        'transition-[transform,filter] duration-300 ease-out',
+        'hover:-translate-y-1 hover:brightness-[1.03]',
         className,
       )}
     >
@@ -50,7 +53,7 @@ export function ProductCard({
       */}
       <Link
         to={productPath(product)}
-        className="relative block aspect-square overflow-hidden bg-raised"
+        className="relative block aspect-square overflow-hidden bg-white/40"
       >
         {product.image ? (
           <img

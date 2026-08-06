@@ -9,7 +9,8 @@ export type ButtonVariant =
   | 'outline'
   | 'danger'
   | 'success'
-  | 'lime';
+  | 'lime'
+  | 'glass';
 
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -25,6 +26,9 @@ const VARIANTS: Record<ButtonVariant, string> = {
   success: 'bg-success text-white hover:brightness-110 active:brightness-95',
   // Deep navy label, not white: white on lime is ~1.7:1 and unreadable.
   lime: 'bg-lime-500 text-brand-800 font-semibold hover:bg-lime-400 active:bg-lime-600',
+  // The material itself. Contrast comes from the ink token, so it stays
+  // legible on either ground.
+  glass: 'glass text-ink font-medium hover:brightness-105 active:brightness-95',
 };
 
 const SIZES: Record<ButtonSize, string> = {

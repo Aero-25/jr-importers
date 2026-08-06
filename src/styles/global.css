@@ -14,19 +14,6 @@
     scroll-behavior: smooth;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    html {
-      scroll-behavior: auto;
-    }
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
-  }
-
   body {
     @apply bg-canvas font-sans text-ink antialiased;
     text-rendering: optimizeLegibility;
@@ -38,7 +25,7 @@
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-brand-400 ring-offset-2 ring-offset-canvas;
+    @apply outline-none ring-2 ring-lime-500 ring-offset-2 ring-offset-canvas;
   }
 
   ::-webkit-scrollbar {
@@ -46,7 +33,7 @@
     height: 10px;
   }
   ::-webkit-scrollbar-track {
-    background: rgb(var(--c-canvas));
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
     background: rgb(var(--c-hairline));
@@ -55,14 +42,147 @@
   ::-webkit-scrollbar-thumb:hover {
     background: rgb(var(--c-ink-subtle));
   }
+
+  /*
+   * Everything below is motion. It is switched off wholesale rather than
+   * softened — a vestibular trigger is not made safe by being slower.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+    .field::before,
+    .field::after {
+      animation: none !important;
+    }
+    .reveal {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
 }
 
 @layer components {
-  /* Frosted panel used across storefront hero cards and console surfaces. */
+  /* ── The ambient light field ────────────────────────────────────────
+     Glass has nothing to refract without something behind it. This is
+     that something: three slow blooms over the base colour.
+
+     Deliberately plain gradients rather than blur or canvas. It is fixed
+     and full-viewport, so it composites once and costs nothing to scroll
+     past — which matters when the customer is browsing on the mid-range
+     Android we are trying to sell them.
+     ─────────────────────────────────────────────────────────────────── */
+  /* z-index 0 with content layered above, not -1. A negative index drops
+     behind the body background and the field disappears entirely. */
+  .field {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: rgb(var(--field-base));
+  }
+
+  .field::before,
+  .field::after {
+    content: '';
+    position: absolute;
+    inset: -25%;
+    will-change: transform;
+  }
+
+  .field::before {
+    background:
+      radial-gradient(
+        38% 40% at 14% 12%,
+        rgb(var(--field-bloom-a) / var(--field-bloom-a-alpha)),
+        transparent 68%
+      ),
+      radial-gradient(
+        42% 44% at 86% 20%,
+        rgb(var(--field-bloom-b) / var(--field-bloom-b-alpha)),
+        transparent 66%
+      );
+    animation: field-drift-a 34s ease-in-out infinite alternate;
+  }
+
+  .field::after {
+    background: radial-gradient(
+      46% 42% at 50% 96%,
+      rgb(var(--field-bloom-c) / var(--field-bloom-c-alpha)),
+      transparent 64%
+    );
+    animation: field-drift-b 46s ease-in-out infinite alternate;
+  }
+
+  /* ── The material ───────────────────────────────────────────────────
+     A glass panel is three things at once: a translucency, a blur of
+     whatever sits behind, and a specular highlight along the top edge
+     where light catches. Miss the third and it reads as a flat tint.
+     ─────────────────────────────────────────────────────────────────── */
   .glass {
-    background: rgb(var(--c-surface) / 0.78);
-    backdrop-filter: blur(12px) saturate(1.4);
-    border: 1px solid rgb(var(--c-hairline) / 0.9);
+    position: relative;
+    background: rgb(var(--glass-tint) / var(--glass-alpha));
+    border: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--glass-specular) / var(--glass-specular-alpha)),
+      var(--glass-shadow);
+  }
+
+  /* For nav and anything that must stay legible over busy content. */
+  .glass-strong {
+    background: rgb(var(--glass-tint) / var(--glass-alpha-strong));
+    backdrop-filter: blur(calc(var(--glass-blur) + 8px)) saturate(200%);
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 8px)) saturate(200%);
+  }
+
+  /*
+   * Pointer-tracked sheen. `useSpecular` writes --mx/--my as percentages;
+   * the highlight is painted on a pseudo-element so it never tints the
+   * panel's own content. Falls back to invisible when JS has not run.
+   */
+  .sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease-out;
+    background: radial-gradient(
+      22rem 22rem at var(--mx, 50%) var(--my, 0%),
+      rgb(var(--glass-specular) / 0.22),
+      transparent 60%
+    );
+  }
+  .sheen:hover::after,
+  .sheen:focus-within::after {
+    opacity: 1;
+  }
+
+  /* ── Scroll reveal ──────────────────────────────────────────────────
+     One-shot: `useReveal` adds .is-in and disconnects. Nothing re-animates
+     on the way back up, which is where scroll effects usually become
+     irritating.
+     ─────────────────────────────────────────────────────────────────── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.is-in {
+    opacity: 1;
+    transform: none;
   }
 
   .skeleton {
@@ -71,16 +191,10 @@
   .skeleton::after {
     @apply absolute inset-0 animate-shimmer;
     content: '';
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgb(var(--c-ink) / 0.06),
-      transparent
-    );
+    background: linear-gradient(90deg, transparent, rgb(var(--c-ink) / 0.06), transparent);
     transform: translateX(-100%);
   }
 
-  /* Anything inside this only exists for screen readers and crawlers. */
   .sr-only-focusable:not(:focus):not(:focus-within) {
     position: absolute;
     width: 1px;
@@ -94,13 +208,38 @@
   }
 }
 
+@keyframes field-drift-a {
+  from {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(3%, 2%, 0) scale(1.08);
+  }
+}
+
+@keyframes field-drift-b {
+  from {
+    transform: translate3d(2%, 1%, 0) scale(1.06);
+  }
+  to {
+    transform: translate3d(-2%, -3%, 0) scale(1);
+  }
+}
+
 @media print {
   /* Invoices, quotes, layby agreements and till reports all print from POS. */
   body {
     background: #fff;
     color: #000;
   }
+  .field,
   .no-print {
     display: none !important;
+  }
+  .glass {
+    background: #fff !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
   }
 }

@@ -28,21 +28,27 @@ export function ShopApp() {
   if (location.pathname.startsWith('/jobcard/')) {
     return (
       <div className="min-h-screen bg-canvas">
-        <Suspense fallback={<LoadingScreen />}>
-          <Routes location={location}>
-            <Route path="/jobcard/:token" element={<JobCardAccept />} />
-          </Routes>
-        </Suspense>
+        <div className="field" aria-hidden />
+        <div className="relative z-10">
+          <Suspense fallback={<LoadingScreen />}>
+            <Routes location={location}>
+              <Route path="/jobcard/:token" element={<JobCardAccept />} />
+            </Routes>
+          </Suspense>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas">
+    <div className="flex min-h-screen flex-col">
+      {/* The ambient light field. Glass has nothing to refract without it. */}
+      <div className="field" aria-hidden />
+
       <ScrollToTop />
       <Header />
 
-      <main id="main" className="flex-1">
+      <main id="main" className="relative z-10 flex-1">
         {!isConfigured && (
           <div className="mx-auto max-w-5xl px-4 pt-4">
             <Notice tone="warn" title="Store not connected">

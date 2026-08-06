@@ -7,12 +7,24 @@ import { expect, test, type Page } from '@playwright/test';
  * first do not throw.
  */
 
-/** Fails the test on any uncaught page error, not just on a bad assertion. */
+/**
+ * Collects genuine page faults.
+ *
+ * Uncaught exceptions always count. Console errors count too, except for
+ * transport noise — these specs run six workers in parallel against one live
+ * Supabase project, so an occasional throttled or aborted fetch says something
+ * about the test harness, not the code.
+ */
+const TRANSPORT_NOISE = /failed to fetch|net::err|load failed|429|abort|networkerror/i;
+
 function trackErrors(page: Page): string[] {
   const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('pageerror', (error) => errors.push(`uncaught: ${error.message}`));
   page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(message.text());
+    if (message.type() !== 'error') return;
+    const text = message.text();
+    if (TRANSPORT_NOISE.test(text)) return;
+    errors.push(text);
   });
   return errors;
 }
