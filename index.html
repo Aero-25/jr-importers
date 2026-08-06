@@ -29,6 +29,7 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
@@ -1250,6 +1251,12 @@
         .scroll-cue { animation: cue 1.8s ease-in-out infinite; }
         @keyframes cue { 0%,100% { transform: translateY(0); opacity: .65; } 50% { transform: translateY(8px); opacity: 1; } }
 
+        /* 3D Android mascot stage */
+        .android-stage{ width:100%; height:340px; max-width:480px; cursor:grab;
+            filter: drop-shadow(0 30px 60px rgba(163,230,53,0.25)); }
+        .android-stage canvas{ display:block; width:100% !important; height:100% !important; }
+        @media (min-width:1024px){ .android-stage{ height:480px; } }
+
         /* ===== Shop group tabs + brand sidebar ===== */
         .group-tab{display:inline-flex;align-items:center;gap:.6rem;padding:.8rem 1.5rem;border-radius:999px;font-family:var(--font-display);font-weight:700;font-size:1rem;color:#c9d1c6;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);transition:all .25s cubic-bezier(.2,.7,.2,1);cursor:pointer}
         .group-tab:hover{color:#fff;border-color:rgba(163,230,53,.45);transform:translateY(-1px)}
@@ -1351,7 +1358,7 @@
         console.log('ReactDOM available:', typeof ReactDOM);
         console.log('Babel running:', true);
         
-        const { useState, useEffect, useCallback, useMemo, useDeferredValue } = React;
+        const { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } = React;
 
         // SUPABASE CONFIG
         console.log('Initializing Supabase...');
@@ -1402,6 +1409,126 @@
                     </div>
                 </div>
             );
+        }
+
+        // 3D interactive Android mascot (Three.js) — turns to follow the cursor.
+        function AndroidBot() {
+            const mountRef = useRef(null);
+            useEffect(() => {
+                const mount = mountRef.current;
+                if (!mount || !window.THREE) return;
+                const THREE = window.THREE;
+                let width = mount.clientWidth || 420;
+                let height = mount.clientHeight || 460;
+
+                let renderer;
+                try {
+                    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+                } catch (e) { return; }
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+                renderer.setSize(width, height);
+                mount.appendChild(renderer.domElement);
+
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
+                camera.position.set(0, 0.4, 9);
+
+                // Lighting — bright key + lime rim glow.
+                scene.add(new THREE.AmbientLight(0xbfe8a0, 0.55));
+                const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(4, 6, 6); scene.add(key);
+                const rim = new THREE.PointLight(0xa3e635, 2.2, 40); rim.position.set(-5, 2, 3); scene.add(rim);
+                const fill = new THREE.PointLight(0x22d3ee, 0.9, 40); fill.position.set(5, -2, 4); scene.add(fill);
+
+                const green = new THREE.MeshStandardMaterial({ color: 0x9ee84b, roughness: 0.35, metalness: 0.15, emissive: 0x2c4b12, emissiveIntensity: 0.35 });
+                const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, emissive: 0x223044, emissiveIntensity: 0.2 });
+
+                const bot = new THREE.Group();
+                const head = new THREE.Group();
+
+                // Dome head (top hemisphere).
+                const dome = new THREE.Mesh(new THREE.SphereGeometry(1.25, 48, 32, 0, Math.PI * 2, 0, Math.PI / 2), green);
+                head.add(dome);
+                // Eyes.
+                const eyeGeo = new THREE.SphereGeometry(0.16, 24, 24);
+                const eyeL = new THREE.Mesh(eyeGeo, white); eyeL.position.set(-0.45, 0.5, 1.08);
+                const eyeR = new THREE.Mesh(eyeGeo, white); eyeR.position.set(0.45, 0.5, 1.08);
+                head.add(eyeL, eyeR);
+                // Antennae.
+                const antGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.95, 12);
+                const antL = new THREE.Mesh(antGeo, green); antL.position.set(-0.62, 1.15, 0); antL.rotation.z = 0.5;
+                const antR = new THREE.Mesh(antGeo, green); antR.position.set(0.62, 1.15, 0); antR.rotation.z = -0.5;
+                head.add(antL, antR);
+                head.position.y = 1.15;
+                bot.add(head);
+
+                // Body (rounded-top cylinder).
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 1.7, 48, 1), green);
+                body.position.y = 0.25; bot.add(body);
+                const belly = new THREE.Mesh(new THREE.SphereGeometry(1.25, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2), green);
+                belly.position.y = 1.1; bot.add(belly);
+                const base = new THREE.Mesh(new THREE.CircleGeometry(1.25, 48), green); base.rotation.x = -Math.PI / 2; base.position.y = -0.6; bot.add(base);
+
+                // Limbs.
+                const limb = (x, y, h) => {
+                    const g = new THREE.Group();
+                    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, h, 24), green);
+                    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.32, 24, 24), green); cap.position.y = -h / 2;
+                    g.add(cyl, cap); g.position.set(x, y, 0); return g;
+                };
+                bot.add(limb(-1.65, 0.35, 1.25)); // arm L
+                bot.add(limb(1.65, 0.35, 1.25));  // arm R
+                bot.add(limb(-0.5, -1.35, 0.9));  // leg L
+                bot.add(limb(0.5, -1.35, 0.9));   // leg R
+
+                bot.scale.set(1.18, 1.18, 1.18);
+                scene.add(bot);
+
+                // Pointer tracking → target rotation.
+                const target = { x: 0, y: 0 };
+                const onMove = (e) => {
+                    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+                    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+                    target.x = (cx / window.innerWidth) * 2 - 1;
+                    target.y = (cy / window.innerHeight) * 2 - 1;
+                };
+                window.addEventListener('mousemove', onMove, { passive: true });
+                window.addEventListener('touchmove', onMove, { passive: true });
+
+                let raf, t = 0, disposed = false;
+                const animate = () => {
+                    if (disposed) return;
+                    raf = requestAnimationFrame(animate);
+                    t += 0.016;
+                    const ry = target.x * 0.9;
+                    const rx = target.y * 0.45;
+                    bot.rotation.y += (ry - bot.rotation.y) * 0.08;
+                    bot.rotation.x += (rx - bot.rotation.x) * 0.08;
+                    head.rotation.y += ((ry * 0.5) - head.rotation.y) * 0.1;
+                    head.rotation.x += ((rx * 0.6) - head.rotation.x) * 0.1;
+                    bot.position.y = Math.sin(t * 1.4) * 0.12;
+                    renderer.render(scene, camera);
+                };
+                animate();
+
+                const onResize = () => {
+                    width = mount.clientWidth; height = mount.clientHeight;
+                    if (!width || !height) return;
+                    camera.aspect = width / height; camera.updateProjectionMatrix();
+                    renderer.setSize(width, height);
+                };
+                window.addEventListener('resize', onResize);
+
+                return () => {
+                    disposed = true;
+                    cancelAnimationFrame(raf);
+                    window.removeEventListener('mousemove', onMove);
+                    window.removeEventListener('touchmove', onMove);
+                    window.removeEventListener('resize', onResize);
+                    renderer.dispose();
+                    if (renderer.domElement && renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
+                };
+            }, []);
+            return <div ref={mountRef} className="android-stage" aria-hidden="true"></div>;
         }
 
         // MAIN APP
@@ -4734,32 +4861,37 @@ Check admin: jrimporters.com/admin.html`;
                                             <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(4,7,6,0.82) 0%, rgba(4,7,6,0.34) 26%, rgba(4,7,6,0.34) 72%, rgba(4,7,6,0.96) 100%)' }}></div>
                                             {/* focused scrim directly behind the text */}
                                             <div className="absolute inset-0" style={{ background: 'radial-gradient(closest-side at 50% 47%, rgba(4,7,6,0.72), transparent 78%)' }}></div>
-                                            <div className="relative z-10 mx-auto flex min-h-[92vh] max-w-4xl flex-col items-center justify-center px-6 text-center">
-                                                <div className="intro-badge mb-6"><i className="fas fa-bolt text-lime-400"></i> Namibia’s home of genuine phones</div>
-                                                <h1 className="display text-4xl font-extrabold leading-[0.95] tracking-tight text-white text-balance sm:text-6xl md:text-7xl" style={{ textShadow: '0 2px 50px rgba(0,0,0,0.6), 0 0 90px rgba(163,230,53,0.12)' }}>
-                                                    The latest <span className="gradient-text">phones</span>,<br className="hidden sm:block" /> and everything tech.
-                                                </h1>
-                                                <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 md:text-lg">
-                                                    Smartphones are our specialty — sealed, genuine and warrantied — alongside laptops, audio, cameras, car tech and expert repairs. Shipped fast across Namibia from Walvis Bay.
-                                                </p>
-                                                <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-                                                    <span className="intro-badge"><i className="fas fa-shield-halved text-lime-400"></i> Genuine & warrantied</span>
-                                                    <span className="intro-badge"><i className="fas fa-truck-fast text-lime-400"></i> Nationwide delivery</span>
-                                                    <span className="intro-badge"><i className="fas fa-screwdriver-wrench text-lime-400"></i> Expert repairs</span>
+                                            <div className="relative z-10 mx-auto grid min-h-[92vh] max-w-7xl grid-cols-1 items-center gap-6 px-6 lg:grid-cols-2 lg:gap-10">
+                                                <div className="order-2 flex flex-col items-center text-center lg:order-1 lg:items-start lg:text-left">
+                                                    <div className="intro-badge mb-6"><i className="fas fa-bolt text-lime-400"></i> Namibia’s home of genuine phones</div>
+                                                    <h1 className="display text-4xl font-extrabold leading-[0.95] tracking-tight text-white text-balance sm:text-6xl lg:text-6xl xl:text-7xl" style={{ textShadow: '0 2px 50px rgba(0,0,0,0.6), 0 0 90px rgba(163,230,53,0.12)' }}>
+                                                        The latest <span className="gradient-text">phones</span>,<br className="hidden sm:block" /> and everything tech.
+                                                    </h1>
+                                                    <p className="mt-6 max-w-xl text-base leading-8 text-slate-300 md:text-lg">
+                                                        Smartphones are our specialty — sealed, genuine and warrantied — alongside laptops, audio, cameras, car tech and expert repairs. Shipped fast across Namibia from Walvis Bay.
+                                                    </p>
+                                                    <div className="mt-7 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                                                        <span className="intro-badge"><i className="fas fa-shield-halved text-lime-400"></i> Genuine & warrantied</span>
+                                                        <span className="intro-badge"><i className="fas fa-truck-fast text-lime-400"></i> Nationwide delivery</span>
+                                                        <span className="intro-badge"><i className="fas fa-screwdriver-wrench text-lime-400"></i> Expert repairs</span>
+                                                    </div>
+                                                    <div className="mt-9 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                                                        <button onClick={() => { setGroup('phones'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="btn-primary rounded-full px-8 py-4 text-base">
+                                                            <i className="fas fa-mobile-screen-button mr-2"></i> Shop phones
+                                                        </button>
+                                                        <button onClick={() => { setGroup('misc'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="secondary-button rounded-full px-7 py-4 text-base">
+                                                            Browse everything
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-                                                    <button onClick={() => { setGroup('phones'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="btn-primary rounded-full px-8 py-4 text-base">
-                                                        <i className="fas fa-mobile-screen-button mr-2"></i> Shop phones
-                                                    </button>
-                                                    <button onClick={() => { setGroup('misc'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="secondary-button rounded-full px-7 py-4 text-base">
-                                                        Browse everything
-                                                    </button>
+                                                <div className="order-1 flex items-center justify-center lg:order-2">
+                                                    <AndroidBot />
                                                 </div>
-                                                <button onClick={() => document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' })} className="scroll-cue mt-14 flex flex-col items-center gap-2 text-xs uppercase tracking-[0.3em] text-slate-400">
-                                                    Scroll to shop
-                                                    <i className="fas fa-chevron-down text-lime-400"></i>
-                                                </button>
                                             </div>
+                                            <button onClick={() => document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' })} className="scroll-cue absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2 text-xs uppercase tracking-[0.3em] text-slate-400">
+                                                Scroll to shop
+                                                <i className="fas fa-chevron-down text-lime-400"></i>
+                                            </button>
                                         </section>
                                     );
                                 })()}

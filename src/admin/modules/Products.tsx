@@ -19,6 +19,7 @@ import {
   useToast,
 } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
+import { ImageUploader } from '../components/ImageUploader';
 
 export default function Products() {
   const [search, setSearch] = useState('');
@@ -185,7 +186,7 @@ export default function Products() {
 const BLANK = {
   name: '',
   brand: '',
-  category: 'Phones',
+  category: 'Smartphones',
   description: '',
   price: '',
   cost_price: '',
@@ -213,13 +214,29 @@ function ProductDialog({
 
   const isNew = product === 'new';
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // `image` plus `image1`–`image5` are flattened into one ordered list for
+  // editing, and spread back across the columns on save.
+  const [images, setImages] = useState<string[]>(() =>
+    isNew
+      ? []
+      : [
+          product.image,
+          product.image1,
+          product.image2,
+          product.image3,
+          product.image4,
+          product.image5,
+        ].filter((url): url is string => Boolean(url)),
+  );
+
   const [form, setForm] = useState(() =>
     isNew
       ? BLANK
       : {
           name: product.name,
           brand: product.brand ?? '',
-          category: product.category ?? 'Phones',
+          category: product.category ?? 'Smartphones',
           description: product.description ?? '',
           price: String(product.price ?? ''),
           cost_price: String(product.cost_price ?? ''),
@@ -256,7 +273,12 @@ function ProductDialog({
       sku: form.sku.trim() || null,
       barcode: form.barcode.trim() || null,
       color: form.color.trim() || null,
-      image: form.image.trim() || null,
+      image: images[0] ?? null,
+      image1: images[1] ?? null,
+      image2: images[2] ?? null,
+      image3: images[3] ?? null,
+      image4: images[4] ?? null,
+      image5: images[5] ?? null,
       active: form.active,
       featured: form.featured,
     };
@@ -370,12 +392,10 @@ function ProductDialog({
           />
 
           <Input label="Colour" value={form.color} onChange={(e) => set('color', e.target.value)} />
-          <Input
-            label="Main image URL"
-            value={form.image}
-            onChange={(e) => set('image', e.target.value)}
-            placeholder="https://…"
-          />
+
+          <div className="sm:col-span-2">
+            <ImageUploader productName={form.name} images={images} onChange={setImages} />
+          </div>
 
           <Textarea
             label="Description"

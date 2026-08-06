@@ -107,6 +107,42 @@ test.describe('storefront', () => {
   });
 });
 
+test.describe('android mascot', () => {
+  test.use({ reducedMotion: 'no-preference' });
+
+  test('mounts and loads three.js only on demand', async ({ page }) => {
+    const threeRequests: string[] = [];
+    page.on('response', (response) => {
+      if (/three/i.test(response.url())) threeRequests.push(response.url());
+    });
+
+    await page.goto('/');
+    await expect(page.locator('canvas')).toHaveCount(1, { timeout: 25_000 });
+
+    // Proves it is a lazy chunk rather than part of the entry bundle.
+    expect(threeRequests.length).toBeGreaterThan(0);
+  });
+
+  test('is skipped entirely when the visitor asks for reduced motion', async ({ browser }) => {
+    const context = await browser.newContext({ reducedMotion: 'reduce' });
+    const page = await context.newPage();
+
+    const threeRequests: string[] = [];
+    page.on('response', (response) => {
+      if (/three/i.test(response.url())) threeRequests.push(response.url());
+    });
+
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await page.waitForTimeout(2500);
+
+    expect(page.locator('canvas')).toHaveCount(0);
+    expect(threeRequests, 'three.js must not be fetched at all').toEqual([]);
+
+    await context.close();
+  });
+});
+
 test.describe('job card link', () => {
   test('an invalid token is rejected with a way to get help', async ({ page }) => {
     const errors = trackErrors(page);

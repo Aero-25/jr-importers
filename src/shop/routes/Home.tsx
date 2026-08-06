@@ -7,6 +7,7 @@ import { ErrorState } from '@/ui';
 import { useParallax, useReveal, useSpecular } from '@/ui/effects';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
 import { ChipRail } from '../components/ChipRail';
+import { AndroidBot } from '../components/AndroidBot';
 import { useSeo } from '../seo';
 
 const PROMISES = [
@@ -38,10 +39,10 @@ export default function Home() {
       <section className="relative overflow-hidden">
         <div
           ref={heroRef}
-          className="mx-auto max-w-7xl px-4 py-20 sm:py-28"
+          className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-16 sm:py-24 lg:grid-cols-[1.1fr_1fr]"
           style={{ transform: 'translateY(calc(var(--parallax, 0px) * -1))' }}
         >
-          <div className="max-w-3xl">
+          <div className="max-w-2xl">
             <span className="reveal glass inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold text-ink">
               <Smartphone aria-hidden className="h-3.5 w-3.5 text-lime-700" />
               Cellphone specialists · {STORE.city}
@@ -87,6 +88,15 @@ export default function Home() {
                 Book a repair
               </Link>
             </div>
+          </div>
+
+          {/*
+            Decorative, and treated as such: aria-hidden, mounted only when
+            scrolled into view, and skipped entirely on reduced motion or a
+            low-memory device. Nothing on the page depends on it rendering.
+          */}
+          <div className="reveal flex justify-center lg:justify-end" data-reveal-index="2">
+            <AndroidBot />
           </div>
         </div>
       </section>

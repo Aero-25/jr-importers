@@ -20,6 +20,12 @@ export default defineConfig({
     baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // Run the suite the way a reduced-motion visitor sees the site. That is a
+    // real configuration worth covering, and it keeps six parallel workers
+    // from each opening a WebGL context for a decorative mascot — which is
+    // contention, not signal. One test opts back into motion to check the
+    // mascot actually mounts.
+    reducedMotion: 'reduce',
   },
 
   projects: [
