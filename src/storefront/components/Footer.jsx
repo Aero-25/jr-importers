@@ -51,7 +51,7 @@ export default function Footer() {
 
         <div className="ftr__bottom">
           <span>© {year} {s.bank_account_name || 'JR Importers'} · All rights reserved</span>
-          <span>VAT {s.vat_rate}% included · Prices in NAD · Made in Windhoek</span>
+          <span>VAT {s.vat_rate}% included · Prices in NAD · Made in Walvis Bay</span>
         </div>
       </div>
     </footer>

@@ -173,7 +173,7 @@ export default function Checkout() {
             </div>
             <div className="pay-opt" onClick={() => setDelivery('Collection')} style={delivery === 'Collection' ? { borderColor: 'var(--cobalt)', background: 'var(--cobalt-tint)' } : null}>
               <input type="radio" name="del" checked={delivery === 'Collection'} onChange={() => setDelivery('Collection')} />
-              <div><b>Collect in Windhoek</b><p>Pick up free from {s.store_address}. {s.store_hours}.</p></div>
+              <div><b>Collect in Walvis Bay</b><p>Pick up free from {s.store_address}. {s.store_hours}.</p></div>
             </div>
           </div>
 

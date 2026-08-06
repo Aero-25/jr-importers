@@ -37,7 +37,7 @@ export default function Contact() {
       <div className="checkout" style={{ alignItems: 'start' }}>
         <div>
           <div className="eyebrow">Talk to us</div>
-          <h1 className="section-title" style={{ marginTop: 8 }}>Genuine help, from real people in Windhoek.</h1>
+          <h1 className="section-title" style={{ marginTop: 8 }}>Genuine help, from real people in Walvis Bay.</h1>
           <p className="section-sub" style={{ maxWidth: '54ch' }}>
             Questions about a device, warranty claims, trade pricing or a serial you want verified — we answer fast.
           </p>

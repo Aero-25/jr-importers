@@ -126,7 +126,7 @@ export default function Product({ id }) {
           <div className="assure">
             <div><Icon.shield /><b>Genuine &amp; sealed</b><small>Serial-checked, warrantied</small></div>
             <div><Icon.truck /><b>Fast delivery</b><small>Free over N${money(s.free_delivery_threshold)}</small></div>
-            <div><Icon.box /><b>Windhoek pickup</b><small>{s.store_hours}</small></div>
+            <div><Icon.box /><b>Walvis Bay pickup</b><small>{s.store_hours}</small></div>
           </div>
 
           {/* specs */}

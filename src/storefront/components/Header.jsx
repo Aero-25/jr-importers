@@ -30,7 +30,7 @@ export default function Header() {
     ['Free delivery over', `N$${Number(settings.free_delivery_threshold).toLocaleString()}`],
     ['Genuine, sealed & warrantied', '✓'],
     ['Pay by EFT or card', settings.bank_name],
-    ['Windhoek pickup', settings.store_hours],
+    ['Walvis Bay pickup', settings.store_hours],
   ];
 
   return (
@@ -47,7 +47,7 @@ export default function Header() {
         <div className="hdr__bar">
           <a className="brand" href="#/" aria-label="JR Importers home">
             <span className="brand__mark">J<i>R</i></span>
-            <span className="brand__name">JR Importers<small>WINDHOEK · NAMIBIA</small></span>
+            <span className="brand__name">JR Importers<small>WALVIS BAY · NAMIBIA</small></span>
           </a>
 
           <nav className="hdr__nav" aria-label="Primary">
