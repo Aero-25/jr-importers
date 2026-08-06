@@ -76,6 +76,29 @@ async function run() {
     log('legacy admin -> /admin-legacy.html');
   }
 
+  // 5) SPA fallback for the storefront.
+  //
+  //    The storefront uses history routing, so /shop, /product/… and the
+  //    /jobcard/<token> link a customer opens from WhatsApp have no matching
+  //    file. _worker.js falls through to env.ASSETS, which 404s on those.
+  //
+  //    _redirects covers it on Cloudflare Pages; 404.html is the belt-and-
+  //    braces version that also works if this is ever served from GitHub
+  //    Pages. Real files are matched before either applies, so /admin and the
+  //    hashed assets are unaffected. The console uses hash routing and needs
+  //    no rule.
+  await fs.writeFile(
+    path.join(dist, '_redirects'),
+    '/admin/*    /admin/index.html   200\n/*          /index.html         200\n',
+    'utf8',
+  );
+  log('wrote /_redirects (SPA fallback)');
+
+  if (existsSync(path.join(dist, 'index.html'))) {
+    await fs.copyFile(path.join(dist, 'index.html'), path.join(dist, '404.html'));
+    log('storefront mirrored -> /404.html');
+  }
+
   log('done — dist/ is ready for Cloudflare Pages (output directory: dist)');
 }
 

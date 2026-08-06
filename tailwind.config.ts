@@ -6,7 +6,7 @@ import type { Config } from 'tailwindcss';
 const withAlpha = (variable: string) => `rgb(var(${variable}) / <alpha-value>)`;
 
 export default {
-  content: ['./app/**/*.html', './src/**/*.{ts,tsx}'],
+  content: ['./src/**/*.{html,ts,tsx}'],
   darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
