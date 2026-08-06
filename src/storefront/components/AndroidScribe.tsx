@@ -9,8 +9,11 @@ import { layOut } from './strokeFont';
 const TEXT = 'JR Importers';
 const EM = 0.66; // glyph scale
 const TEXT_X = -2.45; // left edge of the writing
-const TEXT_Y = 0.72; // baseline
-const HAND_LEAD = 0.78; // how far ahead of the body the writing hand reaches
+const TEXT_Y = 0.86; // baseline
+// He walks *ahead* of the nib, so the finished letters always trail behind him
+// in clear space. Trailing the pen instead put his body straight over the words
+// he had just written.
+const BODY_LEAD = 0.88;
 
 const WALK_IN_S = 2.1;
 const WRITE_S = 4.6;
@@ -221,6 +224,81 @@ export function AndroidScribe({ className }: { className?: string }) {
       bot.scale.setScalar(0.9);
       scene.add(bot);
 
+      /* ── The marker ──────────────────────────────────────────────────
+         Parented to the writing arm, so it follows the aim for free. Without
+         something in the hand the character reads as pointing, not writing. */
+      const marker = new THREE.Group();
+      const barrel = new THREE.Mesh(
+        keep(new THREE.CapsuleGeometry(0.045, 0.24, 6, 16)),
+        keepMat(new THREE.MeshStandardMaterial({ color: 0x12233a, roughness: 0.35 })),
+      );
+      const nib = new THREE.Mesh(
+        keep(new THREE.ConeGeometry(0.045, 0.12, 16)),
+        keepMat(new THREE.MeshStandardMaterial({ color: 0xa3e635, emissive: 0x4a7a12 })),
+      );
+      nib.position.y = -0.2;
+      nib.rotation.x = Math.PI;
+      marker.add(barrel, nib);
+      marker.rotation.z = -0.42;
+      marker.visible = false;
+      scene.add(marker);
+
+      /* ── Sparks ──────────────────────────────────────────────────────
+         A short-lived shower off the nib. Points rather than meshes: a
+         hundred of these cost one draw call, and the whole effect is a few
+         kilobytes of typed array rather than geometry. */
+      const SPARKS = 110;
+      const sparkPos = new Float32Array(SPARKS * 3);
+      const sparkVel = new Float32Array(SPARKS * 3);
+      const sparkLife = new Float32Array(SPARKS);
+      // Park them off-stage until they are first used.
+      for (let i = 0; i < SPARKS; i += 1) sparkPos[i * 3 + 1] = -999;
+
+      const sparkGeo = keep(new THREE.BufferGeometry());
+      sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+      const sparkMat = keepMat(
+        new THREE.PointsMaterial({
+          color: 0xa3e635,
+          size: 0.055,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      );
+      const sparks = new THREE.Points(sparkGeo, sparkMat);
+      scene.add(sparks);
+
+      let sparkCursor = 0;
+      function emitSparks(at: import('three').Vector3, count: number) {
+        for (let n = 0; n < count; n += 1) {
+          const i = sparkCursor;
+          sparkCursor = (sparkCursor + 1) % SPARKS;
+          sparkPos[i * 3] = at.x;
+          sparkPos[i * 3 + 1] = at.y;
+          sparkPos[i * 3 + 2] = at.z + 0.02;
+          sparkVel[i * 3] = (Math.random() - 0.5) * 0.9;
+          sparkVel[i * 3 + 1] = Math.random() * 0.9 + 0.15;
+          sparkVel[i * 3 + 2] = (Math.random() - 0.2) * 0.5;
+          sparkLife[i] = 0.45 + Math.random() * 0.35;
+        }
+      }
+
+      function stepSparks(dt: number) {
+        let alive = false;
+        for (let i = 0; i < SPARKS; i += 1) {
+          if (sparkLife[i]! <= 0) continue;
+          alive = true;
+          sparkLife[i]! -= dt;
+          sparkVel[i * 3 + 1]! -= 2.4 * dt; // gravity
+          sparkPos[i * 3]! += sparkVel[i * 3]! * dt;
+          sparkPos[i * 3 + 1]! += sparkVel[i * 3 + 1]! * dt;
+          sparkPos[i * 3 + 2]! += sparkVel[i * 3 + 2]! * dt;
+          if (sparkLife[i]! <= 0) sparkPos[i * 3 + 1] = -999;
+        }
+        if (alive) sparkGeo.attributes.position!.needsUpdate = true;
+      }
+
       // Contact shadow — sells the character standing on something.
       const shadow = new THREE.Mesh(
         keep(new THREE.CircleGeometry(0.5, 32)),
@@ -249,7 +327,7 @@ export function AndroidScribe({ className }: { className?: string }) {
         new THREE.MeshBasicMaterial({
           color: 0xa3e635,
           transparent: true,
-          opacity: 0.28,
+          opacity: 0,
           depthWrite: false,
         }),
       );
@@ -262,8 +340,8 @@ export function AndroidScribe({ className }: { className?: string }) {
         );
         const segments = Math.max(16, Math.round(stroke.length * 54));
 
-        const core = new THREE.Mesh(keep(new THREE.TubeGeometry(curve, segments, 0.052, 10, false)), inkCore);
-        const glow = new THREE.Mesh(keep(new THREE.TubeGeometry(curve, segments, 0.085, 8, false)), inkGlow);
+        const core = new THREE.Mesh(keep(new THREE.TubeGeometry(curve, segments, 0.058, 12, false)), inkCore);
+        const glow = new THREE.Mesh(keep(new THREE.TubeGeometry(curve, segments, 0.115, 8, false)), inkGlow);
         scene.add(core, glow);
 
         const indexCount = core.geometry.index?.count ?? 0;
@@ -336,13 +414,13 @@ export function AndroidScribe({ className }: { className?: string }) {
 
       function poseWrite(target: import('three').Vector3) {
         bot.updateMatrixWorld();
-        armR.shoulder.getWorldPosition(shoulderWorld);
+        armL.shoulder.getWorldPosition(shoulderWorld);
         aim.copy(target).sub(shoulderWorld).normalize();
-        armR.shoulder.quaternion.setFromUnitVectors(DOWN, aim);
-        armR.shoulder.position.z = 0.1;
+        armL.shoulder.quaternion.setFromUnitVectors(DOWN, aim);
+        armL.shoulder.position.z = 0.14;
 
-        armL.shoulder.rotation.set(0.14, 0, 0.06);
-        armL.shoulder.position.z = 0;
+        armR.shoulder.rotation.set(0.14, 0, -0.06);
+        armR.shoulder.position.z = 0;
       }
 
       /**
@@ -363,13 +441,14 @@ export function AndroidScribe({ className }: { className?: string }) {
       /* ── Phase machine ───────────────────────────────────────────────── */
 
       const START_X = -3.5;
-      const WRITE_START_X = TEXT_X - HAND_LEAD + 0.3;
+      const WRITE_START_X = TEXT_X + BODY_LEAD;
       const FINAL_X = 2.35;
 
       let phase: Phase = 'walkIn';
       let clock = 0;
       let drawn = 0;
       let crossBlend = 0;
+      let bloom = 0;
 
       const pointer = { x: 0, y: 0 };
       const onPointer = (e: PointerEvent) => {
@@ -413,18 +492,31 @@ export function AndroidScribe({ className }: { className?: string }) {
           drawn = totalLength * k;
           advanceInk(drawn);
           // The body drifts along under the pen, so the reach stays plausible.
-          bot.position.x = pen.x - HAND_LEAD;
+          bot.position.x = pen.x + BODY_LEAD;
+          marker.position.set(pen.x + 0.09, pen.y + 0.19, pen.z + 0.05);
           poseStand();
           poseWrite(pen);
+          marker.visible = true;
           // A small settle so he is not rigid while writing.
           body.position.y = Math.sin(clock * 3.1) * 0.012;
+          // He watches his own nib, which is what makes it read as writing
+          // rather than the arm and the ink being two separate animations.
+          const toPen = pen.x - bot.position.x;
+          head.rotation.y += (Math.atan2(toPen, 1.9) - head.rotation.y) * 0.12;
+          head.rotation.x += (0.24 - head.rotation.x) * 0.08;
+          emitSparks(pen, 2);
+          // Camera eases in over the write, so the wordmark grows into frame.
+          camera.position.z += (6.35 - camera.position.z) * 0.02;
           if (k >= 1) {
             phase = 'exit';
             clock = 0;
+            marker.visible = false;
+            bloom = 1;
+            emitSparks(pen, 26);
           }
         } else if (phase === 'exit') {
           const k = Math.min(clock / EXIT_S, 1);
-          const from = pen.x - HAND_LEAD;
+          const from = pen.x + BODY_LEAD;
           bot.position.x = from + (FINAL_X - from) * k;
           poseWalk(clock);
           crossBlend = Math.max(0, (k - 0.55) / 0.45);
@@ -444,8 +536,17 @@ export function AndroidScribe({ className }: { className?: string }) {
           bot.rotation.y += (pointer.x * 0.14 - bot.rotation.y) * 0.04;
         }
 
+        // A single pulse through the finished wordmark as the pen lifts.
+        if (bloom > 0) {
+          bloom = Math.max(0, bloom - dt * 1.5);
+          inkGlow.opacity = Math.sin(bloom * Math.PI) * 0.55;
+        }
+
+        stepSparks(dt);
         shadow.position.x = bot.position.x;
         shadow.scale.setScalar(phase === 'idle' ? 1 : 0.94);
+        camera.position.z += (6.9 - camera.position.z) * (phase === 'idle' ? 0.012 : 0);
+        camera.lookAt(0, 0.94, 0);
         renderer.render(scene, camera);
       };
 
