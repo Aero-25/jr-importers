@@ -16,10 +16,26 @@ const Checkout = lazy(() => import('./routes/Checkout'));
 const OrderConfirmation = lazy(() => import('./routes/OrderConfirmation'));
 const Account = lazy(() => import('./routes/Account'));
 const Support = lazy(() => import('./routes/Support'));
+const JobCardAccept = lazy(() => import('./routes/JobCardAccept'));
 const NotFound = lazy(() => import('./routes/NotFound'));
 
 export function ShopApp() {
   const location = useLocation();
+
+  // The job-card link is a task, not a visit: someone opening it on WhatsApp
+  // is finishing a repair booking, often in a queue. Shop navigation and the
+  // footer would only be in the way, so it renders bare.
+  if (location.pathname.startsWith('/jobcard/')) {
+    return (
+      <div className="min-h-screen bg-canvas">
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes location={location}>
+            <Route path="/jobcard/:token" element={<JobCardAccept />} />
+          </Routes>
+        </Suspense>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">

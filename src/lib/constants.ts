@@ -130,8 +130,80 @@ export const STORE = {
   name: 'JR Importers',
   tagline: 'Namibia’s tech superstore',
   country: 'Namibia',
-  city: 'Windhoek',
+  city: 'Walvis Bay',
+  address: 'Pelican Mall, Walvis Bay',
+  phone: '+264 81 562 9203',
+  email: 'JR.Importers@iway.na',
 } as const;
 
 /** How long a checkout holds stock before the reservation lapses. */
 export const STOCK_RESERVATION_MINUTES = 30;
+
+/* ── Repair job cards ────────────────────────────────────────────────────── */
+
+export const JOB_CARD_STATUSES = [
+  'Awaiting acceptance',
+  'Received',
+  'Awaiting quote approval',
+  'Approved — in repair',
+  'Quote declined',
+  'Ready for collection',
+  'Collected',
+  'Returned unrepaired',
+] as const;
+
+export const JOB_CARD_STATUS_TONE: Record<string, 'neutral' | 'info' | 'success' | 'warn' | 'danger'> =
+  {
+    'Awaiting acceptance': 'warn',
+    Received: 'info',
+    'Awaiting quote approval': 'warn',
+    'Approved — in repair': 'info',
+    'Quote declined': 'danger',
+    'Ready for collection': 'success',
+    Collected: 'success',
+    'Returned unrepaired': 'neutral',
+  };
+
+/** The bench checklist printed down the right-hand side of the card. */
+export const JOB_CARD_CHECKS = [
+  { key: 'lcd', label: 'LCD' },
+  { key: 'touch', label: 'Touch' },
+  { key: 'ringer', label: 'Ringer' },
+  { key: 'volume', label: 'Volume' },
+  { key: 'power', label: 'Power' },
+  { key: 'charge', label: 'Charge' },
+  { key: 'ear_speaker', label: 'Ear spk.' },
+  { key: 'mic', label: 'Mic' },
+  { key: 'cameras', label: 'Cameras' },
+  { key: 'signed', label: 'Signed' },
+] as const;
+
+/** Minimum non-refundable handling fee, per the printed terms. */
+export const JOB_CARD_HANDLING_FEE = 200;
+
+/** Repairs above this must be confirmed with the customer before work starts. */
+export const JOB_CARD_QUOTE_THRESHOLD = 350;
+
+/**
+ * The terms as printed on the card. Reproduced verbatim — the guest acceptance
+ * page shows exactly what the customer would have signed at the counter, so
+ * these must not be paraphrased.
+ */
+export const JOB_CARD_TERMS: readonly string[] = [
+  'A minimum handling fee of N$200 is payable / NON REFUNDABLE.',
+  'Whilst all due care is exercised while handsets are in our possession, all handsets handed in for repairs are handed in at the customer’s risk.',
+  'All outstanding amounts must be settled prior to release of handset.',
+  'All repairs must be collected within 90 days, or the phone will be sold to defray repair costs.',
+  'No warranty on any liquid or physical damage repairs.',
+  'No phone will be collected without a job card present.',
+  'Sim / Memory Cards handed in will be for the risk of the owner.',
+  'Any parts that has been replaced will carry a 30 day warranty. KEEP INVOICE. No warranty on software.',
+  'Repairs that will cost more than N$ 350-00 will first be confirmed with the customer prior to any repairs being carried out. Repairs costing less than N$ 350-00 will be carried out without prior confirmation sought from the customer.',
+  'If found that any software/programmes has been downloaded, the warranty is automatically voided.',
+] as const;
+
+export const JOB_CARD_MEMORY_WARNING =
+  'WE DO NOT TAKE RESPONSIBILITY FOR ANY MEMORY LOSS ON A PHONE / MEMORY CARD OR SIM CARD.';
+
+export const JOB_CARD_CONSENT =
+  'I HEREBY AGREE THAT I HAVE READ AND UNDERSTOOD THE TERMS AND CONDITIONS.';

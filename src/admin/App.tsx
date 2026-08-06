@@ -11,6 +11,7 @@ const Pos = lazy(() => import('./modules/Pos'));
 const Orders = lazy(() => import('./modules/Orders'));
 const Dispatch = lazy(() => import('./modules/Dispatch'));
 const Products = lazy(() => import('./modules/Products'));
+const JobCards = lazy(() => import('./modules/JobCards'));
 const Records = lazy(() => import('./modules/Records'));
 const Ledger = lazy(() => import('./modules/Ledger'));
 const Settings = lazy(() => import('./modules/Settings'));
@@ -54,6 +55,7 @@ export function AdminApp() {
           <Route path="/orders" element={<Orders />} />
           <Route path="/dispatch" element={<Dispatch />} />
           <Route path="/products" element={<Products />} />
+          <Route path="/job-cards" element={<JobCards />} />
 
           {/* Schema-driven CRUD covers the modules with no bespoke domain rules. */}
           <Route path="/customers" element={<Records resource="customers" />} />

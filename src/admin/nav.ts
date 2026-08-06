@@ -20,6 +20,7 @@ import {
   Truck,
   Users,
   Wallet,
+  Wrench,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -55,6 +56,11 @@ export const NAV: NavSection[] = [
       { id: 'orders', label: 'Orders', path: '/orders', icon: ShoppingCart },
       { id: 'dispatch', label: 'Dispatch', path: '/dispatch', icon: Truck },
     ],
+  },
+  {
+    id: 'repairs',
+    label: 'Repairs',
+    items: [{ id: 'job-cards', label: 'Job Cards', path: '/job-cards', icon: Wrench }],
   },
   {
     id: 'catalogue',

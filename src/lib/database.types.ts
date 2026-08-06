@@ -64,6 +64,20 @@ export type StockTakeItem = {
   variance: number;
 }
 
+/** Technician bench check, mirroring the boxes on the printed job card. */
+export type JobCardChecks = {
+  lcd?: boolean;
+  touch?: boolean;
+  ringer?: boolean;
+  volume?: boolean;
+  power?: boolean;
+  charge?: boolean;
+  ear_speaker?: boolean;
+  mic?: boolean;
+  cameras?: boolean;
+  signed?: boolean;
+};
+
 /* ── Row shapes ──────────────────────────────────────────────────────────── */
 
 export type UserRow = {
@@ -458,6 +472,42 @@ export type AccountTransactionRow = {
   created_at: string;
 }
 
+export type JobCardRow = {
+  id: number;
+  job_number: number;
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string | null;
+  handset_type: string | null;
+  imei: string | null;
+  fault: string | null;
+  physical_condition: string | null;
+  /** Dot indices such as `1-2-5-8-9`, or a PIN. Never sent to the guest page. */
+  pattern_pin: string | null;
+  deposit: number;
+  cost: number;
+  handling_fee: number;
+  checks: JobCardChecks;
+  technician: string | null;
+  status: string;
+  notes: string | null;
+  accept_token: string;
+  accepted_at: string | null;
+  accepted_name: string | null;
+  accepted_signature: string | null;
+  accepted_user_agent: string | null;
+  quote_amount: number | null;
+  quote_note: string | null;
+  quote_sent_at: string | null;
+  quote_responded_at: string | null;
+  quote_approved: boolean | null;
+  collected_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type StockTakeRow = {
   id: number;
   reference: string | null;
@@ -486,6 +536,7 @@ export type Database = {
       grvs: Table<GrvRow>;
       hero_images: Table<HeroImageRow, 'image_url'>;
       invoices: Table<InvoiceRow>;
+      job_cards: Table<JobCardRow, 'customer_name' | 'customer_phone'>;
       laybys: Table<LaybyRow>;
       messages: Table<MessageRow>;
       orders: Table<OrderRow>;
@@ -533,6 +584,20 @@ export type Database = {
       expire_stale_reservations: {
         Args: Record<PropertyKey, never>;
         Returns: number;
+      };
+      /* Guest job-card surface. The table itself is unreadable without a staff
+         session; these three take the link token instead. */
+      get_job_card: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      accept_job_card: {
+        Args: { p_token: string; p_name: string; p_signature: string; p_user_agent?: string };
+        Returns: Json;
+      };
+      respond_job_card_quote: {
+        Args: { p_token: string; p_approved: boolean };
+        Returns: Json;
       };
     };
     Enums: { [_ in never]: never };
