@@ -7,9 +7,9 @@ import { layOut } from './strokeFont';
    figure a little under two units.                                          */
 
 const TEXT = 'JR Importers';
-const EM = 0.5; // glyph scale
-const TEXT_X = -1.95; // left edge of the writing
-const TEXT_Y = 0.62; // baseline
+const EM = 0.66; // glyph scale
+const TEXT_X = -2.45; // left edge of the writing
+const TEXT_Y = 0.72; // baseline
 const HAND_LEAD = 0.78; // how far ahead of the body the writing hand reaches
 
 const WALK_IN_S = 2.1;
@@ -89,8 +89,8 @@ export function AndroidScribe({ className }: { className?: string }) {
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-      camera.position.set(0, 0.75, 9.6);
-      camera.lookAt(0, 0.7, 0);
+      camera.position.set(0, 0.94, 6.9);
+      camera.lookAt(0, 0.94, 0);
 
       scene.add(new THREE.AmbientLight(0xd8f0c0, 0.62));
       const key = new THREE.DirectionalLight(0xffffff, 1.35);
@@ -116,8 +116,8 @@ export function AndroidScribe({ className }: { className?: string }) {
       const green = keepMat(
         new THREE.MeshStandardMaterial({
           color: 0x8fd83f,
-          roughness: 0.38,
-          metalness: 0.12,
+          roughness: 0.3,
+          metalness: 0.05,
           emissive: 0x24400f,
           emissiveIntensity: 0.42,
         }),
@@ -128,102 +128,97 @@ export function AndroidScribe({ className }: { className?: string }) {
       const dark = keepMat(new THREE.MeshStandardMaterial({ color: 0x0b1622, roughness: 0.4 }));
 
       /* ── The figure ──────────────────────────────────────────────────────
-         Built as a joint hierarchy rather than loose meshes: rotating a
-         shoulder has to carry the forearm with it, which is what makes the
-         arms fold convincingly instead of intersecting the chest.           */
+         Proportions matter more than detail here. The Android reads the way
+         it does because of a very specific silhouette: a domed head about as
+         wide as the body, a small gap at the neck, single-piece arms clearly
+         *outside* the body outline, and short stubby legs.
+
+         The arms are one capsule each, with no elbow. An earlier version gave
+         them a jointed elbow, and folding it simply buried the forearms inside
+         the torso — the arms vanished. One rigid capsule per arm both matches
+         the character design and makes every pose here trivially readable.  */
 
       const bot = new THREE.Group();
       const body = new THREE.Group(); // bobs; limbs hang off it
       bot.add(body);
 
-      const head = new THREE.Group();
-      head.position.y = 1.16;
-      head.add(new THREE.Mesh(keep(new THREE.SphereGeometry(0.42, 40, 24, 0, Math.PI * 2, 0, Math.PI / 2)), green));
+      const R = 0.52; // body radius — everything is proportioned off this
 
-      const eyeGeo = keep(new THREE.SphereGeometry(0.055, 18, 18));
+      const head = new THREE.Group();
+      head.position.y = 1.68;
+      const dome = new THREE.Mesh(
+        keep(new THREE.SphereGeometry(0.50, 56, 32, 0, Math.PI * 2, 0, Math.PI / 2)),
+        green,
+      );
+      head.add(dome);
+
+      const eyeGeo = keep(new THREE.SphereGeometry(0.062, 20, 20));
       const eyeL = new THREE.Mesh(eyeGeo, white);
-      eyeL.position.set(-0.15, 0.17, 0.37);
+      eyeL.position.set(-0.185, 0.2, 0.42);
       const eyeR = new THREE.Mesh(eyeGeo, white);
-      eyeR.position.set(0.15, 0.17, 0.37);
-      const pupilGeo = keep(new THREE.SphereGeometry(0.026, 12, 12));
+      eyeR.position.set(0.185, 0.2, 0.42);
+      const pupilGeo = keep(new THREE.SphereGeometry(0.03, 14, 14));
       const pupilL = new THREE.Mesh(pupilGeo, dark);
-      pupilL.position.set(-0.15, 0.17, 0.415);
+      pupilL.position.set(-0.185, 0.2, 0.462);
       const pupilR = new THREE.Mesh(pupilGeo, dark);
-      pupilR.position.set(0.15, 0.17, 0.415);
+      pupilR.position.set(0.185, 0.2, 0.462);
       head.add(eyeL, eyeR, pupilL, pupilR);
 
-      const antGeo = keep(new THREE.CylinderGeometry(0.017, 0.017, 0.34, 10));
+      const antGeo = keep(new THREE.CapsuleGeometry(0.026, 0.34, 6, 12));
       const antL = new THREE.Mesh(antGeo, green);
-      antL.position.set(-0.24, 0.36, 0);
-      antL.rotation.z = 0.55;
+      antL.position.set(-0.26, 0.38, -0.03);
+      antL.rotation.z = 0.62;
       const antR = new THREE.Mesh(antGeo, green);
-      antR.position.set(0.24, 0.36, 0);
-      antR.rotation.z = -0.55;
+      antR.position.set(0.26, 0.38, -0.03);
+      antR.rotation.z = -0.62;
       head.add(antL, antR);
       body.add(head);
 
-      const torso = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.42, 0.42, 0.72, 40)), green);
-      torso.position.y = 0.7;
-      const chest = new THREE.Mesh(
-        keep(new THREE.SphereGeometry(0.42, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2)),
+      // Torso: a cylinder with a domed top, so the shoulder line is rounded
+      // rather than a hard rim.
+      const torso = new THREE.Mesh(keep(new THREE.CylinderGeometry(R, R, 0.66, 56)), green);
+      torso.position.y = 0.76;
+      const torsoTop = new THREE.Mesh(
+        keep(new THREE.SphereGeometry(R, 56, 24, 0, Math.PI * 2, 0, Math.PI / 2)),
         green,
       );
-      chest.position.y = 1.06;
-      const hipCap = new THREE.Mesh(keep(new THREE.CircleGeometry(0.42, 40)), green);
-      hipCap.rotation.x = -Math.PI / 2;
-      hipCap.position.y = 0.34;
-      body.add(torso, chest, hipCap);
+      torsoTop.position.y = 1.10;
+      const torsoBase = new THREE.Mesh(keep(new THREE.CircleGeometry(R, 56)), green);
+      torsoBase.rotation.x = -Math.PI / 2;
+      torsoBase.position.y = 0.42;
+      body.add(torso, torsoTop, torsoBase);
 
-      /** Shoulder → upper arm → elbow → forearm, so folding works. */
+      /** One capsule, pivoting at the shoulder. No elbow — see above. */
       function makeArm(side: -1 | 1) {
         const shoulder = new THREE.Group();
-        shoulder.position.set(side * 0.53, 0.98, 0);
+        // Sits outside the body radius, which is what keeps the silhouette.
+        shoulder.position.set(side * (R + 0.22), 1.30, 0);
 
-        const upper = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.11, 0.11, 0.42, 18)), green);
-        upper.position.y = -0.21;
-        shoulder.add(upper);
-
-        const elbow = new THREE.Group();
-        elbow.position.y = -0.42;
-        shoulder.add(elbow);
-
-        const fore = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.1, 0.1, 0.4, 18)), green);
-        fore.position.y = -0.2;
-        const hand = new THREE.Mesh(keep(new THREE.SphereGeometry(0.115, 18, 18)), green);
-        hand.position.y = -0.4;
-        elbow.add(fore, hand);
+        const limb = new THREE.Mesh(keep(new THREE.CapsuleGeometry(0.17, 0.5, 8, 24)), green);
+        limb.position.y = -0.42;
+        shoulder.add(limb);
 
         body.add(shoulder);
-        return { shoulder, elbow, hand };
+        return { shoulder, limb };
       }
       const armL = makeArm(-1);
       const armR = makeArm(1);
 
       function makeLeg(side: -1 | 1) {
         const hip = new THREE.Group();
-        hip.position.set(side * 0.17, 0.34, 0);
+        hip.position.set(side * 0.24, 0.46, 0);
 
-        const thigh = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.12, 0.12, 0.3, 18)), green);
-        thigh.position.y = -0.15;
-        hip.add(thigh);
-
-        const knee = new THREE.Group();
-        knee.position.y = -0.3;
-        hip.add(knee);
-
-        const shin = new THREE.Mesh(keep(new THREE.CylinderGeometry(0.115, 0.115, 0.28, 18)), green);
-        shin.position.y = -0.14;
-        const foot = new THREE.Mesh(keep(new THREE.SphereGeometry(0.125, 16, 16)), green);
-        foot.position.y = -0.28;
-        knee.add(shin, foot);
+        const limb = new THREE.Mesh(keep(new THREE.CapsuleGeometry(0.175, 0.2, 8, 24)), green);
+        limb.position.y = -0.24;
+        hip.add(limb);
 
         body.add(hip);
-        return { hip, knee };
+        return { hip };
       }
       const legL = makeLeg(-1);
       const legR = makeLeg(1);
 
-      bot.scale.setScalar(0.86);
+      bot.scale.setScalar(0.9);
       scene.add(bot);
 
       // Contact shadow — sells the character standing on something.
@@ -249,13 +244,12 @@ export function AndroidScribe({ className }: { className?: string }) {
       const { strokes } = layOut(TEXT);
       const totalLength = strokes.reduce((n, s) => n + s.length, 0);
 
-      const inkCore = keepMat(new THREE.MeshBasicMaterial({ color: 0x1a3f6b }));
+      const inkCore = keepMat(new THREE.MeshBasicMaterial({ color: 0x0b2545 }));
       const inkGlow = keepMat(
         new THREE.MeshBasicMaterial({
           color: 0xa3e635,
           transparent: true,
-          opacity: 0.5,
-          blending: THREE.AdditiveBlending,
+          opacity: 0.28,
           depthWrite: false,
         }),
       );
@@ -266,10 +260,10 @@ export function AndroidScribe({ className }: { className?: string }) {
             ([x, y]) => new THREE.Vector3(TEXT_X + x * EM, TEXT_Y + y * EM, 0),
           ),
         );
-        const segments = Math.max(12, Math.round(stroke.length * 46));
+        const segments = Math.max(16, Math.round(stroke.length * 54));
 
-        const core = new THREE.Mesh(keep(new THREE.TubeGeometry(curve, segments, 0.018, 6, false)), inkCore);
-        const glow = new THREE.Mesh(keep(new THREE.TubeGeometry(curve, segments, 0.05, 6, false)), inkGlow);
+        const core = new THREE.Mesh(keep(new THREE.TubeGeometry(curve, segments, 0.052, 10, false)), inkCore);
+        const glow = new THREE.Mesh(keep(new THREE.TubeGeometry(curve, segments, 0.085, 8, false)), inkGlow);
         scene.add(core, glow);
 
         const indexCount = core.geometry.index?.count ?? 0;
@@ -307,40 +301,34 @@ export function AndroidScribe({ className }: { className?: string }) {
       const resetLimbs = () => {
         armL.shoulder.rotation.set(0, 0, 0);
         armR.shoulder.rotation.set(0, 0, 0);
-        armL.elbow.rotation.set(0, 0, 0);
-        armR.elbow.rotation.set(0, 0, 0);
+        armL.shoulder.position.z = 0;
+        armR.shoulder.position.z = 0;
       };
 
       function poseWalk(t: number) {
-        const swing = Math.sin(t * 7.6);
-        legL.hip.rotation.x = swing * 0.62;
-        legR.hip.rotation.x = -swing * 0.62;
-        legL.knee.rotation.x = Math.max(0, -swing) * 0.72;
-        legR.knee.rotation.x = Math.max(0, swing) * 0.72;
-        armL.shoulder.rotation.x = -swing * 0.5;
-        armR.shoulder.rotation.x = swing * 0.5;
-        armL.elbow.rotation.x = 0.28;
-        armR.elbow.rotation.x = 0.28;
-        body.position.y = Math.abs(Math.cos(t * 7.6)) * 0.045;
-        bot.rotation.z = swing * 0.02;
+        const swing = Math.sin(t * 7.2);
+        legL.hip.rotation.set(swing * 0.58, 0, 0);
+        legR.hip.rotation.set(-swing * 0.58, 0, 0);
+        armL.shoulder.rotation.set(-swing * 0.46, 0, 0);
+        armR.shoulder.rotation.set(swing * 0.46, 0, 0);
+        armL.shoulder.position.z = 0;
+        armR.shoulder.position.z = 0;
+        body.position.y = Math.abs(Math.cos(t * 7.2)) * 0.05;
+        bot.rotation.z = swing * 0.018;
       }
 
       function poseStand() {
-        legL.hip.rotation.x = 0;
-        legR.hip.rotation.x = 0;
-        legL.knee.rotation.x = 0;
-        legR.knee.rotation.x = 0;
+        legL.hip.rotation.set(0, 0, 0);
+        legR.hip.rotation.set(0, 0, 0);
         bot.rotation.z = 0;
       }
 
       /**
-       * Reaches the writing hand to the pen.
+       * Points the writing arm at the pen.
        *
-       * Aimed with a quaternion rather than hand-rolled trig: the limb hangs
-       * along -Y, so rotating that axis onto the shoulder→pen direction points
-       * the whole arm at the target in one step, and stays correct wherever
-       * the pen happens to be. Doing it with atan2 per axis is where the first
-       * version went wrong and splayed the arm sideways.
+       * The limb hangs along -Y, so rotating that axis onto the shoulder→pen
+       * direction aims the whole arm in one step and stays correct wherever
+       * the pen is. Per-axis trig is what splayed it sideways first time.
        */
       const DOWN = new THREE.Vector3(0, -1, 0);
       const shoulderWorld = new THREE.Vector3();
@@ -350,35 +338,26 @@ export function AndroidScribe({ className }: { className?: string }) {
         bot.updateMatrixWorld();
         armR.shoulder.getWorldPosition(shoulderWorld);
         aim.copy(target).sub(shoulderWorld).normalize();
-
         armR.shoulder.quaternion.setFromUnitVectors(DOWN, aim);
-        // A little bend keeps it from reading as a rigid pointer.
-        armR.elbow.rotation.set(-0.22, 0, 0);
+        armR.shoulder.position.z = 0.1;
 
-        // The other arm just hangs, slightly back.
-        armL.shoulder.rotation.set(0.16, 0, 0.08);
-        armL.elbow.rotation.set(0.3, 0, 0);
+        armL.shoulder.rotation.set(0.14, 0, 0.06);
+        armL.shoulder.position.z = 0;
       }
 
       /**
-       * The reference pose: forearms folded across the chest.
+       * Arms folded, as in the reference.
        *
-       * Sign matters and is easy to get backwards. The limb hangs along -Y, so
-       * a Z rotation maps it to (sin θ, −cos θ). Bringing the *right* arm
-       * inward therefore needs a negative angle; positive swings it out into a
-       * T-pose, which is exactly what the first attempt did.
+       * With one rigid capsule per arm this is a single inward swing: the tip
+       * crosses the centre line, and a small Z offset puts one arm in front of
+       * the other rather than through it.
        */
       function poseArmsCrossed(blend: number) {
         const b = Math.min(Math.max(blend, 0), 1);
-
-        armR.shoulder.rotation.set(-0.34 * b, 0, -0.62 * b);
-        armR.elbow.rotation.set(-1.42 * b, 0, -0.38 * b);
-
-        armL.shoulder.rotation.set(-0.34 * b, 0, 0.62 * b);
-        // Slightly deeper so one forearm sits in front of the other rather
-        // than intersecting it.
-        armL.elbow.rotation.set(-1.58 * b, 0, 0.38 * b);
-        armL.elbow.position.z = 0.07 * b;
+        armR.shoulder.rotation.set(-0.12 * b, 0, -1.34 * b);
+        armR.shoulder.position.z = 0.14 * b;
+        armL.shoulder.rotation.set(-0.12 * b, 0, 1.34 * b);
+        armL.shoulder.position.z = 0.3 * b;
       }
 
       /* ── Phase machine ───────────────────────────────────────────────── */
