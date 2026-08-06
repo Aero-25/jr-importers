@@ -19,7 +19,12 @@ const WALK_IN_S = 2.1;
 const WRITE_S = 4.6;
 const EXIT_S = 1.7;
 
-type Phase = 'walkIn' | 'write' | 'exit' | 'idle';
+type Phase = 'wait' | 'walkIn' | 'write' | 'exit' | 'idle';
+
+/** Beat before the first performance, so it does not race the page load. */
+const LEAD_IN_S = 0.9;
+/** How long the finished tableau holds before the whole thing runs again. */
+const HOLD_S = 4.5;
 
 /**
  * The hero performance: an Android walks in, writes "JR Importers" by hand,
@@ -96,7 +101,7 @@ export function AndroidScribe({ className }: { className?: string }) {
       camera.lookAt(0, 0.94, 0);
 
       scene.add(new THREE.AmbientLight(0xd8f0c0, 0.62));
-      const key = new THREE.DirectionalLight(0xffffff, 1.35);
+      const key = new THREE.DirectionalLight(0xffffff, 1.7);
       key.position.set(4, 7, 6);
       const rim = new THREE.PointLight(0xa3e635, 2.4, 40);
       rim.position.set(-5, 2.5, 3);
@@ -118,9 +123,9 @@ export function AndroidScribe({ className }: { className?: string }) {
 
       const green = keepMat(
         new THREE.MeshStandardMaterial({
-          color: 0x8fd83f,
-          roughness: 0.3,
-          metalness: 0.05,
+          color: 0x9fd23c,
+          roughness: 0.22,
+          metalness: 0.0,
           emissive: 0x24400f,
           emissiveIntensity: 0.42,
         }),
@@ -444,7 +449,7 @@ export function AndroidScribe({ className }: { className?: string }) {
       const WRITE_START_X = TEXT_X + BODY_LEAD;
       const FINAL_X = 2.35;
 
-      let phase: Phase = 'walkIn';
+      let phase: Phase = 'wait';
       let clock = 0;
       let drawn = 0;
       let crossBlend = 0;
@@ -478,7 +483,15 @@ export function AndroidScribe({ className }: { className?: string }) {
         last = now;
         clock += dt;
 
-        if (phase === 'walkIn') {
+        if (phase === 'wait') {
+          // Nothing moves yet: the page is still settling, and an animation
+          // that starts during load is one nobody sees.
+          bot.position.x = START_X;
+          if (clock >= LEAD_IN_S) {
+            phase = 'walkIn';
+            clock = 0;
+          }
+        } else if (phase === 'walkIn') {
           const k = Math.min(clock / WALK_IN_S, 1);
           bot.position.x = START_X + (WRITE_START_X - START_X) * k;
           poseWalk(clock);
@@ -534,6 +547,20 @@ export function AndroidScribe({ className }: { className?: string }) {
           head.rotation.y += (pointer.x * 0.42 - head.rotation.y) * 0.06;
           head.rotation.x += (pointer.y * 0.24 - head.rotation.x) * 0.06;
           bot.rotation.y += (pointer.x * 0.14 - bot.rotation.y) * 0.04;
+
+          // Then do it again. A hero animation that plays once, during page
+          // load, is an animation the visitor never actually sees.
+          if (clock >= HOLD_S) {
+            phase = 'wait';
+            clock = 0;
+            drawn = 0;
+            crossBlend = 0;
+            advanceInk(0);
+            resetLimbs();
+            head.rotation.set(0, 0, 0);
+            bot.rotation.set(0, 0, 0);
+            camera.position.z = 6.9;
+          }
         }
 
         // A single pulse through the finished wordmark as the pen lifts.
