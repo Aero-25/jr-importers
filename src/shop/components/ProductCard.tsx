@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { ShoppingBag } from 'lucide-react';
+import { Phone, ShoppingBag } from 'lucide-react';
 import type { ProductRow } from '@/lib/database.types';
+import { STORE, isServiceCategory } from '@/lib/constants';
 import { money, slugify } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Badge, Button, StockBadge } from '@/ui';
@@ -25,10 +26,15 @@ export function ProductCard({
   const { add } = useCart();
   const toast = useToast();
   const { specularProps } = useSpecular<HTMLElement>();
-  const outOfStock = product.stock <= 0;
+  const service = isServiceCategory(product.category);
+  const outOfStock = !service && product.stock <= 0;
 
   function addToCart() {
     const result = add(product, 1);
+    if (result.reason === 'in-store-only') {
+      toast.info('Booked at the shop', `Call ${STORE.phone} to book ${product.name}.`);
+      return;
+    }
     if (result.reason === 'insufficient-stock') {
       toast.warn('Out of stock', `${product.name} is not available right now.`);
       return;
@@ -71,10 +77,18 @@ export function ProductCard({
         )}
 
         <div className="absolute left-2 top-2 flex flex-col gap-1">
-          {product.featured && (
-            <Badge tone="lime" size="sm">
-              Featured
-            </Badge>
+          {/* Solid, not a soft tint: these badges sit on photography, where a
+              12%-alpha fill leaves the label unreadable. */}
+          {service ? (
+            <span className="inline-flex items-center rounded-full bg-brand-700 px-2.5 py-0.5 text-2xs font-semibold text-white shadow-card">
+              In-store service
+            </span>
+          ) : (
+            product.featured && (
+              <Badge tone="lime" size="sm">
+                Featured
+              </Badge>
+            )
           )}
           {outOfStock && (
             <Badge tone="danger" size="sm">
@@ -99,25 +113,46 @@ export function ProductCard({
 
         <div className="mt-auto pt-3">
           <p className="tabular font-display text-lg font-bold text-brand-700">
-            {money(product.price)}
+            {service ? `From ${money(product.price)}` : money(product.price)}
           </p>
+
           <div className="mt-1.5">
-            <StockBadge stock={product.stock} reorderLevel={product.reorder_level} size="sm" />
+            {service ? (
+              <Badge tone="info" size="sm">
+                Quoted at the counter
+              </Badge>
+            ) : (
+              <StockBadge stock={product.stock} reorderLevel={product.reorder_level} size="sm" />
+            )}
           </div>
 
-          {/* Lime is reserved for the one action on the card. */}
-          <Button
-            size="sm"
-            fullWidth
-            variant={outOfStock ? 'secondary' : 'lime'}
-            disabled={outOfStock}
-            onClick={addToCart}
-            // Sits above the card-wide link overlay.
-            className="relative z-10 mt-3"
-            icon={<ShoppingBag className="h-3.5 w-3.5" />}
-          >
-            {outOfStock ? 'Sold out' : 'Add to cart'}
-          </Button>
+          {/*
+            Repairs are booked in at the shop — a technician has to see the
+            handset before the price is real. So the action is a phone call,
+            not a cart. Lime stays reserved for the one action on the card.
+          */}
+          {service ? (
+            <a
+              href={`tel:${STORE.phone.replace(/\s/g, '')}`}
+              className="relative z-10 mt-3 flex h-8 items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-500"
+            >
+              <Phone aria-hidden className="h-3.5 w-3.5" />
+              Book at the shop
+            </a>
+          ) : (
+            <Button
+              size="sm"
+              fullWidth
+              variant={outOfStock ? 'secondary' : 'lime'}
+              disabled={outOfStock}
+              onClick={addToCart}
+              // Sits above the card-wide link overlay.
+              className="relative z-10 mt-3"
+              icon={<ShoppingBag className="h-3.5 w-3.5" />}
+            >
+              {outOfStock ? 'Sold out' : 'Add to cart'}
+            </Button>
+          )}
         </div>
       </div>
     </article>

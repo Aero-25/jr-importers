@@ -5,8 +5,15 @@ import { cn } from '@/lib/cn';
 import { CATEGORY_GROUPS, STORE } from '@/lib/constants';
 import { useCart } from '@/data/cart';
 import { useAuth } from '@/auth/AuthProvider';
-import { Button, IconButton } from '@/ui';
 
+/**
+ * Floating pill header.
+ *
+ * Detached from the top edge so the light field shows around it and the pill
+ * reads as an object above the page rather than a bar welded to it. Everything
+ * inside is white on the deep colour sweep; the vivid version of that spectrum
+ * is the ring and the glow.
+ */
 export function Header() {
   const { count } = useCart();
   const { isAuthenticated, profile } = useAuth();
@@ -29,9 +36,7 @@ export function Header() {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const typingAlready =
-        target?.tagName === 'INPUT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable;
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable;
       if (event.key === '/' && !typingAlready) {
         event.preventDefault();
         searchRef.current?.focus();
@@ -49,19 +54,24 @@ export function Header() {
   }
 
   return (
-    <header
-      className={cn(
-        'sticky top-0 z-40 transition-all duration-300',
-        // Glass only once there is content behind it to refract. Frosting an
-        // empty header at the top of the page just looks like a grey bar.
-        scrolled ? 'glass glass-strong border-b' : 'border-b border-transparent',
-      )}
-    >
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4">
-        <Link to="/" className="flex shrink-0 items-center gap-2" aria-label={`${STORE.name} home`}>
-          <img src="/icon.svg" alt="" width={32} height={32} className="h-8 w-8" />
-          <span className="hidden font-display text-lg font-bold tracking-tight text-ink sm:block">
-            JR <span className="text-brand-400">Importers</span>
+    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-4 sm:pt-4">
+      <div
+        className={cn(
+          'sweep sweep-ring relative mx-auto flex max-w-7xl items-center gap-2 rounded-full',
+          'px-2.5 transition-[height] duration-300 sm:gap-3 sm:px-4',
+          // Tightens once you start reading, giving the page back a little
+          // room without the pill ever leaving.
+          scrolled ? 'h-14' : 'h-14 sm:h-16',
+        )}
+      >
+        <Link
+          to="/"
+          className="flex shrink-0 items-center gap-2 rounded-full pl-1.5 pr-1"
+          aria-label={`${STORE.name} home`}
+        >
+          <img src="/icon.svg" alt="" width={30} height={30} className="h-7 w-7 sm:h-8 sm:w-8" />
+          <span className="hidden font-display text-base font-bold tracking-tight text-white sm:block">
+            JR <span className="text-lime-400">Importers</span>
           </span>
         </Link>
 
@@ -73,10 +83,10 @@ export function Header() {
                   to={`/shop/${group.id}`}
                   className={({ isActive }) =>
                     cn(
-                      'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                      'rounded-full px-3.5 py-2 text-sm font-medium transition-colors',
                       isActive
-                        ? 'bg-raised text-ink'
-                        : 'text-ink-muted hover:bg-raised hover:text-ink',
+                        ? 'sweep-pill text-white'
+                        : 'text-white/80 hover:bg-white/10 hover:text-white',
                     )
                   }
                 >
@@ -87,14 +97,18 @@ export function Header() {
           </ul>
         </nav>
 
-        <form onSubmit={submitSearch} className="ml-auto hidden max-w-sm flex-1 md:block" role="search">
+        <form
+          onSubmit={submitSearch}
+          className="ml-auto hidden max-w-xs flex-1 md:block"
+          role="search"
+        >
           <label htmlFor="site-search" className="sr-only">
             Search products
           </label>
           <div className="relative">
             <Search
               aria-hidden
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-subtle"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/70"
             />
             <input
               ref={searchRef}
@@ -103,7 +117,7 @@ export function Header() {
               value={term}
               onChange={(e) => setTerm(e.target.value)}
               placeholder="Search phones, chargers, repairs…"
-              className="h-10 w-full rounded-full border border-hairline bg-surface pl-9 pr-4 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-400"
+              className="sweep-pill h-9 w-full rounded-full pl-9 pr-4 text-sm text-white placeholder:text-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             />
           </div>
         </form>
@@ -111,7 +125,7 @@ export function Header() {
         <div className="ml-auto flex items-center gap-1 md:ml-0">
           <Link
             to={isAuthenticated ? '/account' : '/account/sign-in'}
-            className="hidden items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-raised hover:text-ink sm:flex"
+            className="hidden items-center gap-2 rounded-full px-3 py-2 text-sm text-white/85 transition-colors hover:bg-white/10 hover:text-white sm:flex"
           >
             <User aria-hidden className="h-4 w-4" />
             <span className="max-w-24 truncate">
@@ -121,79 +135,80 @@ export function Header() {
 
           <Link
             to="/cart"
-            className="relative rounded-lg p-2.5 text-ink-muted transition-colors hover:bg-raised hover:text-ink"
+            className="relative rounded-full p-2.5 text-white/85 transition-colors hover:bg-white/10 hover:text-white"
             aria-label={`Cart, ${count} item${count === 1 ? '' : 's'}`}
           >
             <ShoppingBag aria-hidden className="h-5 w-5" />
             {count > 0 && (
-              <span className="tabular absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1 text-2xs font-bold text-white">
+              <span className="tabular absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-500 px-1 text-2xs font-bold text-brand-800">
                 {count > 99 ? '99+' : count}
               </span>
             )}
           </Link>
 
-          <IconButton
-            label={menuOpen ? 'Close menu' : 'Open menu'}
-            variant="ghost"
-            className="lg:hidden"
-            icon={menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            onClick={() => setMenuOpen((open) => !open)}
+          <button
+            type="button"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={menuOpen}
-          />
+            onClick={() => setMenuOpen((open) => !open)}
+            className="rounded-full p-2.5 text-white/85 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
+          >
+            {menuOpen ? (
+              <X aria-hidden className="h-5 w-5" />
+            ) : (
+              <Menu aria-hidden className="h-5 w-5" />
+            )}
+          </button>
         </div>
       </div>
 
+      {/* The drawer is its own panel, so the pill never grows into a slab. */}
       {menuOpen && (
-        <div className="border-t border-hairline bg-surface lg:hidden">
-          <div className="mx-auto max-w-7xl space-y-3 px-4 py-4">
-            <form onSubmit={submitSearch} role="search" className="md:hidden">
-              <label htmlFor="mobile-search" className="sr-only">
-                Search products
-              </label>
-              <div className="relative">
-                <Search
-                  aria-hidden
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-subtle"
-                />
-                <input
-                  id="mobile-search"
-                  type="search"
-                  value={term}
-                  onChange={(e) => setTerm(e.target.value)}
-                  placeholder="Search phones…"
-                  className="h-11 w-full rounded-full border border-hairline bg-canvas pl-9 pr-4 text-sm text-ink"
-                />
-              </div>
-            </form>
+        <div className="glass glass-strong mx-auto mt-2 max-w-7xl rounded-3xl p-3 lg:hidden">
+          <form onSubmit={submitSearch} role="search" className="md:hidden">
+            <label htmlFor="mobile-search" className="sr-only">
+              Search products
+            </label>
+            <div className="relative">
+              <Search
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-subtle"
+              />
+              <input
+                id="mobile-search"
+                type="search"
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
+                placeholder="Search phones…"
+                className="h-11 w-full rounded-full border border-hairline bg-canvas/70 pl-9 pr-4 text-sm text-ink"
+              />
+            </div>
+          </form>
 
-            <nav aria-label="Categories">
-              <ul className="grid grid-cols-2 gap-2">
-                {CATEGORY_GROUPS.map((group) => (
-                  <li key={group.id}>
-                    <Link
-                      to={`/shop/${group.id}`}
-                      onClick={() => setMenuOpen(false)}
-                      className="block rounded-lg bg-raised px-3 py-2.5 text-sm font-medium text-ink"
-                    >
-                      {group.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
+          <nav aria-label="Categories" className="mt-3">
+            <ul className="grid grid-cols-2 gap-2">
+              {CATEGORY_GROUPS.map((group) => (
+                <li key={group.id}>
+                  <Link
+                    to={`/shop/${group.id}`}
+                    onClick={() => setMenuOpen(false)}
+                    className="glass block rounded-2xl px-4 py-3 text-sm font-medium text-ink"
+                  >
+                    {group.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
 
-            <Button
-              fullWidth
-              variant="secondary"
-              onClick={() => {
-                navigate(isAuthenticated ? '/account' : '/account/sign-in');
-                setMenuOpen(false);
-              }}
-              icon={<User className="h-4 w-4" />}
-            >
-              {isAuthenticated ? 'My account' : 'Sign in'}
-            </Button>
-          </div>
+          <Link
+            to={isAuthenticated ? '/account' : '/account/sign-in'}
+            onClick={() => setMenuOpen(false)}
+            className="glass mt-2 flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-ink"
+          >
+            <User aria-hidden className="h-4 w-4" />
+            {isAuthenticated ? 'My account' : 'Sign in'}
+          </Link>
         </div>
       )}
     </header>

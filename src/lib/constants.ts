@@ -44,6 +44,24 @@ export const CATEGORY_GROUPS: Array<{ id: string; label: string; categories: Cat
   { id: 'repairs', label: 'Repairs', categories: ['Repairs'] },
 ];
 
+/**
+ * Categories that are advertised but never sold online.
+ *
+ * A repair cannot be shipped and cannot be priced accurately until a
+ * technician has the handset in front of them — the printed terms say as much
+ * ("repairs over N$350 will first be confirmed with the customer"). So the
+ * shop lists these with an indicative price and sends the customer to the
+ * counter, where the job card is raised.
+ *
+ * Enforced in `useCart().add`, not just by hiding a button: the guard has to
+ * hold even if someone reaches the add path another way.
+ */
+export const SERVICE_CATEGORIES: readonly string[] = ['Repairs'];
+
+export function isServiceCategory(category: string | null | undefined): boolean {
+  return Boolean(category && SERVICE_CATEGORIES.includes(category));
+}
+
 /** Budget bands. Phone shoppers arrive with a number in mind far more than a brand. */
 export const PRICE_BANDS = [
   { id: 'entry', label: 'Under N$4 000', max: 4000 },

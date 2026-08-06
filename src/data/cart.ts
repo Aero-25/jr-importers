@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { LineItem, ProductRow } from '@/lib/database.types';
+import { isServiceCategory } from '@/lib/constants';
 import { DEFAULT_VAT_RATE, round2, vatFromInclusive } from '@/lib/format';
 
 const STORAGE_KEY = 'jr-cart-v2';
@@ -79,6 +80,12 @@ export function useCart() {
   }, []);
 
   const add = useCallback((product: ProductRow, quantity = 1, color?: string | null) => {
+    // Repairs are quoted at the counter, not bought online. Refused here as
+    // well as hidden in the UI, so the rule holds however the call is reached.
+    if (isServiceCategory(product.category)) {
+      return { added: 0, reason: 'in-store-only' as const };
+    }
+
     const existing = current.find((l) => l.product_id === product.id && l.color === (color ?? null));
     const alreadyInCart = existing?.quantity ?? 0;
     // Never let the cart exceed what the shop can actually ship.

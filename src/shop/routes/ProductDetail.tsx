@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { BellRing, Check, ChevronLeft, Minus, Plus, ShoppingBag, Truck } from 'lucide-react';
+import { BellRing, Check, ChevronLeft, Minus, Phone, Plus, ShoppingBag, Truck } from 'lucide-react';
 import { productImages, productSpecs, useProduct, useRelatedProducts } from '@/data/products';
 import { useCart } from '@/data/cart';
 import { supabase } from '@/lib/supabase';
+import { STORE, isServiceCategory } from '@/lib/constants';
 import { money } from '@/lib/format';
 import { cn } from '@/lib/cn';
-import { Button, ErrorState, LoadingScreen, Modal, Input, StockBadge, useToast } from '@/ui';
+import { Badge, Button, ErrorState, LoadingScreen, Modal, Input, StockBadge, useToast } from '@/ui';
 import { ProductCard } from '../components/ProductCard';
 import { productJsonLd, useSeo } from '../seo';
 
@@ -83,7 +84,8 @@ export default function ProductDetail() {
     );
   }
 
-  const outOfStock = product.stock <= 0;
+  const service = isServiceCategory(product.category);
+  const outOfStock = !service && product.stock <= 0;
   const maxQuantity = Math.max(product.stock, 1);
 
   function addToCart() {
@@ -165,11 +167,19 @@ export default function ProductDetail() {
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <p className="tabular font-display text-3xl font-bold text-ink">
-              {money(product.price)}
+              {service ? `From ${money(product.price)}` : money(product.price)}
             </p>
-            <StockBadge stock={product.stock} reorderLevel={product.reorder_level} />
+            {service ? (
+              <Badge tone="info">Quoted at the counter</Badge>
+            ) : (
+              <StockBadge stock={product.stock} reorderLevel={product.reorder_level} />
+            )}
           </div>
-          <p className="mt-1 text-xs text-ink-subtle">VAT inclusive</p>
+          <p className="mt-1 text-xs text-ink-subtle">
+            {service
+              ? 'Indicative price. The final quote depends on the handset and the parts it needs.'
+              : 'VAT inclusive'}
+          </p>
 
           {product.description && (
             <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-ink-muted">
@@ -177,6 +187,34 @@ export default function ProductDetail() {
             </p>
           )}
 
+          {service ? (
+            <div className="glass mt-6 rounded-2xl p-5">
+              <h2 className="font-display text-base font-semibold text-ink">
+                Booked in at the shop
+              </h2>
+              <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
+                Repairs are not sold online — a technician needs the handset in front of them
+                before the price is real. Bring it to {STORE.address}, or call us first and we
+                will tell you what to expect. You will get a job card by WhatsApp to sign and
+                track.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <a
+                  href={`tel:${STORE.phone.replace(/\s/g, '')}`}
+                  className="inline-flex h-11 items-center gap-2 rounded-full bg-lime-500 px-6 text-sm font-semibold text-brand-800 transition-colors hover:bg-lime-400"
+                >
+                  <Phone aria-hidden className="h-4 w-4" />
+                  {STORE.phone}
+                </a>
+                <Link
+                  to="/support"
+                  className="inline-flex h-11 items-center rounded-full border border-hairline px-6 text-sm font-medium text-ink transition-colors hover:border-brand-400"
+                >
+                  Ask a question
+                </Link>
+              </div>
+            </div>
+          ) : (
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {!outOfStock && (
               <div className="flex items-center rounded-lg border border-hairline">
@@ -224,6 +262,7 @@ export default function ProductDetail() {
               </Button>
             )}
           </div>
+          )}
 
           <ul className="mt-6 space-y-2 border-t border-hairline pt-6 text-sm text-ink-muted">
             <li className="flex items-center gap-2">

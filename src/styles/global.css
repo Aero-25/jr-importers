@@ -121,6 +121,84 @@
     animation: field-drift-b 46s ease-in-out infinite alternate;
   }
 
+  /* ── Colour-sweep header ────────────────────────────────────────────
+     Two gradients, doing two different jobs.
+
+     `.sweep` is the band the text sits on. Every stop is deep enough that
+     white clears 4.5:1 on it — the colour comes from hue variety, not from
+     lightness. A vivid lime stop here would drop white to about 2.7:1 and
+     the nav would be unreadable in daylight, which is when people are
+     standing outside the shop looking at it.
+
+     `.sweep-ring` is the same spectrum at full saturation, drawn as a 1.5px
+     ring around the pill and echoed as a coloured glow beneath it. It
+     carries no text, so it can be as bright as it likes — and it is what
+     actually reads as "colourful".
+
+     Both animate the same 18s cycle so the ring stays in step with the fill.
+     ─────────────────────────────────────────────────────────────────── */
+  .sweep {
+    background-image: linear-gradient(
+      100deg,
+      #0b2545 0%,
+      #123c7a 26%,
+      #0e5f8a 50%,
+      #146b4f 74%,
+      #3f6212 100%
+    );
+    background-size: 220% 100%;
+    background-position: 0% 50%;
+    animation: sweep-shift 18s ease-in-out infinite alternate;
+  }
+
+  .sweep-ring {
+    /* The glow is the ring's colour bleeding onto the page beneath it. */
+    box-shadow:
+      0 10px 34px -14px rgb(29 78 216 / 0.5),
+      0 6px 22px -10px rgb(101 212 30 / 0.4),
+      0 2px 8px -4px rgb(11 37 69 / 0.4);
+  }
+
+  /* A gradient border, drawn as a masked pseudo-element — `border-image`
+     cannot follow a border-radius. */
+  .sweep-ring::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    pointer-events: none;
+    background-image: linear-gradient(
+      100deg,
+      #1d4ed8 0%,
+      #0891b2 28%,
+      #14b8a6 52%,
+      #65d41e 76%,
+      #a3e635 100%
+    );
+    background-size: 220% 100%;
+    background-position: 0% 50%;
+    animation: sweep-shift 18s ease-in-out infinite alternate;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  /* Nav items on the sweep. Glass, but tinted dark so the pill never
+     lightens the ground beneath white text. */
+  .sweep-pill {
+    background: rgb(255 255 255 / 0.14);
+    border: 1px solid rgb(255 255 255 / 0.22);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
   /* ── The material ───────────────────────────────────────────────────
      A glass panel is three things at once: a translucency, a blur of
      whatever sits behind, and a specular highlight along the top edge
@@ -205,6 +283,15 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border-width: 0;
+  }
+}
+
+@keyframes sweep-shift {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
   }
 }
 

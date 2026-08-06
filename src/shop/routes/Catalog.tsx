@@ -1,8 +1,14 @@
 import { useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { Phone, SlidersHorizontal, X } from 'lucide-react';
 import { useCatalog, useFacets, type CatalogSort } from '@/data/products';
-import { CATEGORY_GROUPS, PRICE_BANDS, SHOP_CATEGORIES } from '@/lib/constants';
+import {
+  CATEGORY_GROUPS,
+  PRICE_BANDS,
+  SHOP_CATEGORIES,
+  STORE,
+  isServiceCategory,
+} from '@/lib/constants';
 import { money } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Button, EmptyState, ErrorState, Select } from '@/ui';
@@ -70,6 +76,10 @@ export default function Catalog() {
   const catalog = useCatalog(filters);
   const facets = useFacets({ categories: scope });
 
+  // Everything in view is a service, so the page speaks about booking rather
+  // than buying.
+  const isServiceGroup = scope.every((category) => isServiceCategory(category));
+
   function update(key: string, value: string | null) {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
@@ -95,8 +105,29 @@ export default function Catalog() {
         <p className="mt-1 text-sm text-ink-muted">
           {catalog.isLoading
             ? 'Loading products…'
-            : `${catalog.data?.length ?? 0} product${catalog.data?.length === 1 ? '' : 's'}`}
+            : `${catalog.data?.length ?? 0} ${isServiceGroup ? 'service' : 'product'}${
+                catalog.data?.length === 1 ? '' : 's'
+              }`}
         </p>
+
+        {isServiceGroup && (
+          <div className="glass mt-4 flex flex-wrap items-center gap-4 rounded-2xl p-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-ink">Repairs are booked in at the shop</p>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                Prices below are indicative. A technician confirms the quote once they have your
+                handset — bring it to {STORE.address}, or call ahead.
+              </p>
+            </div>
+            <a
+              href={`tel:${STORE.phone.replace(/\s/g, '')}`}
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full bg-lime-500 px-5 text-sm font-semibold text-brand-800 transition-colors hover:bg-lime-400"
+            >
+              <Phone aria-hidden className="h-4 w-4" />
+              {STORE.phone}
+            </a>
+          </div>
+        )}
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
