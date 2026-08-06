@@ -13,12 +13,14 @@ const People = lazy(() => import('./views/People.jsx'));
 const Expenses = lazy(() => import('./views/Expenses.jsx'));
 const Reports = lazy(() => import('./views/Reports.jsx'));
 const Settings = lazy(() => import('./views/Settings.jsx'));
+const JobCards = lazy(() => import('./views/JobCards.jsx'));
 
 const NAV = [
   { group: 'Sell', items: [
     { id: 'pos', label: 'Point of sale', icon: Icon.pos },
   ] },
   { group: 'Operate', items: [
+    { id: 'jobcards', label: 'Job cards', icon: Icon.cog },
     { id: 'cashup', label: 'Cash up', icon: Icon.cash },
     { id: 'stock', label: 'Stock & products', icon: Icon.box },
     { id: 'sales', label: 'Sales & orders', icon: Icon.receipt },
@@ -38,7 +40,7 @@ const FLAT = NAV.flatMap((g) => g.items);
 const TITLES = Object.fromEntries(FLAT.map((i) => [i.id, i.label]));
 const TABS = ['pos', 'stock', 'sales', 'cashup', 'dashboard'];
 
-const VIEWS = { dashboard: Dashboard, pos: POS, cashup: CashUp, stock: Stock, invoices: Invoices, sales: Sales, people: People, expenses: Expenses, reports: Reports, settings: Settings };
+const VIEWS = { jobcards: JobCards, dashboard: Dashboard, pos: POS, cashup: CashUp, stock: Stock, invoices: Invoices, sales: Sales, people: People, expenses: Expenses, reports: Reports, settings: Settings };
 
 function Login() {
   const { signIn } = useAuth();
@@ -56,7 +58,7 @@ function Login() {
         <div className="login__logo">J<i>R</i></div>
         <div className="eyebrow">JR Importers</div>
         <h1>Staff sign in</h1>
-        <p>Point of sale &amp; back office — Windhoek.</p>
+        <p>Point of sale &amp; back office — Walvis Bay.</p>
         <div className="field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" placeholder="you@jrimporters.com" /></div>
         <div className="field"><label>Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" /></div>
         {err && <div className="form-error">{err}</div>}

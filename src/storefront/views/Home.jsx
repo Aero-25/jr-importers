@@ -51,7 +51,7 @@ export default function Home() {
               <span><b>{stats.brands}</b> brands</span>
               <span><b>{stats.units}</b> units in stock</span>
             </div>
-            <h1>Genuine tech,<br />landed in <em>Windhoek</em>.</h1>
+            <h1>Genuine tech,<br />landed in <em>Walvis Bay</em>.</h1>
             <p className="hero__lede">
               {s.store_tagline}. Every phone, laptop and earbud is imported sealed,
               checked against its serial and warrantied — no grey imports, no surprises.
@@ -100,7 +100,7 @@ export default function Home() {
           {[
             [Icon.shield, 'Genuine or your money back', 'Sealed, serial-checked stock with manufacturer warranty on every device.'],
             [Icon.truck, 'Nationwide delivery', `Door-to-door across Namibia. Free over N$${money(s.free_delivery_threshold)}.`],
-            [Icon.tag, 'Real Windhoek prices', 'Imported direct, priced in Namibian Dollar — VAT already in.'],
+            [Icon.tag, 'Real Walvis Bay prices', 'Imported direct, priced in Namibian Dollar — VAT already in.'],
             [Icon.phone, 'Talk to a human', `Call ${s.store_phone} or message us on WhatsApp any time.`],
           ].map(([I, h, p], i) => (
             <div className="value" key={i}>
@@ -165,7 +165,7 @@ export default function Home() {
             </h3>
             <p style={{ color: 'var(--on-ink-mut)', marginTop: 10, maxWidth: '54ch' }}>
               Counterfeit and grey-import phones are everywhere. Every JR device is logged by IMEI
-              and serial number, sealed in box, and backed by a real warranty you can claim in Windhoek.
+              and serial number, sealed in box, and backed by a real warranty you can claim in Walvis Bay.
             </p>
           </div>
           <a className="btn btn--primary btn--lg" href="#/contact" style={{ flex: 'none' }}>

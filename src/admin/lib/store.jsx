@@ -76,8 +76,8 @@ function AuthProvider({ children }) {
 /* ============================================================ data */
 const DEFAULT_SETTINGS = {
   store_name: 'JR Importers', store_tagline: "Namibia's home of genuine phones & electronics",
-  store_email: 'sales@jrimporters.com', store_phone: '+264 81 562 9203', store_whatsapp: '26481562920',
-  store_address: 'Independence Avenue, Windhoek, Namibia', store_hours: 'Mon–Fri 08:00–18:00 · Sat 09:00–14:00',
+  store_email: 'sales@jrimporters.com', store_phone: '+264 81 562 9203', store_whatsapp: '264815629203',
+  store_address: 'Pelican Mall, Walvis Bay, Namibia', store_hours: 'Mon–Fri 08:00–18:00 · Sat 09:00–14:00',
   currency: 'N$', vat_rate: 15, delivery_fee: 150, free_delivery_threshold: 5000,
   bank_name: 'Bank Windhoek', bank_account_name: 'JR Importers CC', bank_account_number: '8004257139', bank_branch_code: '481972',
 };

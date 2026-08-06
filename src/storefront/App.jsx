@@ -12,6 +12,7 @@ import Product from './views/Product.jsx';
 import Checkout from './views/Checkout.jsx';
 import Account from './views/Account.jsx';
 import Contact from './views/Contact.jsx';
+import JobCard from './views/JobCard.jsx';
 
 function Routes() {
   const route = useRouter();
@@ -24,12 +25,26 @@ function Routes() {
     case 'checkout': return <Checkout />;
     case 'account': return <Account />;
     case 'contact': return <Contact />;
+    case 'jobcard': return <JobCard token={second} />;
     default: return <Home />;
   }
 }
 
 export default function App() {
   const s = useSettings();
+  const route = useRouter();
+
+  // The job-card link is a task, not a visit: someone opening it from WhatsApp
+  // is finishing a repair booking, often in a queue. Shop chrome would only be
+  // in the way, so it renders bare.
+  if (route.parts[0] === 'jobcard') {
+    return (
+      <main id="main">
+        <JobCard token={route.parts[1]} />
+      </main>
+    );
+  }
+
   return (
     <>
       <Header />

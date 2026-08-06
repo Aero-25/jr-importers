@@ -39,7 +39,7 @@ export function Stamp({ small, className = '' }) {
         </defs>
         <text>
           <textPath href="#stamp-arc" startOffset="0%">
-            GENUINE&nbsp;STOCK&nbsp;·&nbsp;LANDED&nbsp;WINDHOEK&nbsp;·&nbsp;VERIFIED&nbsp;·&nbsp;
+            GENUINE&nbsp;STOCK&nbsp;·&nbsp;LANDED&nbsp;WALVIS&nbsp;BAY&nbsp;·&nbsp;VERIFIED&nbsp;·&nbsp;
           </textPath>
         </text>
       </svg>

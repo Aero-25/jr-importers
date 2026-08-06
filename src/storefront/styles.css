@@ -1,6 +1,6 @@
 /* ==========================================================================
    JR Importers — Storefront design system
-   Concept: "Import manifest / provenance". Genuine tech, landed in Windhoek.
+   Concept: "Import manifest / provenance". Genuine tech, landed in Walvis Bay.
    Palette: Namibian sky-cobalt + desert-gold on cool ink/paper.
    Type:    Bricolage Grotesque (display) · Hanken Grotesk (body) · Space Mono (manifest)
    ========================================================================== */
@@ -547,3 +547,79 @@ ul { list-style: none; padding: 0; }
 /* mobile drawer for nav */
 .mnav { position: fixed; inset: 0; z-index: 95; background: var(--paper); transform: translateX(100%); animation: slide-in .3s var(--ease) forwards; display: flex; flex-direction: column; padding: 20px; }
 .mnav a { padding: 16px 4px; font-family: var(--display); font-weight: 800; font-size: 24px; letter-spacing: -.02em; border-bottom: 1px solid var(--line); }
+
+/* ============================================================== job card
+   The link a customer opens from WhatsApp to sign a repair booking. Rendered
+   outside the shop chrome — single column, phone-first, no navigation to get
+   lost in. Uses the same tokens as the rest of the storefront so it still
+   looks like JR Importers, just stripped back. */
+
+.jc {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 18px 64px;
+}
+.jc h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: -0.02em; }
+.jc h2 { font-size: 18px; margin: 0 0 6px; letter-spacing: -0.01em; }
+.jc h3 { font-size: 13px; margin: 0 0 8px; }
+.jc__muted { color: var(--muted); font-size: 14px; }
+
+.jc__head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line);
+}
+.jc__number { font-size: 30px; font-weight: 800; color: var(--cobalt); line-height: 1; }
+
+.jc__panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  margin-top: 16px;
+}
+.jc__panel--quote { border-color: var(--sun); background: var(--sun-tint); }
+.jc__quote { font-size: 30px; font-weight: 800; margin: 10px 0; letter-spacing: -0.02em; }
+
+.jc__dl { display: grid; grid-template-columns: 8.5rem 1fr; gap: 8px 14px; margin: 14px 0 0; font-size: 14px; }
+.jc__dl dt { color: var(--muted); }
+.jc__dl dd { margin: 0; overflow-wrap: anywhere; }
+
+.jc__terms {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 14px;
+}
+.jc__terms ul { margin: 0; padding-left: 18px; }
+.jc__terms li { font-size: 12.5px; line-height: 1.6; color: var(--muted); margin-bottom: 6px; }
+.jc__warn { font-size: 12.5px; font-weight: 700; color: var(--danger); margin: 10px 0 0; line-height: 1.5; }
+
+/* White regardless of theme: the exported signature sits on white paper in
+   the PDF, so what the customer signs on should match what they receive. */
+.jc__sign {
+  width: 100%;
+  height: 180px;
+  background: #fff;
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+  cursor: crosshair;
+  display: block;
+  touch-action: none;
+}
+
+.jc__consent {
+  display: flex; gap: 10px; align-items: flex-start;
+  font-size: 12.5px; font-weight: 700; margin: 14px 0;
+}
+.jc__consent input { margin-top: 2px; flex: none; }
+
+.jc__status {
+  background: var(--paper); border-radius: 10px; padding: 12px; margin: 12px 0;
+}
+.jc__status strong { display: block; font-size: 18px; margin-top: 2px; }
+
+.jc__foot {
+  margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line);
+  text-align: center; font-size: 12.5px; color: var(--muted);
+}
