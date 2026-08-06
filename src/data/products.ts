@@ -207,3 +207,83 @@ export function productSpecs(product: ProductRow): Array<{ label: string; value:
     .filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()))
     .map(([label, value]) => ({ label, value }));
 }
+
+/* ── Colour variants, from the IMEI pool ─────────────────────────────────── */
+
+export interface ColourVariant {
+  /** `null` where a unit was booked in without a colour recorded. */
+  color: string | null;
+  available: number;
+}
+
+export interface Variants {
+  /** True once the handset is stocked by IMEI rather than a plain count. */
+  serialised: boolean;
+  variants: ColourVariant[];
+  /** Units on hand: the IMEI count when serialised, else `products.stock`. */
+  available: number;
+}
+
+/**
+ * Colours and availability for a handset.
+ *
+ * Phones are stocked as individual units, each with its own IMEI and colour,
+ * so the colours a customer can pick are whatever is physically on the shelf —
+ * not a list typed on the product. RLS only exposes `available` IMEIs to the
+ * public, which is exactly the set this needs.
+ *
+ * Falls back to `products.stock` for anything not yet booked in by IMEI, so
+ * accessories and un-serialised stock keep working unchanged.
+ */
+export function useVariants(product: ProductRow | null | undefined) {
+  return useQuery<Variants, Error>({
+    queryKey: keys.list('product_imeis', { variants: product?.id }),
+    enabled: Boolean(product?.id),
+    staleTime: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_imeis')
+        .select('color')
+        .eq('product_id', product!.id)
+        .eq('status', 'available');
+      if (error) throw new Error(error.message);
+
+      const rows = data ?? [];
+      if (rows.length === 0) {
+        return { serialised: false, variants: [], available: product!.stock };
+      }
+
+      const counts = new Map<string | null, number>();
+      for (const row of rows) {
+        const key = row.color?.trim() || null;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+
+      const variants = [...counts.entries()]
+        .map(([color, available]) => ({ color, available }))
+        .sort((a, b) => (a.color ?? '').localeCompare(b.color ?? ''));
+
+      return { serialised: true, variants, available: rows.length };
+    },
+  });
+}
+
+/** A rough swatch for a colour name, for the picker. Unknown names get grey. */
+export function colourSwatch(name: string | null): string {
+  const key = (name ?? '').toLowerCase();
+  const table: Array<[RegExp, string]> = [
+    [/black|graphite|onyx|midnight/, '#1b1f24'],
+    [/white|silver|frost|pearl/, '#e9ecf1'],
+    [/grey|gray|titan/, '#7c8794'],
+    [/blue|navy|ocean|sky/, '#2c57f2'],
+    [/green|mint|lime|olive/, '#3f9142'],
+    [/red|crimson|scarlet/, '#c62828'],
+    [/gold|champagne|sand|beige/, '#d9b166'],
+    [/purple|violet|lavender/, '#7a52c7'],
+    [/pink|rose/, '#e2749a'],
+    [/yellow|amber/, '#e0a92f'],
+    [/orange|copper|bronze/, '#d1741f'],
+  ];
+  for (const [pattern, hex] of table) if (pattern.test(key)) return hex;
+  return '#9aa4b2';
+}

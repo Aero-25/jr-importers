@@ -1,7 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { BellRing, Check, ChevronLeft, Minus, Phone, Plus, ShoppingBag, Truck } from 'lucide-react';
-import { productImages, productSpecs, useProduct, useRelatedProducts } from '@/data/products';
+import {
+  colourSwatch,
+  productImages,
+  productSpecs,
+  useProduct,
+  useRelatedProducts,
+  useVariants,
+} from '@/data/products';
 import { useCart } from '@/data/cart';
 import { supabase } from '@/lib/supabase';
 import { STORE, isServiceCategory } from '@/lib/constants';
@@ -28,6 +35,12 @@ export default function ProductDetail() {
   const [activeImage, setActiveImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [alertOpen, setAlertOpen] = useState(false);
+  const [colour, setColour] = useState<string | null>(null);
+
+  // Handsets are stocked one unit at a time, so the colours on offer are
+  // whatever is physically on the shelf rather than a list typed on the
+  // product record.
+  const variants = useVariants(product);
 
   const images = useMemo(() => (product ? productImages(product) : []), [product]);
   const specs = useMemo(() => (product ? productSpecs(product) : []), [product]);
@@ -85,12 +98,27 @@ export default function ProductDetail() {
   }
 
   const service = isServiceCategory(product.category);
-  const outOfStock = !service && product.stock <= 0;
-  const maxQuantity = Math.max(product.stock, 1);
+  const stockInfo = variants.data;
+  const serialised = Boolean(stockInfo?.serialised);
+
+  // With several colours in stock, availability is per colour — picking one
+  // is what decides how many can go in the basket.
+  const chosen = serialised ? stockInfo!.variants.find((v) => v.color === colour) : undefined;
+  const needsColour = serialised && stockInfo!.variants.length > 1 && colour === null;
+  const onHand = serialised
+    ? (chosen?.available ?? stockInfo!.available)
+    : (stockInfo?.available ?? product.stock);
+
+  const outOfStock = !service && onHand <= 0;
+  const maxQuantity = Math.max(onHand, 1);
 
   function addToCart() {
     if (!product) return;
-    const result = add(product, quantity);
+    if (needsColour) {
+      toast.warn('Choose a colour', 'Each handset is stocked by colour.');
+      return;
+    }
+    const result = add(product, quantity, colour ?? chosen?.color ?? null);
     if (result.reason === 'insufficient-stock') {
       toast.warn('Not enough stock', `Only ${product.stock} left.`);
       return;
@@ -172,7 +200,7 @@ export default function ProductDetail() {
             {service ? (
               <Badge tone="info">Quoted at the counter</Badge>
             ) : (
-              <StockBadge stock={product.stock} reorderLevel={product.reorder_level} />
+              <StockBadge stock={onHand} reorderLevel={product.reorder_level} />
             )}
           </div>
           <p className="mt-1 text-xs text-ink-subtle">
@@ -215,6 +243,52 @@ export default function ProductDetail() {
               </div>
             </div>
           ) : (
+            <>
+
+          {/* Colour, from the IMEI pool. Only shown when there is a choice. */}
+          {serialised && stockInfo!.variants.length > 0 && (
+            <fieldset className="mt-6">
+              <legend className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+                Colour
+                {needsColour && <span className="ml-1 text-danger">*</span>}
+              </legend>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {stockInfo!.variants.map((variant) => {
+                  const active = colour === variant.color;
+                  const label = variant.color ?? 'As pictured';
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => {
+                        setColour(variant.color);
+                        setQuantity(1);
+                      }}
+                      className={cn(
+                        'inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm transition-all',
+                        active
+                          ? 'border-brand-500 bg-brand-500/10 font-semibold text-brand-700'
+                          : 'border-hairline text-ink-muted hover:border-brand-400 hover:text-ink',
+                      )}
+                    >
+                      <span
+                        aria-hidden
+                        className="h-4 w-4 rounded-full border border-black/15"
+                        style={{ background: colourSwatch(variant.color) }}
+                      />
+                      {label}
+                      <span className="tabular text-xs text-ink-subtle">{variant.available}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-ink-subtle">
+                Each handset is logged against its own IMEI, so what you see is what is on the
+                shelf.
+              </p>
+            </fieldset>
+          )}
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {!outOfStock && (
               <div className="flex items-center rounded-lg border border-hairline">
@@ -262,6 +336,7 @@ export default function ProductDetail() {
               </Button>
             )}
           </div>
+            </>
           )}
 
           <ul className="mt-6 space-y-2 border-t border-hairline pt-6 text-sm text-ink-muted">

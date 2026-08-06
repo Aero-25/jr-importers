@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus, Search } from 'lucide-react';
 import type { ProductRow } from '@/lib/database.types';
 import { products } from '@/data/products';
+import { keys } from '@/data/keys';
+import { supabase } from '@/lib/supabase';
 import { CATEGORIES } from '@/lib/constants';
 import { money, toNumber } from '@/lib/format';
 import {
@@ -12,6 +15,7 @@ import {
   DataTable,
   Input,
   Modal,
+  Notice,
   Select,
   StockBadge,
   Textarea,
@@ -20,6 +24,7 @@ import {
 } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
 import { ImageUploader } from '../components/ImageUploader';
+import { ImeiManager } from '../components/ImeiManager';
 
 export default function Products() {
   const [search, setSearch] = useState('');
@@ -215,6 +220,24 @@ function ProductDialog({
   const isNew = product === 'new';
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Serialised products take their stock from the IMEI pool, not the column,
+  // so the stock field must go read-only once any unit is booked in. Counts
+  // every row, not just available ones — a fully sold-out phone is still
+  // serialised, and letting someone re-type its stock would fight the trigger.
+  const imeiCount = useQuery({
+    queryKey: keys.list('product_imeis', { count: isNew ? null : product.id }),
+    enabled: !isNew,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('product_imeis')
+        .select('id', { count: 'exact', head: true })
+        .eq('product_id', (product as ProductRow).id);
+      if (error) throw new Error(error.message);
+      return count ?? 0;
+    },
+  });
+  const serialised = (imeiCount.data ?? 0) > 0;
+
   // `image` plus `image1`–`image5` are flattened into one ordered list for
   // editing, and spread back across the columns on save.
   const [images, setImages] = useState<string[]>(() =>
@@ -373,7 +396,12 @@ function ProductDialog({
             min={0}
             value={form.stock}
             onChange={(e) => set('stock', e.target.value)}
-            hint="Ignored for products tracked by IMEI."
+            disabled={!isNew && serialised}
+            hint={
+              !isNew && serialised
+                ? 'Counted from the booked-in IMEIs below.'
+                : 'Use only for stock not tracked by IMEI.'
+            }
           />
           <Input
             label="Reorder level"
@@ -396,6 +424,20 @@ function ProductDialog({
           <div className="sm:col-span-2">
             <ImageUploader productName={form.name} images={images} onChange={setImages} />
           </div>
+
+          {isNew ? (
+            <div className="sm:col-span-2">
+              <Notice tone="info" title="Book in the handsets after saving">
+                Phones are stocked one unit at a time. Create the product first, then capture each
+                IMEI and its colour — that is what gives the shop its stock count and colour
+                options.
+              </Notice>
+            </div>
+          ) : (
+            <div className="sm:col-span-2">
+              <ImeiManager productId={product.id} />
+            </div>
+          )}
 
           <Textarea
             label="Description"

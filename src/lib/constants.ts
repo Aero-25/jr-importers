@@ -35,13 +35,12 @@ export type Category = (typeof CATEGORIES)[number];
  * still exists in the database and the console — it is simply not on the shop.
  * Widen the shop by adding groups here; nothing else needs to change.
  */
-export const SHOP_CATEGORIES: Category[] = ['Smartphones', 'Accessories', 'Repairs'];
+export const SHOP_CATEGORIES: Category[] = ['Smartphones', 'Accessories'];
 
 /** Groups the storefront's top-level tabs. Order is the order shown. */
 export const CATEGORY_GROUPS: Array<{ id: string; label: string; categories: Category[] }> = [
   { id: 'phones', label: 'All phones', categories: ['Smartphones'] },
   { id: 'accessories', label: 'Accessories', categories: ['Accessories'] },
-  { id: 'repairs', label: 'Repairs', categories: ['Repairs'] },
 ];
 
 /**
@@ -172,6 +171,7 @@ export const STAFF_ROLES: readonly string[] = [...ADMIN_ROLES, 'cashier', 'staff
 
 export const STORE = {
   name: 'JR Importers',
+  hours: 'Mon–Fri 08:00–17:30 · Sat 09:00–13:00',
   tagline: 'Namibia’s cellphone specialists',
   country: 'Namibia',
   city: 'Walvis Bay',

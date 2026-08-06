@@ -4,6 +4,7 @@ import { isConfigured } from '@/lib/supabase';
 import { LoadingScreen, Notice } from '@/ui';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
+import { RepairsBand } from './components/RepairsBand';
 import { ScrollToTop } from './components/ScrollToTop';
 
 // Route-level splitting: the landing page must not carry the checkout form or
@@ -16,6 +17,7 @@ const Checkout = lazy(() => import('./routes/Checkout'));
 const OrderConfirmation = lazy(() => import('./routes/OrderConfirmation'));
 const Account = lazy(() => import('./routes/Account'));
 const Support = lazy(() => import('./routes/Support'));
+const About = lazy(() => import('./routes/About'));
 const JobCardAccept = lazy(() => import('./routes/JobCardAccept'));
 const NotFound = lazy(() => import('./routes/NotFound'));
 
@@ -71,6 +73,7 @@ export function ShopApp() {
             <Route path="/order/:id" element={<OrderConfirmation />} />
             <Route path="/account/*" element={<Account />} />
             <Route path="/support" element={<Support />} />
+            <Route path="/about" element={<About />} />
             {/* Legal pages stay as static HTML so they render without the bundle. */}
             <Route path="/index.html" element={<Navigate to="/" replace />} />
             <Route path="*" element={<NotFound />} />
@@ -78,6 +81,7 @@ export function ShopApp() {
         </Suspense>
       </main>
 
+      <RepairsBand />
       <Footer />
     </div>
   );
