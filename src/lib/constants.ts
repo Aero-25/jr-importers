@@ -2,31 +2,57 @@
 
 /* ── Catalogue ───────────────────────────────────────────────────────────── */
 
+/**
+ * The category values actually present in `products.category`.
+ *
+ * These must match the database exactly — the storefront's group tabs filter on
+ * them with `.in('category', …)`, so an invented value silently returns an
+ * empty page. Confirm with:
+ *   select distinct category from public.products where active;
+ */
 export const CATEGORIES = [
-  'Phones',
+  'Smartphones',
   'Tablets',
   'Laptops',
   'Audio',
   'Wearables',
-  'TV & Display',
+  'Cameras',
+  'Drones',
   'Gaming',
+  'Smart Home',
+  'Car Tech',
   'Accessories',
-  'Networking',
-  'Storage',
-  'Components',
-  'Misc',
+  'Repairs',
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];
 
+/**
+ * The storefront is a phone shop.
+ *
+ * Only these categories are merchandised. The rest of the catalogue (laptops,
+ * audio, drones, cameras, gaming, smart home, car tech, tablets, wearables)
+ * still exists in the database and the console — it is simply not on the shop.
+ * Widen the shop by adding groups here; nothing else needs to change.
+ */
+export const SHOP_CATEGORIES: Category[] = ['Smartphones', 'Accessories', 'Repairs'];
+
 /** Groups the storefront's top-level tabs. Order is the order shown. */
 export const CATEGORY_GROUPS: Array<{ id: string; label: string; categories: Category[] }> = [
-  { id: 'phones', label: 'Phones', categories: ['Phones'] },
-  { id: 'computing', label: 'Computing', categories: ['Laptops', 'Tablets', 'Components', 'Storage'] },
-  { id: 'audio', label: 'Audio & Wearables', categories: ['Audio', 'Wearables'] },
-  { id: 'home', label: 'TV & Gaming', categories: ['TV & Display', 'Gaming'] },
-  { id: 'accessories', label: 'Accessories', categories: ['Accessories', 'Networking', 'Misc'] },
+  { id: 'phones', label: 'All phones', categories: ['Smartphones'] },
+  { id: 'accessories', label: 'Accessories', categories: ['Accessories'] },
+  { id: 'repairs', label: 'Repairs', categories: ['Repairs'] },
 ];
+
+/** Budget bands. Phone shoppers arrive with a number in mind far more than a brand. */
+export const PRICE_BANDS = [
+  { id: 'entry', label: 'Under N$4 000', max: 4000 },
+  { id: 'mid', label: 'N$4 000 – N$10 000', min: 4000, max: 10000 },
+  { id: 'flagship', label: 'N$10 000 and up', min: 10000 },
+] as const;
+
+/** Storage tiers offered as a filter; matched against `spec_storage`. */
+export const STORAGE_TIERS = ['64GB', '128GB', '256GB', '512GB'] as const;
 
 /* ── Order lifecycle ─────────────────────────────────────────────────────── */
 
@@ -128,7 +154,7 @@ export const STAFF_ROLES: readonly string[] = [...ADMIN_ROLES, 'cashier', 'staff
 
 export const STORE = {
   name: 'JR Importers',
-  tagline: 'Namibia’s tech superstore',
+  tagline: 'Namibia’s cellphone specialists',
   country: 'Namibia',
   city: 'Walvis Bay',
   address: 'Pelican Mall, Walvis Bay',

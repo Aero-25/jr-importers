@@ -12,7 +12,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [navOpen, setNavOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(
-    () => (localStorage.getItem('jr-console-theme') as 'dark' | 'light' | null) ?? 'dark',
+    () => (localStorage.getItem('jr-console-theme') as 'dark' | 'light' | null) ?? 'light',
   );
 
   useEffect(() => {

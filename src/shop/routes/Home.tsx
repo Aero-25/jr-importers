@@ -1,150 +1,230 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles } from 'lucide-react';
-import { useCatalog } from '@/data/products';
-import { CATEGORY_GROUPS, STORE } from '@/lib/constants';
+import { ArrowRight, BatteryCharging, ShieldCheck, Smartphone, Truck, Wrench } from 'lucide-react';
+import { useCatalog, useFacets } from '@/data/products';
+import { PRICE_BANDS, STORE } from '@/lib/constants';
+import { money } from '@/lib/format';
 import { ErrorState } from '@/ui';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
 import { useSeo } from '../seo';
 
+const PROMISES = [
+  { icon: Truck, title: 'Nationwide delivery', detail: 'Courier to all 14 regions' },
+  { icon: ShieldCheck, title: 'Genuine handsets', detail: 'Imported, tested, warrantied' },
+  { icon: Wrench, title: 'We repair too', detail: 'Screens, batteries, data recovery' },
+];
+
 export default function Home() {
   useSeo({
-    title: 'JR Importers — Phones, Laptops & Tech in Namibia',
+    title: 'JR Importers — Cellphones in Namibia',
     description:
-      "Namibia's tech superstore. Imported smartphones, laptops, tablets, audio and accessories at import prices, with nationwide delivery from Windhoek.",
+      'Imported Samsung and Ulefone smartphones at import prices, from Walvis Bay. Nationwide delivery, genuine stock, and in-house screen and battery repairs.',
     path: '/',
   });
 
-  const featured = useCatalog({ featuredOnly: true, inStockOnly: true, limit: 8 });
-  const newest = useCatalog({ sort: 'newest', inStockOnly: true, limit: 12 });
+  const phones = useCatalog({ categories: ['Smartphones'], inStockOnly: true, sort: 'price-asc' });
+  const brands = useFacets({ categories: ['Smartphones'] });
+
+  const cheapest = phones.data?.[0]?.price;
 
   return (
     <>
-      <section className="relative overflow-hidden border-b border-hairline">
-        {/* Decorative wash — kept in CSS rather than an image so it costs nothing. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-70"
-          style={{
-            background:
-              'radial-gradient(60rem 30rem at 15% -10%, rgb(26 112 250 / 0.22), transparent 60%), radial-gradient(40rem 24rem at 90% 10%, rgb(240 180 41 / 0.12), transparent 60%)',
-          }}
-        />
-
-        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:py-24">
-          <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-xs font-medium text-brand-300">
-              <Sparkles aria-hidden className="h-3.5 w-3.5" />
-              {STORE.tagline}
+      {/* ── Hero ──────────────────────────────────────────────────────────── */}
+      <section className="border-b border-hairline">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:py-24">
+          <div className="max-w-3xl">
+            <span className="inline-flex items-center gap-2 rounded-full bg-lime-500 px-3 py-1 text-xs font-semibold text-brand-800">
+              <Smartphone aria-hidden className="h-3.5 w-3.5" />
+              Cellphone specialists · {STORE.city}
             </span>
 
-            <h1 className="mt-4 font-display text-4xl font-bold leading-[1.1] tracking-tight text-ink sm:text-6xl">
-              Real tech.
+            <h1 className="mt-5 font-display text-4xl font-bold leading-[1.05] tracking-tight text-brand-700 sm:text-6xl">
+              The right phone,
               <br />
-              <span className="text-brand-400">Import prices.</span>
+              <span className="relative inline-block">
+                {/* Sits low enough to clear the descender on the 'p'. */}
+                <span
+                  aria-hidden
+                  className="absolute inset-x-0 bottom-0.5 h-2.5 bg-lime-400 sm:bottom-1 sm:h-4"
+                />
+                <span className="relative">at import prices.</span>
+              </span>
             </h1>
 
-            <p className="mt-5 max-w-lg text-base text-ink-muted sm:text-lg">
-              Smartphones, laptops, tablets, audio and accessories — imported, tested and
-              warrantied. Delivered anywhere in {STORE.country}, or collect in {STORE.city}.
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-ink-muted sm:text-lg">
+              Samsung and Ulefone handsets, imported and tested before they reach you.
+              {cheapest ? ` From ${money(cheapest)}.` : ''} Delivered anywhere in {STORE.country},
+              or collect from {STORE.address}.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                to="/shop"
-                className="inline-flex h-12 items-center gap-2 rounded-xl bg-brand-500 px-6 text-base font-medium text-white shadow-card transition-colors hover:bg-brand-400"
+                to="/shop/phones"
+                className="inline-flex h-12 items-center gap-2 rounded-xl bg-brand-600 px-6 text-base font-semibold text-white shadow-card transition-colors hover:bg-brand-500"
               >
-                Shop everything
+                Browse all phones
                 <ArrowRight aria-hidden className="h-4 w-4" />
               </Link>
               <Link
                 to="/support"
-                className="inline-flex h-12 items-center rounded-xl border border-hairline px-6 text-base font-medium text-ink transition-colors hover:border-brand-400 hover:text-brand-300"
+                className="inline-flex h-12 items-center rounded-xl border border-hairline px-6 text-base font-medium text-ink transition-colors hover:border-brand-400 hover:bg-raised"
               >
-                Request a specific model
+                Book a repair
               </Link>
             </div>
           </div>
+        </div>
+      </section>
 
-          <nav aria-label="Shop by category" className="mt-12">
-            <ul className="flex flex-wrap gap-2">
-              {CATEGORY_GROUPS.map((group) => (
-                <li key={group.id}>
+      {/* ── Shop by budget ────────────────────────────────────────────────── */}
+      <section className="mx-auto max-w-7xl px-4 py-12">
+        <h2 className="font-display text-2xl font-bold tracking-tight text-brand-700">
+          Shop by budget
+        </h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          Most people arrive with a number in mind rather than a model.
+        </p>
+
+        <ul className="mt-6 grid gap-4 sm:grid-cols-3">
+          {PRICE_BANDS.map((band) => {
+            const params = new URLSearchParams();
+            if ('min' in band && band.min) params.set('min', String(band.min));
+            if ('max' in band && band.max) params.set('max', String(band.max));
+
+            return (
+              <li key={band.id}>
+                <Link
+                  to={`/shop/phones?${params.toString()}`}
+                  className="group flex h-full flex-col justify-between rounded-card border border-hairline bg-surface p-5 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lift"
+                >
+                  <span className="font-display text-lg font-bold text-brand-700">
+                    {band.label}
+                  </span>
+                  <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600">
+                    See handsets
+                    <ArrowRight
+                      aria-hidden
+                      className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+                    />
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      {/* ── Shop by brand ─────────────────────────────────────────────────── */}
+      {brands.data && brands.data.brands.length > 0 && (
+        <section className="border-y border-hairline bg-raised">
+          <div className="mx-auto max-w-7xl px-4 py-12">
+            <h2 className="font-display text-2xl font-bold tracking-tight text-brand-700">
+              Shop by brand
+            </h2>
+
+            <ul className="mt-6 flex flex-wrap gap-3">
+              {brands.data.brands.map((brand) => (
+                <li key={brand.value}>
                   <Link
-                    to={`/shop/${group.id}`}
-                    className="inline-flex items-center rounded-full border border-hairline bg-surface/60 px-4 py-2 text-sm text-ink-muted backdrop-blur transition-colors hover:border-brand-400 hover:text-ink"
+                    to={`/shop/phones?brand=${encodeURIComponent(brand.value)}`}
+                    className="flex items-center gap-3 rounded-card border border-hairline bg-surface px-5 py-3 transition-colors hover:border-brand-400"
                   >
-                    {group.label}
+                    <span className="font-display text-base font-bold text-brand-700">
+                      {brand.value}
+                    </span>
+                    <span className="tabular rounded-full bg-lime-500 px-2 py-0.5 text-2xs font-bold text-brand-800">
+                      {brand.count}
+                    </span>
                   </Link>
                 </li>
               ))}
             </ul>
-          </nav>
+          </div>
+        </section>
+      )}
+
+      {/* ── The handsets ──────────────────────────────────────────────────── */}
+      <section className="mx-auto max-w-7xl px-4 py-12">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="font-display text-2xl font-bold tracking-tight text-brand-700">
+              In stock now
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Every handset here is on the shelf and ready to ship.
+            </p>
+          </div>
+          <Link
+            to="/shop/phones"
+            className="shrink-0 text-sm font-semibold text-brand-600 transition-colors hover:text-brand-500"
+          >
+            View all →
+          </Link>
+        </div>
+
+        {phones.isError ? (
+          <ErrorState error={phones.error} onRetry={() => void phones.refetch()} />
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {phones.isLoading
+              ? Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)
+              : phones.data
+                  ?.slice(0, 8)
+                  .map((product, index) => (
+                    <ProductCard key={product.id} product={product} priority={index < 4} />
+                  ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── Repairs — the counter service the job-card flow feeds ─────────── */}
+      <section className="border-t border-hairline bg-brand-700">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-12 md:flex-row md:items-center md:justify-between">
+          <div className="max-w-xl">
+            <h2 className="font-display text-2xl font-bold tracking-tight text-white">
+              Cracked screen? Battery gone flat by lunchtime?
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-brand-100">
+              We repair in-house at {STORE.address}. Book it in and you will get your job card by
+              WhatsApp — sign on your phone, track it, and collect when it is ready.
+            </p>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap gap-3">
+            <Link
+              to="/shop/repairs"
+              className="inline-flex h-12 items-center gap-2 rounded-xl bg-lime-500 px-6 text-base font-semibold text-brand-800 transition-colors hover:bg-lime-400"
+            >
+              <BatteryCharging aria-hidden className="h-4 w-4" />
+              See repair prices
+            </Link>
+            <a
+              href={`tel:${STORE.phone.replace(/\s/g, '')}`}
+              className="inline-flex h-12 items-center rounded-xl border border-brand-400 px-6 text-base font-medium text-white transition-colors hover:bg-brand-600"
+            >
+              {STORE.phone}
+            </a>
+          </div>
         </div>
       </section>
 
-      <ProductRail
-        title="Featured this week"
-        description="Hand-picked by the team."
-        to="/shop"
-        query={featured}
-      />
-
-      <ProductRail
-        title="Just landed"
-        description="The newest stock on the shelf."
-        to="/shop"
-        query={newest}
-      />
+      <section className="border-t border-hairline">
+        <ul className="mx-auto grid max-w-7xl gap-4 px-4 py-8 sm:grid-cols-3">
+          {PROMISES.map(({ icon: Icon, title, detail }) => (
+            <li key={title} className="flex items-center gap-3">
+              <span
+                aria-hidden
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-lime-500 text-brand-800"
+              >
+                <Icon className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-ink">{title}</p>
+                <p className="text-xs text-ink-muted">{detail}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
     </>
-  );
-}
-
-function ProductRail({
-  title,
-  description,
-  to,
-  query,
-}: {
-  title: string;
-  description: string;
-  to: string;
-  query: ReturnType<typeof useCatalog>;
-}) {
-  if (query.isError) {
-    return (
-      <section className="mx-auto max-w-7xl px-4 py-10">
-        <ErrorState title={`Could not load ${title.toLowerCase()}`} error={query.error} onRetry={() => void query.refetch()} />
-      </section>
-    );
-  }
-
-  // An empty merchandising rail is not an error — just say nothing.
-  if (!query.isLoading && query.data?.length === 0) return null;
-
-  return (
-    <section className="mx-auto max-w-7xl px-4 py-10">
-      <div className="mb-5 flex items-end justify-between gap-4">
-        <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight text-ink">{title}</h2>
-          <p className="mt-0.5 text-sm text-ink-muted">{description}</p>
-        </div>
-        <Link
-          to={to}
-          className="shrink-0 text-sm font-medium text-brand-400 transition-colors hover:text-brand-300"
-        >
-          View all →
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-        {query.isLoading
-          ? Array.from({ length: 6 }).map((_, i) => <ProductCardSkeleton key={i} />)
-          : query.data
-              ?.slice(0, 12)
-              .map((product, index) => (
-                <ProductCard key={product.id} product={product} priority={index < 6} />
-              ))}
-      </div>
-    </section>
   );
 }

@@ -1,0 +1,9 @@
+# Cloudflare Pages SPA fallback.
+#
+# The storefront uses history routing, so /shop, /product/… and /jobcard/<token>
+# have no matching file on disk. Without this the job-card link a customer opens
+# from WhatsApp would 404.
+#
+# Real files are served before these rules are consulted, so /admin.html and the
+# hashed assets are unaffected. The console uses hash routing and needs no rule.
+/*    /index.html   200

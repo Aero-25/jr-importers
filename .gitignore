@@ -34,3 +34,7 @@ mobile/www/icon.svg
 mobile/www/OneSignalSDKWorker.js
 mobile/www/admin.webmanifest
 mobile/www/offline.html
+
+# Playwright
+test-results/
+playwright-report/

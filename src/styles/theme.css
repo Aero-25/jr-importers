@@ -1,76 +1,102 @@
 /*
- * JR Importers colour tokens.
+ * JR Importers colour tokens — navy, lime and grey on white.
  *
  * Values are bare `R G B` triplets so Tailwind can apply `<alpha-value>`.
- * `[data-theme]` on <html> selects the scale; the storefront is always dark
- * (cinematic retail), the POS console lets staff pick — a bright shop floor
- * and a late-night stock take want different things.
+ *
+ * On the use of lime: at ~1.5:1 against white it is unreadable as text, so it
+ * is never used for one. It is an action surface — lime fill, deep navy label,
+ * around 8:1 — which reads brighter than lime text ever could while staying
+ * legible in sunlight on a phone.
+ *
+ * Navy carries text and structure; grey carries separation; white is the page.
  */
 
 :root,
-[data-theme='dark'] {
-  --c-canvas: 8 11 18;
-  --c-surface: 15 19 29;
-  --c-raised: 22 27 39;
-  --c-overlay: 30 36 50;
-  --c-hairline: 45 53 70;
-
-  --c-ink: 237 242 250;
-  --c-ink-muted: 160 172 192;
-  --c-ink-subtle: 110 122 143;
-  --c-ink-inverse: 8 11 18;
-
-  --c-brand-50: 236 244 255;
-  --c-brand-100: 214 231 255;
-  --c-brand-200: 174 208 255;
-  --c-brand-300: 122 178 255;
-  --c-brand-400: 74 146 255;
-  --c-brand-500: 26 112 250;
-  --c-brand-600: 14 88 214;
-  --c-brand-700: 12 69 168;
-  --c-brand-800: 14 56 130;
-  --c-brand-900: 16 47 102;
-
-  --c-gold-300: 253 224 143;
-  --c-gold-400: 250 204 89;
-  --c-gold-500: 240 180 41;
-  --c-gold-600: 202 145 20;
-
-  --c-success: 45 200 105;
-  --c-success-soft: 18 52 36;
-  --c-warn: 245 165 30;
-  --c-warn-soft: 60 44 16;
-  --c-danger: 244 84 84;
-  --c-danger-soft: 66 25 29;
-  --c-info: 70 190 250;
-  --c-info-soft: 16 47 66;
-
-  color-scheme: dark;
-}
-
 [data-theme='light'] {
-  --c-canvas: 246 248 252;
+  --c-canvas: 255 255 255;
   --c-surface: 255 255 255;
-  --c-raised: 255 255 255;
+  --c-raised: 246 248 251;
   --c-overlay: 255 255 255;
-  --c-hairline: 223 229 239;
+  --c-hairline: 224 231 239;
 
-  --c-ink: 15 23 42;
-  --c-ink-muted: 71 85 105;
-  --c-ink-subtle: 130 143 163;
+  --c-ink: 13 38 63;
+  --c-ink-muted: 88 104 124;
+  --c-ink-subtle: 138 152 170;
   --c-ink-inverse: 255 255 255;
 
-  --c-brand-500: 20 99 232;
-  --c-brand-600: 16 80 196;
+  /* Navy */
+  --c-brand-50: 239 244 249;
+  --c-brand-100: 216 228 240;
+  --c-brand-200: 176 199 223;
+  --c-brand-300: 127 161 198;
+  --c-brand-400: 74 115 163;
+  --c-brand-500: 23 65 107;
+  --c-brand-600: 18 51 84;
+  --c-brand-700: 13 38 63;
+  --c-brand-800: 9 27 45;
+  --c-brand-900: 6 18 31;
 
-  --c-success: 22 145 76;
-  --c-success-soft: 219 245 230;
-  --c-warn: 190 115 10;
-  --c-warn-soft: 253 240 214;
-  --c-danger: 205 46 46;
-  --c-danger-soft: 253 226 226;
-  --c-info: 12 140 200;
-  --c-info-soft: 218 240 252;
+  /* Lime */
+  --c-lime-300: 217 249 157;
+  --c-lime-400: 190 242 100;
+  --c-lime-500: 163 230 53;
+  --c-lime-600: 132 204 22;
+  --c-lime-700: 101 163 13;
+
+  --c-success: 22 143 79;
+  --c-success-soft: 226 246 235;
+  --c-warn: 176 106 8;
+  --c-warn-soft: 253 241 220;
+  --c-danger: 198 40 40;
+  --c-danger-soft: 253 228 228;
+  --c-info: 23 65 107;
+  --c-info-soft: 226 236 246;
 
   color-scheme: light;
+}
+
+/*
+ * Dark variant, offered only in the POS console. A late stock take under
+ * workshop lighting is a different problem from a shop floor at midday, so
+ * staff can switch; the storefront stays light.
+ */
+[data-theme='dark'] {
+  --c-canvas: 8 16 26;
+  --c-surface: 13 24 38;
+  --c-raised: 19 33 51;
+  --c-overlay: 25 42 64;
+  --c-hairline: 38 57 82;
+
+  --c-ink: 233 240 248;
+  --c-ink-muted: 156 174 196;
+  --c-ink-subtle: 110 130 154;
+  --c-ink-inverse: 8 16 26;
+
+  --c-brand-50: 6 18 31;
+  --c-brand-100: 9 27 45;
+  --c-brand-200: 13 38 63;
+  --c-brand-300: 143 180 219;
+  --c-brand-400: 108 152 199;
+  --c-brand-500: 74 124 180;
+  --c-brand-600: 56 100 152;
+  --c-brand-700: 40 76 120;
+  --c-brand-800: 26 54 88;
+  --c-brand-900: 16 36 60;
+
+  --c-lime-300: 217 249 157;
+  --c-lime-400: 190 242 100;
+  --c-lime-500: 163 230 53;
+  --c-lime-600: 132 204 22;
+  --c-lime-700: 101 163 13;
+
+  --c-success: 74 214 130;
+  --c-success-soft: 18 52 36;
+  --c-warn: 240 176 64;
+  --c-warn-soft: 58 44 18;
+  --c-danger: 248 113 113;
+  --c-danger-soft: 62 26 30;
+  --c-info: 125 176 232;
+  --c-info-soft: 20 40 64;
+
+  color-scheme: dark;
 }

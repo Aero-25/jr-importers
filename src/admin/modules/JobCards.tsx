@@ -384,7 +384,7 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
                 {needsQuoteApproval && (
                   <Button
                     size="sm"
-                    variant="gold"
+                    variant="lime"
                     icon={<FileText className="h-4 w-4" />}
                     onClick={() => setQuoteOpen(true)}
                   >

@@ -338,7 +338,7 @@ function QuoteApproval({ card, token }: { card: PublicJobCard; token: string }) 
   }
 
   return (
-    <Card className="mb-4 border-gold-500/40 p-4">
+    <Card className="mb-4 border-lime-500/40 p-4">
       <Notice tone="warn" title="Your approval is needed">
         We have assessed your handset. Repairs over N$350 need your go-ahead before we start.
       </Notice>

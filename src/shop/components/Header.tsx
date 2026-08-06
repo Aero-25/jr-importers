@@ -102,7 +102,7 @@ export function Header() {
               type="search"
               value={term}
               onChange={(e) => setTerm(e.target.value)}
-              placeholder="Search phones, laptops, audio…"
+              placeholder="Search phones, chargers, repairs…"
               className="h-10 w-full rounded-full border border-hairline bg-surface pl-9 pr-4 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-400"
             />
           </div>
@@ -160,7 +160,7 @@ export function Header() {
                   type="search"
                   value={term}
                   onChange={(e) => setTerm(e.target.value)}
-                  placeholder="Search the store…"
+                  placeholder="Search phones…"
                   className="h-11 w-full rounded-full border border-hairline bg-canvas pl-9 pr-4 text-sm text-ink"
                 />
               </div>

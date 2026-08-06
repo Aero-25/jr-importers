@@ -9,7 +9,7 @@ export type ButtonVariant =
   | 'outline'
   | 'danger'
   | 'success'
-  | 'gold';
+  | 'lime';
 
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -23,7 +23,8 @@ const VARIANTS: Record<ButtonVariant, string> = {
     'border border-hairline text-ink hover:border-brand-400 hover:text-brand-300 disabled:hover:border-hairline',
   danger: 'bg-danger text-white hover:brightness-110 active:brightness-95',
   success: 'bg-success text-white hover:brightness-110 active:brightness-95',
-  gold: 'bg-gold-500 text-ink-inverse font-semibold hover:bg-gold-400 active:bg-gold-600',
+  // Deep navy label, not white: white on lime is ~1.7:1 and unreadable.
+  lime: 'bg-lime-500 text-brand-800 font-semibold hover:bg-lime-400 active:bg-lime-600',
 };
 
 const SIZES: Record<ButtonSize, string> = {

@@ -24,7 +24,7 @@ export default {
         'ink-subtle': withAlpha('--c-ink-subtle'),
         'ink-inverse': withAlpha('--c-ink-inverse'),
 
-        // Brand: electric blue reads "tech importer"; gold marks value/premium.
+        // Navy carries text and structure; lime is the action colour.
         brand: {
           50: withAlpha('--c-brand-50'),
           100: withAlpha('--c-brand-100'),
@@ -38,12 +38,14 @@ export default {
           900: withAlpha('--c-brand-900'),
           DEFAULT: withAlpha('--c-brand-500'),
         },
-        gold: {
-          300: withAlpha('--c-gold-300'),
-          400: withAlpha('--c-gold-400'),
-          500: withAlpha('--c-gold-500'),
-          600: withAlpha('--c-gold-600'),
-          DEFAULT: withAlpha('--c-gold-500'),
+        // Never use as a text colour on white — see src/styles/theme.css.
+        lime: {
+          300: withAlpha('--c-lime-300'),
+          400: withAlpha('--c-lime-400'),
+          500: withAlpha('--c-lime-500'),
+          600: withAlpha('--c-lime-600'),
+          700: withAlpha('--c-lime-700'),
+          DEFAULT: withAlpha('--c-lime-500'),
         },
 
         // Semantic. Used identically in shop and console.
@@ -70,10 +72,12 @@ export default {
         panel: '1.25rem',
       },
       boxShadow: {
-        card: '0 1px 2px rgb(0 0 0 / 0.20), 0 8px 24px -12px rgb(0 0 0 / 0.45)',
-        lift: '0 12px 40px -12px rgb(0 0 0 / 0.55)',
-        glow: '0 0 0 1px rgb(var(--c-brand-500) / 0.35), 0 8px 32px -8px rgb(var(--c-brand-500) / 0.45)',
-        inset: 'inset 0 1px 0 0 rgb(255 255 255 / 0.06)',
+        // Tinted with the navy rather than pure black: a neutral-grey shadow
+        // on white reads as dirt, a hint of the brand hue reads as depth.
+        card: '0 1px 2px rgb(13 38 63 / 0.06), 0 4px 12px -4px rgb(13 38 63 / 0.10)',
+        lift: '0 8px 28px -8px rgb(13 38 63 / 0.18), 0 2px 6px -2px rgb(13 38 63 / 0.08)',
+        glow: '0 0 0 3px rgb(var(--c-lime-500) / 0.30)',
+        inset: 'inset 0 1px 0 0 rgb(255 255 255 / 0.6)',
       },
       transitionTimingFunction: {
         out: 'cubic-bezier(0.16, 1, 0.3, 1)',

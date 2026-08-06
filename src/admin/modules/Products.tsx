@@ -112,7 +112,7 @@ export default function Products() {
       render: (product) => (
         <div className="flex items-center justify-end gap-1.5">
           {product.featured && (
-            <Badge tone="gold" size="sm">
+            <Badge tone="lime" size="sm">
               Featured
             </Badge>
           )}

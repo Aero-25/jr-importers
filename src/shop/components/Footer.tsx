@@ -5,7 +5,7 @@ import { config } from '@/lib/env';
 
 const TRUST = [
   { icon: Truck, title: 'Nationwide delivery', detail: 'Courier to all 14 regions' },
-  { icon: ShieldCheck, title: 'Genuine stock', detail: 'Imported, tested, warrantied' },
+  { icon: ShieldCheck, title: 'Genuine handsets', detail: 'Imported, tested, warrantied' },
   { icon: Wallet, title: 'Flexible payment', detail: 'Card, EFT, cash or layby' },
 ];
 
@@ -34,7 +34,7 @@ export function Footer() {
               <span className="font-display text-base font-bold text-ink">JR Importers</span>
             </div>
             <p className="mt-3 text-sm text-ink-muted">
-              {STORE.tagline}. Imported electronics at import prices, shipped from{' '}
+              {STORE.tagline}. Imported Samsung and Ulefone handsets, accessories and in-house repairs, from{' '}
               {STORE.city} across {STORE.country}.
             </p>
           </div>
@@ -114,7 +114,7 @@ export function Footer() {
             © {new Date().getFullYear()} {STORE.name}. All prices in Namibian Dollar (N$), VAT
             inclusive.
           </p>
-          <p>Windhoek, Namibia</p>
+          <p>{STORE.address}</p>
         </div>
       </div>
     </footer>

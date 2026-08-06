@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { useCatalog, useFacets, type CatalogSort } from '@/data/products';
-import { CATEGORY_GROUPS } from '@/lib/constants';
+import { CATEGORY_GROUPS, PRICE_BANDS, SHOP_CATEGORIES } from '@/lib/constants';
 import { money } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Button, EmptyState, ErrorState, Select } from '@/ui';
@@ -27,8 +27,10 @@ export default function Catalog() {
   const category = params.get('category');
   const sort = (params.get('sort') as CatalogSort | null) ?? 'popular';
   const inStockOnly = params.get('stock') === 'in';
+  const minPrice = params.get('min') ? Number(params.get('min')) : null;
+  const maxPrice = params.get('max') ? Number(params.get('max')) : null;
 
-  const title = group ? group.label : search ? `Search: ${search}` : 'Shop all';
+  const title = group ? group.label : search ? `Search: ${search}` : 'All phones';
 
   useSeo({
     title: `${title} — JR Importers`,
@@ -43,20 +45,29 @@ export default function Catalog() {
     ]),
   });
 
+  // With no group selected the listing still stays inside the phone shop
+  // rather than exposing the whole warehouse.
+  const scope = useMemo(
+    () => (group ? [...group.categories] : [...SHOP_CATEGORIES]),
+    [group],
+  );
+
   const filters = useMemo(
     () => ({
-      categories: group ? [...group.categories] : null,
+      categories: scope,
       category,
       brand,
       search,
       sort,
       inStockOnly,
+      minPrice,
+      maxPrice,
     }),
-    [group, category, brand, search, sort, inStockOnly],
+    [scope, category, brand, search, sort, inStockOnly, minPrice, maxPrice],
   );
 
   const catalog = useCatalog(filters);
-  const facets = useFacets();
+  const facets = useFacets({ categories: scope });
 
   function update(key: string, value: string | null) {
     const next = new URLSearchParams(params);
@@ -70,6 +81,8 @@ export default function Catalog() {
     category && { key: 'category', label: category },
     inStockOnly && { key: 'stock', label: 'In stock only' },
     search && { key: 'q', label: `“${search}”` },
+    minPrice && { key: 'min', label: `From ${money(minPrice)}` },
+    maxPrice && { key: 'max', label: `Up to ${money(maxPrice)}` },
   ].filter(Boolean) as Array<{ key: string; label: string }>;
 
   return (
@@ -96,6 +109,49 @@ export default function Catalog() {
             onChange={(e) => update('sort', e.target.value)}
             options={SORTS.map((s) => ({ value: s.value, label: s.label }))}
           />
+
+          <div>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              Budget
+            </h2>
+            <ul className="space-y-0.5">
+              {PRICE_BANDS.map((band) => {
+                const bandMin = 'min' in band ? (band.min ?? null) : null;
+                const bandMax = 'max' in band ? (band.max ?? null) : null;
+                const isActive = minPrice === bandMin && maxPrice === bandMax;
+
+                return (
+                  <li key={band.id}>
+                    <button
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => {
+                        const next = new URLSearchParams(params);
+                        if (isActive) {
+                          next.delete('min');
+                          next.delete('max');
+                        } else {
+                          if (bandMin) next.set('min', String(bandMin));
+                          else next.delete('min');
+                          if (bandMax) next.set('max', String(bandMax));
+                          else next.delete('max');
+                        }
+                        setParams(next, { replace: true });
+                      }}
+                      className={cn(
+                        'w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors',
+                        isActive
+                          ? 'bg-brand-600 font-medium text-white'
+                          : 'text-ink-muted hover:bg-raised hover:text-ink',
+                      )}
+                    >
+                      {band.label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
 
           {facets.data && facets.data.brands.length > 0 && (
             <FacetList
@@ -204,7 +260,7 @@ function FacetList({
   onSelect: (value: string | null) => void;
 }) {
   return (
-    <div>
+    <div data-testid={`facet-${title.toLowerCase()}`}>
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{title}</h2>
       <ul className="space-y-0.5">
         {options.slice(0, 12).map((option) => {

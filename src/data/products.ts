@@ -109,15 +109,20 @@ export interface Facets {
  * Pulls only the three columns it needs so the whole catalogue can be
  * aggregated client-side without a second heavy round trip.
  */
-export function useFacets() {
+export function useFacets(scope: { categories?: string[] | null } = {}) {
+  const scoped = scope.categories?.length ? scope.categories : null;
+
   return useQuery<Facets, Error>({
-    queryKey: keys.productFacets(),
+    queryKey: [...keys.productFacets(), scoped],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('category, brand, price')
-        .eq('active', true);
+      // Scoped to whatever the shopper is currently looking at. Offering
+      // "Canon" as a brand filter on the Phones tab would only lead to an
+      // empty page.
+      let query = supabase.from('products').select('category, brand, price').eq('active', true);
+      if (scoped) query = query.in('category', scoped);
+
+      const { data, error } = await query;
       if (error) throw new Error(error.message);
 
       const categories = new Map<string, number>();

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 import { ORDER_STATUS_TONE } from '@/lib/constants';
 
-export type Tone = 'neutral' | 'brand' | 'info' | 'success' | 'warn' | 'danger' | 'gold';
+export type Tone = 'neutral' | 'brand' | 'info' | 'success' | 'warn' | 'danger' | 'lime';
 
 const TONES: Record<Tone, string> = {
   neutral: 'bg-raised text-ink-muted border-hairline',
@@ -11,7 +11,8 @@ const TONES: Record<Tone, string> = {
   success: 'bg-success/12 text-success border-success/30',
   warn: 'bg-warn/12 text-warn border-warn/30',
   danger: 'bg-danger/12 text-danger border-danger/30',
-  gold: 'bg-gold-500/12 text-gold-400 border-gold-500/30',
+  // Lime as a fill with a navy label; lime text on white would not be legible.
+  lime: 'bg-lime-500 text-brand-800 border-lime-600',
 };
 
 export function Badge({

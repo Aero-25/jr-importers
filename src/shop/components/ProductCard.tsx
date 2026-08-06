@@ -39,11 +39,19 @@ export function ProductCard({
       className={cn(
         'group relative flex flex-col overflow-hidden rounded-card border border-hairline bg-surface',
         'transition-[transform,box-shadow,border-color] duration-200 ease-out',
-        'hover:-translate-y-1 hover:border-brand-500/40 hover:shadow-lift',
+        'hover:-translate-y-1 hover:border-brand-300 hover:shadow-lift',
         className,
       )}
     >
-      <Link to={productPath(product)} className="relative block aspect-square overflow-hidden bg-raised">
+      {/*
+        `cover`, not `contain`: this catalogue is lifestyle photography rather
+        than cut-outs on white, so filling the square reads better than letter-
+        boxing it. The faint grey underneath only shows while the image loads.
+      */}
+      <Link
+        to={productPath(product)}
+        className="relative block aspect-square overflow-hidden bg-raised"
+      >
         {product.image ? (
           <img
             src={product.image}
@@ -61,7 +69,7 @@ export function ProductCard({
 
         <div className="absolute left-2 top-2 flex flex-col gap-1">
           {product.featured && (
-            <Badge tone="gold" size="sm">
+            <Badge tone="lime" size="sm">
               Featured
             </Badge>
           )}
@@ -87,17 +95,18 @@ export function ProductCard({
         </h3>
 
         <div className="mt-auto pt-3">
-          <p className="tabular font-display text-lg font-semibold text-ink">
+          <p className="tabular font-display text-lg font-bold text-brand-700">
             {money(product.price)}
           </p>
           <div className="mt-1.5">
             <StockBadge stock={product.stock} reorderLevel={product.reorder_level} size="sm" />
           </div>
 
+          {/* Lime is reserved for the one action on the card. */}
           <Button
             size="sm"
             fullWidth
-            variant={outOfStock ? 'secondary' : 'primary'}
+            variant={outOfStock ? 'secondary' : 'lime'}
             disabled={outOfStock}
             onClick={addToCart}
             // Sits above the card-wide link overlay.

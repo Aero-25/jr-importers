@@ -60,12 +60,8 @@
 @layer components {
   /* Frosted panel used across storefront hero cards and console surfaces. */
   .glass {
-    background: linear-gradient(
-      180deg,
-      rgb(var(--c-raised) / 0.82),
-      rgb(var(--c-surface) / 0.9)
-    );
-    backdrop-filter: blur(12px);
+    background: rgb(var(--c-surface) / 0.78);
+    backdrop-filter: blur(12px) saturate(1.4);
     border: 1px solid rgb(var(--c-hairline) / 0.9);
   }
 
