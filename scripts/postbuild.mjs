@@ -49,6 +49,11 @@ async function run() {
     log('react admin mirrored -> /admin-app/index.html');
   }
 
+  // 2b) The job-card link is its own document at /jobcard/, reached by token.
+  if (await move(path.join(dist, 'src/jobcard/index.html'), path.join(dist, 'jobcard/index.html'))) {
+    log('job card -> /jobcard/index.html');
+  }
+
   // 3) Drop the now-empty src/ scaffolding from the output.
   await fs.rm(path.join(dist, 'src'), { recursive: true, force: true });
 

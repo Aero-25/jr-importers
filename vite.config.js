@@ -20,6 +20,7 @@ export default defineConfig({
       input: {
         storefront: 'src/storefront/index.html',
         admin: 'src/admin/index.html',
+        jobcard: 'src/jobcard/index.html',
       },
       output: {
         manualChunks: {

@@ -171,7 +171,10 @@ export function useRespondToQuote() {
 /* ── Links ───────────────────────────────────────────────────────────────── */
 
 export function jobCardUrl(token: string): string {
-  return `${config.SITE_URL}/jobcard/${token}`;
+  // A real file plus a query string, not a routed path. This is the one URL
+  // customers receive rather than click through to, so it must not depend on
+  // host rewrite rules to resolve.
+  return `${config.SITE_URL}/jobcard/?t=${encodeURIComponent(token)}`;
 }
 
 /**

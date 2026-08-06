@@ -35,8 +35,12 @@ import { useSeo } from '../seo';
  * repair booking, not browsing, and half of them will be standing in a queue.
  * The whole page is one column and works on a small screen.
  */
-export default function JobCardAccept() {
-  const { token } = useParams<{ token: string }>();
+export default function JobCardAccept({ tokenOverride }: { tokenOverride?: string } = {}) {
+  // Served two ways: as a route inside the shop, and as its own document at
+  // /jobcard/?t=<token>. The standalone entry has no router, so it passes the
+  // token in directly.
+  const params = useParams<{ token: string }>();
+  const token = tokenOverride ?? params.token;
   const { data: card, isLoading, isError, error, refetch } = useGuestJobCard(token);
 
   useSeo({ title: 'Your job card', noIndex: true });
