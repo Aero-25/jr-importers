@@ -1,0 +1,332 @@
+@import './theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    border-color: rgb(var(--c-hairline));
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Money and identifiers must never reflow as digits change. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-lime-500 ring-offset-2 ring-offset-canvas;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--c-hairline));
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--c-ink-subtle));
+  }
+
+  /*
+   * Everything below is motion. It is switched off wholesale rather than
+   * softened — a vestibular trigger is not made safe by being slower.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+    .field::before,
+    .field::after {
+      animation: none !important;
+    }
+    .reveal {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+}
+
+@layer components {
+  /* ── The ambient light field ────────────────────────────────────────
+     Glass has nothing to refract without something behind it. This is
+     that something: three slow blooms over the base colour.
+
+     Deliberately plain gradients rather than blur or canvas. It is fixed
+     and full-viewport, so it composites once and costs nothing to scroll
+     past — which matters when the customer is browsing on the mid-range
+     Android we are trying to sell them.
+     ─────────────────────────────────────────────────────────────────── */
+  /* z-index 0 with content layered above, not -1. A negative index drops
+     behind the body background and the field disappears entirely. */
+  .field {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: rgb(var(--field-base));
+  }
+
+  .field::before,
+  .field::after {
+    content: '';
+    position: absolute;
+    inset: -25%;
+    will-change: transform;
+  }
+
+  .field::before {
+    background:
+      radial-gradient(
+        38% 40% at 14% 12%,
+        rgb(var(--field-bloom-a) / var(--field-bloom-a-alpha)),
+        transparent 68%
+      ),
+      radial-gradient(
+        42% 44% at 86% 20%,
+        rgb(var(--field-bloom-b) / var(--field-bloom-b-alpha)),
+        transparent 66%
+      );
+    animation: field-drift-a 34s ease-in-out infinite alternate;
+  }
+
+  .field::after {
+    background: radial-gradient(
+      46% 42% at 50% 96%,
+      rgb(var(--field-bloom-c) / var(--field-bloom-c-alpha)),
+      transparent 64%
+    );
+    animation: field-drift-b 46s ease-in-out infinite alternate;
+  }
+
+  /* ── Colour-sweep header ────────────────────────────────────────────
+     Two gradients, doing two different jobs.
+
+     `.sweep` is the band the text sits on. Every stop is deep enough that
+     white clears 4.5:1 on it — the colour comes from hue variety, not from
+     lightness. A vivid lime stop here would drop white to about 2.7:1 and
+     the nav would be unreadable in daylight, which is when people are
+     standing outside the shop looking at it.
+
+     `.sweep-ring` is the same spectrum at full saturation, drawn as a 1.5px
+     ring around the pill and echoed as a coloured glow beneath it. It
+     carries no text, so it can be as bright as it likes — and it is what
+     actually reads as "colourful".
+
+     Both animate the same 18s cycle so the ring stays in step with the fill.
+     ─────────────────────────────────────────────────────────────────── */
+  .sweep {
+    background-image: linear-gradient(
+      100deg,
+      #0b2545 0%,
+      #123c7a 26%,
+      #0e5f8a 50%,
+      #146b4f 74%,
+      #3f6212 100%
+    );
+    background-size: 220% 100%;
+    background-position: 0% 50%;
+    animation: sweep-shift 18s ease-in-out infinite alternate;
+  }
+
+  .sweep-ring {
+    /* The glow is the ring's colour bleeding onto the page beneath it. */
+    box-shadow:
+      0 10px 34px -14px rgb(29 78 216 / 0.5),
+      0 6px 22px -10px rgb(101 212 30 / 0.4),
+      0 2px 8px -4px rgb(11 37 69 / 0.4);
+  }
+
+  /* A gradient border, drawn as a masked pseudo-element — `border-image`
+     cannot follow a border-radius. */
+  .sweep-ring::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    pointer-events: none;
+    background-image: linear-gradient(
+      100deg,
+      #1d4ed8 0%,
+      #0891b2 28%,
+      #14b8a6 52%,
+      #65d41e 76%,
+      #a3e635 100%
+    );
+    background-size: 220% 100%;
+    background-position: 0% 50%;
+    animation: sweep-shift 18s ease-in-out infinite alternate;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  /* Nav items on the sweep. Glass, but tinted dark so the pill never
+     lightens the ground beneath white text. */
+  .sweep-pill {
+    background: rgb(255 255 255 / 0.14);
+    border: 1px solid rgb(255 255 255 / 0.22);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  /* ── The material ───────────────────────────────────────────────────
+     A glass panel is three things at once: a translucency, a blur of
+     whatever sits behind, and a specular highlight along the top edge
+     where light catches. Miss the third and it reads as a flat tint.
+     ─────────────────────────────────────────────────────────────────── */
+  .glass {
+    position: relative;
+    background: rgb(var(--glass-tint) / var(--glass-alpha));
+    border: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--glass-specular) / var(--glass-specular-alpha)),
+      var(--glass-shadow);
+  }
+
+  /* For nav and anything that must stay legible over busy content. */
+  .glass-strong {
+    background: rgb(var(--glass-tint) / var(--glass-alpha-strong));
+    backdrop-filter: blur(calc(var(--glass-blur) + 8px)) saturate(200%);
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 8px)) saturate(200%);
+  }
+
+  /*
+   * Pointer-tracked sheen. `useSpecular` writes --mx/--my as percentages;
+   * the highlight is painted on a pseudo-element so it never tints the
+   * panel's own content. Falls back to invisible when JS has not run.
+   */
+  .sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease-out;
+    background: radial-gradient(
+      22rem 22rem at var(--mx, 50%) var(--my, 0%),
+      rgb(var(--glass-specular) / 0.22),
+      transparent 60%
+    );
+  }
+  .sheen:hover::after,
+  .sheen:focus-within::after {
+    opacity: 1;
+  }
+
+  /* ── Scroll reveal ──────────────────────────────────────────────────
+     One-shot: `useReveal` adds .is-in and disconnects. Nothing re-animates
+     on the way back up, which is where scroll effects usually become
+     irritating.
+     ─────────────────────────────────────────────────────────────────── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.is-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-raised;
+  }
+  .skeleton::after {
+    @apply absolute inset-0 animate-shimmer;
+    content: '';
+    background: linear-gradient(90deg, transparent, rgb(var(--c-ink) / 0.06), transparent);
+    transform: translateX(-100%);
+  }
+
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+@keyframes sweep-shift {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes field-drift-a {
+  from {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(3%, 2%, 0) scale(1.08);
+  }
+}
+
+@keyframes field-drift-b {
+  from {
+    transform: translate3d(2%, 1%, 0) scale(1.06);
+  }
+  to {
+    transform: translate3d(-2%, -3%, 0) scale(1);
+  }
+}
+
+@media print {
+  /* Invoices, quotes, layby agreements and till reports all print from POS. */
+  body {
+    background: #fff;
+    color: #000;
+  }
+  .field,
+  .no-print {
+    display: none !important;
+  }
+  .glass {
+    background: #fff !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+}

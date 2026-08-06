@@ -1,22 +1,78 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-NA" data-theme="light" data-field="light">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>JR Importers — Genuine phones &amp; electronics, landed in Walvis Bay</title>
-    <meta name="description" content="Namibia's home of genuine, sealed and warrantied phones, laptops and electronics. Verified stock, real Walvis Bay prices, fast nationwide delivery." />
-    <meta name="theme-color" content="#0E1320" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <title>JR Importers — Phones, Laptops &amp; Tech in Namibia</title>
+    <meta
+      name="description"
+      content="Namibia's tech superstore. Imported smartphones, laptops, tablets, audio and accessories at import prices, with nationwide delivery from Windhoek."
+    />
+    <link rel="canonical" href="https://jr-importers.pages.dev/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
 
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="JR Importers" />
+    <meta property="og:title" content="JR Importers — Phones, Laptops &amp; Tech in Namibia" />
+    <meta
+      property="og:description"
+      content="Imported smartphones, laptops, tablets, audio and accessories at import prices. Nationwide delivery from Windhoek."
+    />
+    <meta property="og:url" content="https://jr-importers.pages.dev/" />
+    <meta property="og:image" content="https://jr-importers.pages.dev/icon.svg" />
+    <meta property="og:locale" content="en_NA" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Opens the TLS connection to Supabase while the bundle is still parsing. -->
+    <link rel="preconnect" href="https://snkvszndxwpozrefnpnv.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://snkvszndxwpozrefnpnv.supabase.co" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Store",
+        "name": "JR Importers",
+        "description": "Imported consumer electronics retailer in Namibia.",
+        "url": "https://jr-importers.pages.dev/",
+        "image": "https://jr-importers.pages.dev/icon.svg",
+        "priceRange": "N$$",
+        "currenciesAccepted": "NAD",
+        "paymentAccepted": "Cash, Card, EFT, Layby",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Windhoek",
+          "addressCountry": "NA"
+        },
+        "areaServed": { "@type": "Country", "name": "Namibia" }
+      }
+    </script>
+
+    <!-- Legacy runtime config. Kept so a deploy can retarget Supabase without a rebuild. -->
     <script src="/config.js"></script>
-    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <a
+      href="#main"
+      class="sr-only-focusable absolute left-4 top-4 z-[100] rounded-lg bg-brand-500 px-4 py-2 text-white"
+    >
+      Skip to content
+    </a>
     <div id="root"></div>
-    <script type="module" src="./main.jsx"></script>
+    <noscript>
+      <div style="padding: 2rem; font-family: system-ui; color: #0d263f; background: #ffffff">
+        <h1>JR Importers</h1>
+        <p>
+          This shop needs JavaScript enabled. Please turn it on, or reach us on WhatsApp to order
+          directly.
+        </p>
+      </div>
+    </noscript>
+    <script type="module" src="./main.tsx"></script>
   </body>
 </html>
