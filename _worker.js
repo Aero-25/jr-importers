@@ -81,7 +81,10 @@ async function serveAsset(request, env) {
 
   if (request.method !== 'GET' || !wantsHtml || isAdmin) return response;
 
-  const shell = await env.ASSETS.fetch(new Request(new URL('/index.html', url), request));
+  // Fetch `/`, not `/index.html`: Pages normalises the explicit filename with
+  // a 308 redirect, which is not `ok`, so asking for it silently fell through
+  // to the 404 this function exists to replace.
+  const shell = await env.ASSETS.fetch(new Request(new URL('/', url), request));
   if (!shell.ok) return response;
 
   // 200, not a redirect: the browser keeps the deep link in the address bar
