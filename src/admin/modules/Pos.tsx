@@ -14,13 +14,13 @@ import {
 import type { DenominationCounts, LineItem, ProductRow } from '@/lib/database.types';
 import {
   useAddPettyCash,
-  useCompleteSale,
   useOpenShift,
   useOpenTill,
   usePettyCash,
   usePosSearch,
   useShiftSales,
 } from '@/data/till';
+import { useOfflineSales } from '@/data/offlineSales';
 import { cartTotals } from '@/data/cart';
 import { useAuth } from '@/auth/AuthProvider';
 import { PAYMENT_METHODS } from '@/lib/constants';
@@ -63,7 +63,8 @@ export default function Pos() {
   const search = usePosSearch(term);
   const sales = useShiftSales(shift.data?.id);
   const petty = usePettyCash(shift.data?.id);
-  const completeSale = useCompleteSale();
+  const till = useOfflineSales();
+  const [selling, setSelling] = useState(false);
 
   const totals = useMemo(() => cartTotals(lines, toNumber(discount)), [lines, discount]);
   const takings = useMemo(
@@ -133,8 +134,9 @@ export default function Pos() {
   }
 
   async function finalise(paymentMethod: string, tendered: number) {
+    setSelling(true);
     try {
-      await completeSale.mutateAsync({
+      const outcome = await till.sell({
         items: lines,
         discount: toNumber(discount),
         paymentMethod,
@@ -142,11 +144,21 @@ export default function Pos() {
         cashierName: cashier,
         shiftId: shift.data?.id ?? null,
       });
-      toast.success('Sale complete', money(totals.total));
+
+      if (outcome === 'queued') {
+        toast.warn(
+          'Saved on this device',
+          `${money(totals.total)} — no line to the server. It will post itself the moment the connection returns.`,
+        );
+      } else {
+        toast.success('Sale complete', money(totals.total));
+      }
       clearSale();
       setTenderOpen(false);
     } catch (error) {
       toast.error('Sale failed', error instanceof Error ? error.message : undefined);
+    } finally {
+      setSelling(false);
     }
   }
 
@@ -197,6 +209,30 @@ export default function Pos() {
           />
         ) : (
           <>
+            {/* The cashier has to be able to tell, at a glance, whether what
+                they just rang up has actually left the building. */}
+            {(!till.online || till.pending.length > 0 || till.stuck.length > 0) && (
+              <div className="mb-4 space-y-2">
+                {(!till.online || till.pending.length > 0) && (
+                  <Notice
+                    tone={till.online ? 'info' : 'warn'}
+                    title={till.online ? 'Catching up' : 'Working offline'}
+                  >
+                    {till.pending.length > 0
+                      ? `${till.pending.length} sale${till.pending.length === 1 ? '' : 's'} saved on this device, ${till.syncing ? 'posting now' : 'waiting for the line'}. Keep selling — nothing is lost.`
+                      : 'No line to the server. Sales are saved on this device and post themselves when it returns.'}
+                  </Notice>
+                )}
+                {till.stuck.length > 0 && (
+                  <Notice tone="danger" title={`${till.stuck.length} sale(s) could not be posted`}>
+                    These were rung up and taken, but the server keeps refusing them. Do not re-ring
+                    them — the money is already in the drawer. Show this to whoever maintains the
+                    system: {till.stuck[0]?.lastError ?? 'no error recorded'}
+                  </Notice>
+                )}
+              </div>
+            )}
+
             {/* Shift strip */}
             <div className="mb-5 grid gap-3 sm:grid-cols-4">
               <Stat label="Opening float" value={money(shift.data!.opening_float)} />
@@ -403,7 +439,7 @@ export default function Pos() {
         onClose={() => setTenderOpen(false)}
         total={totals.total}
         onConfirm={finalise}
-        busy={completeSale.isPending}
+        busy={selling}
       />
     </>
   );

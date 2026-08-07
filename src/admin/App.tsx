@@ -20,6 +20,7 @@ const Settings = lazy(() => import('./modules/Settings'));
 const Activity = lazy(() => import('./modules/Activity'));
 const GoodsReceived = lazy(() => import('./modules/GoodsReceived'));
 const Finance = lazy(() => import('./modules/Finance'));
+const Reports = lazy(() => import('./modules/Reports'));
 const Faults = lazy(() => import('./modules/Faults'));
 
 const ADMIN_ONLY_PATHS = [
@@ -32,6 +33,7 @@ const ADMIN_ONLY_PATHS = [
   '/activity',
   '/finance',
   '/errors',
+  '/reports',
 ];
 
 function NotPermitted() {
@@ -109,6 +111,7 @@ export function AdminApp() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/activity" element={<Activity />} />
               <Route path="/finance" element={<Finance />} />
+              <Route path="/reports" element={<Reports />} />
               <Route path="/errors" element={<Faults />} />
             </>
           )}

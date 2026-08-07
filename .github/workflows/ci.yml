@@ -1,0 +1,40 @@
+name: CI
+
+# Pushes to main deploy straight to the live shop. This is the gate that runs
+# first: a type error or a broken build should never reach a counter.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke tests
+        run: npm run test:smoke
+        env:
+          # The suite runs against the built bundle with no database, so it
+          # needs no secrets. It answers one question: does the thing boot and
+          # render its screens, or did the last change white-screen the shop?
+          CI: true

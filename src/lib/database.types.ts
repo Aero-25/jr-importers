@@ -786,6 +786,7 @@ export type Database = {
         Returns: undefined;
       };
       resolve_client_error: { Args: { p_id: number }; Returns: Json };
+      sales_analysis: { Args: { p_from: string; p_to: string }; Returns: Json };
       is_staff: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;

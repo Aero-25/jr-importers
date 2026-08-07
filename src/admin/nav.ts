@@ -17,6 +17,7 @@ import {
   ScrollText,
   ShieldCheck,
   Siren,
+  PieChart,
   Settings,
   ShoppingCart,
   Store,
@@ -107,6 +108,7 @@ export const NAV: NavSection[] = [
     id: 'money',
     label: 'Money',
     items: [
+      { id: 'reports', label: 'Reports', path: '/reports', icon: PieChart, adminOnly: true },
       { id: 'finance', label: 'Finance & VAT', path: '/finance', icon: Landmark, adminOnly: true },
       { id: 'ledger', label: 'Debtors & creditors', path: '/ledger', icon: Landmark, adminOnly: true },
       { id: 'expenses', label: 'Expenses', path: '/expenses', icon: Banknote, adminOnly: true },

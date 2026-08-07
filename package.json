@@ -8,7 +8,8 @@
     "build": "vite build && node scripts/postbuild.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "check": "vite build --mode development",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:smoke": "playwright test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.47.10",
@@ -28,6 +29,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/node": "^22.20.1",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",
