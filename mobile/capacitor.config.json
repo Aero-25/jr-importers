@@ -4,10 +4,9 @@
   "webDir": "www",
   "android": {
     "allowMixedContent": false,
-    "backgroundColor": "#0A0E16"
+    "backgroundColor": "#0b2545"
   },
   "server": {
-    "url": "https://jrimporters.com/admin/",
     "androidScheme": "https",
     "allowNavigation": [
       "jrimporters.com",
@@ -21,6 +20,13 @@
     ]
   },
   "plugins": {
-    "CapacitorHttp": { "enabled": false }
+    "CapacitorHttp": {
+      "enabled": false
+    },
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#0b2545",
+      "androidScaleType": "CENTER_CROP"
+    }
   }
 }

@@ -1,0 +1,1 @@
+const s={table:a=>[a],list:(a,t)=>t===void 0?[a,"list"]:[a,"list",t],detail:(a,t)=>[a,"detail",t],dashboard:a=>["dashboard",a],productFacets:()=>["products","facets"],openTill:()=>["till_shifts","open"],ledgerBalance:(a,t)=>["account_transactions","balance",a,t]};export{s as k};

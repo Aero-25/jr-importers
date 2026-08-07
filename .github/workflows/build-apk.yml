@@ -9,9 +9,10 @@ on:
     branches: [main]
     paths:
       - 'mobile/**'
-      - 'admin.html'
+      - 'src/admin/**'
+      - 'src/lib/**'
+      - 'src/ui/**'
       - 'config.js'
-      - 'app-shell.js'
       - '.github/workflows/build-apk.yml'
 
 permissions:
@@ -36,6 +37,13 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      # The APK carries the built console rather than loading the live site, so
+      # the web build has to happen before Capacitor copies anything.
+      - name: Build the console
+        run: |
+          npm ci
+          npm run build
 
       - name: Install dependencies
         working-directory: mobile
