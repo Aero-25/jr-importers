@@ -5,6 +5,7 @@ import { cn } from '@/lib/cn';
 import { useAuth } from '@/auth/AuthProvider';
 import { initials } from '@/lib/format';
 import { IconButton } from '@/ui';
+import { useSpecular } from '@/ui/effects';
 import { visibleSections } from '../nav';
 import { IdleLock } from './IdleLock';
 
@@ -23,6 +24,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const { profile, isAdmin, signOut } = useAuth();
   const location = useLocation();
   const [navOpen, setNavOpen] = useState(false);
+  // The highlight follows the pointer across the rail, which is what makes a
+  // flat panel read as a curved surface catching light.
+  const rail = useSpecular<HTMLDivElement>();
   const [theme, setTheme] = useState<'dark' | 'light'>(
     () => (localStorage.getItem('jr-console-theme') as 'dark' | 'light' | null) ?? 'light',
   );
@@ -58,7 +62,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
             navOpen ? 'translate-x-0' : '-translate-x-full',
           )}
         >
-          <div className="glass glass-strong flex h-full flex-col overflow-hidden rounded-3xl">
+          <div
+            ref={rail.ref}
+            {...rail.specularProps}
+            className="glass glass-strong rail-glass sheen flex h-full flex-col overflow-hidden rounded-[1.75rem]"
+          >
             {/* Brand — fixed, never scrolls away */}
             <div className="flex shrink-0 items-center gap-2.5 px-4 py-4">
               <span className="sweep flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold text-white">
@@ -81,11 +89,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
             {/* Nav — the only part that scrolls */}
             <nav
               aria-label="Console"
-              className="min-h-0 flex-1 overflow-y-auto px-3 pb-2 [scrollbar-width:thin]"
+              className="rail-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-2"
             >
               {sections.map((section) => (
                 <div key={section.id} className="mb-4">
-                  <h2 className="px-2.5 pb-1.5 text-2xs font-bold uppercase tracking-[0.14em] text-ink-subtle">
+                  <h2 className="px-2.5 pb-2 pt-1 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-ink-subtle/80">
                     {section.label}
                   </h2>
                   <ul className="space-y-0.5">
@@ -98,8 +106,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
                             cn(
                               'group relative flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-all duration-150',
                               isActive
-                                ? 'bg-brand-600 font-semibold text-white shadow-card'
-                                : 'text-ink-muted hover:bg-ink/5 hover:text-ink',
+                                ? 'rail-active font-semibold text-white'
+                                : 'text-ink-muted hover:bg-ink/[0.06] hover:text-ink',
                             )
                           }
                         >
@@ -127,7 +135,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </nav>
 
             {/* Account — fixed, so sign-out never scrolls away */}
-            <div className="shrink-0 border-t border-hairline/70 p-3">
+            <div className="shrink-0 border-t border-white/25 bg-white/25 p-3 backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]">
               <div className="flex items-center gap-2.5 rounded-xl px-1.5 py-1.5">
                 <span
                   aria-hidden
