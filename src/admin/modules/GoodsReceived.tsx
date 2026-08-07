@@ -1,0 +1,608 @@
+import { useMemo, useState } from 'react';
+import { CheckCircle2, PackageCheck, Plus, ScanLine, Trash2, Truck } from 'lucide-react';
+import type { GrvRow, IntakeLine } from '@/lib/database.types';
+import {
+  useGrvFromPurchaseOrder,
+  useGrvs,
+  useOpenPurchaseOrders,
+  useProductLookup,
+  useReceiveGrv,
+  useSaveGrv,
+  type ReceiptResult,
+} from '@/data/goodsReceived';
+import { formatDate, money, round2, toNumber } from '@/lib/format';
+import { cn } from '@/lib/cn';
+import {
+  Badge,
+  Button,
+  DataTable,
+  Input,
+  Modal,
+  Notice,
+  Textarea,
+  type Column,
+  useToast,
+} from '@/ui';
+import { ModuleHeader } from '../components/AdminShell';
+import { BarcodeScanner } from '../components/BarcodeScanner';
+
+/**
+ * Goods received.
+ *
+ * Stock used to appear with no provenance — thousands of units against two
+ * movements and no purchase orders. Receiving is now a posting: it adds the
+ * stock, stamps the cost, captures the serials and writes the movement in one
+ * transaction, and it can only happen once per note.
+ */
+export default function GoodsReceived() {
+  const [search, setSearch] = useState('');
+  const [editing, setEditing] = useState<GrvRow | 'new' | null>(null);
+  const [receipt, setReceipt] = useState<ReceiptResult | null>(null);
+
+  const toast = useToast();
+  const grvs = useGrvs(search);
+  const orders = useOpenPurchaseOrders();
+  const fromPo = useGrvFromPurchaseOrder();
+
+  const rows = grvs.data ?? [];
+  const drafts = rows.filter((g) => !g.posted_at);
+
+  const columns: Column<GrvRow>[] = [
+    {
+      key: 'id',
+      header: 'GRV',
+      render: (g) => <span className="tabular font-semibold text-ink">#{g.id}</span>,
+      sortValue: (g) => g.id,
+      width: '5rem',
+    },
+    {
+      key: 'supplier',
+      header: 'Supplier',
+      render: (g) => (
+        <div className="min-w-0">
+          <p className="truncate text-ink">{g.supplier_name || '—'}</p>
+          <p className="truncate text-xs text-ink-subtle">
+            {g.supplier_invoice_no ? `Invoice ${g.supplier_invoice_no}` : 'No invoice number'}
+          </p>
+        </div>
+      ),
+      sortValue: (g) => g.supplier_name ?? '',
+    },
+    {
+      key: 'date',
+      header: 'Invoice date',
+      secondary: true,
+      render: (g) => <span className="text-xs text-ink-muted">{formatDate(g.invoice_date)}</span>,
+      sortValue: (g) => g.invoice_date ?? '',
+    },
+    {
+      key: 'units',
+      header: 'Units',
+      align: 'right',
+      render: (g) => (
+        <span className="tabular text-ink">
+          {(g.items ?? []).reduce((n, l) => n + Number(l.quantity ?? 0), 0)}
+        </span>
+      ),
+      sortValue: (g) => (g.items ?? []).reduce((n, l) => n + Number(l.quantity ?? 0), 0),
+    },
+    {
+      key: 'value',
+      header: 'Value',
+      align: 'right',
+      render: (g) => <span className="tabular font-medium">{money(g.total_amount)}</span>,
+      sortValue: (g) => Number(g.total_amount ?? 0),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (g) =>
+        g.posted_at ? (
+          <Badge tone="success" size="sm" icon={<CheckCircle2 className="h-3 w-3" />}>
+            In stock
+          </Badge>
+        ) : (
+          <Badge tone="warn" size="sm">
+            Draft
+          </Badge>
+        ),
+      sortValue: (g) => (g.posted_at ? 1 : 0),
+    },
+  ];
+
+  async function startFromPo(poId: number) {
+    try {
+      const grv = await fromPo.mutateAsync(poId);
+      setEditing(grv);
+      toast.success('Delivery started', 'Adjust the quantities to what actually arrived.');
+    } catch (error) {
+      toast.error('Could not start it', error instanceof Error ? error.message : undefined);
+    }
+  }
+
+  return (
+    <>
+      <ModuleHeader
+        title="Goods received"
+        description="Book deliveries in against the supplier invoice. Stock only moves when you post."
+        actions={
+          <Button icon={<Plus className="h-4 w-4" />} onClick={() => setEditing('new')}>
+            New delivery
+          </Button>
+        }
+      />
+
+      <div className="space-y-5 p-6">
+        {(orders.data ?? []).length > 0 && (
+          <div className="rounded-2xl border border-hairline bg-raised/60 p-4">
+            <h3 className="mb-2 text-2xs font-bold uppercase tracking-[0.14em] text-ink-subtle">
+              Purchase orders still outstanding
+            </h3>
+            <ul className="flex flex-wrap gap-2">
+              {(orders.data ?? []).map((po) => (
+                <li key={po.id}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<Truck className="h-4 w-4" />}
+                    loading={fromPo.isPending}
+                    onClick={() => void startFromPo(po.id)}
+                  >
+                    PO #{po.id} · {po.supplier_name ?? '—'} · {money(po.total_amount)}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {drafts.length > 0 && (
+          <Notice tone="warn" title={`${drafts.length} delivery(s) not yet in stock`}>
+            Nothing on a draft note counts as stock. Open it, check it against the invoice, and
+            post it.
+          </Notice>
+        )}
+
+        <Input
+          placeholder="Search by supplier or invoice number…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+
+        <div className="overflow-hidden rounded-2xl border border-hairline bg-surface">
+          <DataTable
+            rows={rows}
+            columns={columns}
+            rowKey={(g) => g.id}
+            loading={grvs.isLoading}
+            onRowClick={setEditing}
+            defaultSort={{ key: 'id', direction: 'desc' }}
+            empty={{
+              title: 'No deliveries recorded',
+              message: 'Book the next one in here and the stock will have a paper trail.',
+            }}
+          />
+        </div>
+      </div>
+
+      {editing && (
+        <GrvDialog
+          grv={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+          onPosted={(result) => {
+            setEditing(null);
+            setReceipt(result);
+          }}
+        />
+      )}
+
+      {receipt && <ReceiptDialog result={receipt} onClose={() => setReceipt(null)} />}
+    </>
+  );
+}
+
+/* ── Capturing a delivery ────────────────────────────────────────────────── */
+
+function GrvDialog({
+  grv,
+  onClose,
+  onPosted,
+}: {
+  grv: GrvRow | null;
+  onClose: () => void;
+  onPosted: (result: ReceiptResult) => void;
+}) {
+  const toast = useToast();
+  const save = useSaveGrv();
+  const receive = useReceiveGrv();
+
+  const posted = Boolean(grv?.posted_at);
+
+  const [supplier, setSupplier] = useState(grv?.supplier_name ?? '');
+  const [invoiceNo, setInvoiceNo] = useState(grv?.supplier_invoice_no ?? '');
+  const [invoiceDate, setInvoiceDate] = useState(
+    grv?.invoice_date ?? new Date().toISOString().slice(0, 10),
+  );
+  const [notes, setNotes] = useState(grv?.notes ?? '');
+  const [lines, setLines] = useState<IntakeLine[]>(grv?.items ?? []);
+  const [term, setTerm] = useState('');
+  const [scanFor, setScanFor] = useState<number | null>(null);
+
+  const lookup = useProductLookup(term);
+  const total = useMemo(() => round2(lines.reduce((n, l) => n + l.line_total, 0)), [lines]);
+  const units = useMemo(() => lines.reduce((n, l) => n + l.quantity, 0), [lines]);
+  const serials = useMemo(() => lines.reduce((n, l) => n + l.imeis.length, 0), [lines]);
+
+  function addProduct(p: {
+    id: number;
+    name: string;
+    sku: string | null;
+    color: string | null;
+    cost_price: number;
+  }) {
+    setTerm('');
+    setLines((current) =>
+      current.some((l) => l.product_id === p.id)
+        ? current
+        : [
+            ...current,
+            {
+              product_id: p.id,
+              name: p.name,
+              sku: p.sku,
+              color: p.color,
+              quantity: 1,
+              unit_cost: Number(p.cost_price) || 0,
+              line_total: Number(p.cost_price) || 0,
+              imeis: [],
+            },
+          ],
+    );
+  }
+
+  function patch(index: number, values: Partial<IntakeLine>) {
+    setLines((current) =>
+      current.map((l, i) => {
+        if (i !== index) return l;
+        const next = { ...l, ...values };
+        next.line_total = round2(next.quantity * next.unit_cost);
+        return next;
+      }),
+    );
+  }
+
+  function addSerial(index: number, raw: string) {
+    const imei = raw.trim();
+    if (!imei) return;
+    setLines((current) =>
+      current.map((l, i) =>
+        i !== index || l.imeis.includes(imei) ? l : { ...l, imeis: [...l.imeis, imei] },
+      ),
+    );
+  }
+
+  async function persist(): Promise<GrvRow | null> {
+    try {
+      return await save.mutateAsync({
+        id: grv?.id,
+        supplier_name: supplier.trim() || null,
+        supplier_invoice_no: invoiceNo.trim() || null,
+        invoice_date: invoiceDate || null,
+        notes: notes.trim() || null,
+        items: lines,
+        total_amount: total,
+        status: 'Draft',
+        purchase_order_id: grv?.purchase_order_id ?? null,
+        po_number: grv?.po_number ?? null,
+      });
+    } catch (error) {
+      toast.error('Could not save', error instanceof Error ? error.message : undefined);
+      return null;
+    }
+  }
+
+  async function post() {
+    if (lines.length === 0) {
+      toast.warn('Nothing to receive', 'Add what arrived first.');
+      return;
+    }
+    // Saved before posting so the note that gets posted is the one on screen.
+    const saved = await persist();
+    if (!saved) return;
+
+    try {
+      onPosted(await receive.mutateAsync(saved.id));
+    } catch (error) {
+      toast.error('Could not receive it', error instanceof Error ? error.message : undefined);
+    }
+  }
+
+  return (
+    <>
+      <Modal
+        open
+        onClose={onClose}
+        title={grv ? `Delivery #${grv.id}` : 'New delivery'}
+        description={
+          posted
+            ? `Received into stock on ${formatDate(grv!.posted_at)} by ${grv!.posted_by ?? '—'}`
+            : 'Nothing counts as stock until this is posted.'
+        }
+        size="xl"
+        footer={
+          posted ? (
+            <Button onClick={onClose}>Close</Button>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                variant="secondary"
+                loading={save.isPending}
+                onClick={() => void persist().then((r) => r && toast.success('Draft saved'))}
+              >
+                Save draft
+              </Button>
+              <Button
+                variant="success"
+                icon={<PackageCheck className="h-4 w-4" />}
+                loading={receive.isPending || save.isPending}
+                onClick={post}
+              >
+                Receive into stock
+              </Button>
+            </>
+          )
+        }
+      >
+        <div className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Input
+              label="Supplier"
+              value={supplier}
+              onChange={(e) => setSupplier(e.target.value)}
+              disabled={posted}
+            />
+            <Input
+              label="Supplier invoice no."
+              value={invoiceNo}
+              onChange={(e) => setInvoiceNo(e.target.value)}
+              disabled={posted}
+            />
+            <Input
+              label="Invoice date"
+              type="date"
+              value={invoiceDate}
+              onChange={(e) => setInvoiceDate(e.target.value)}
+              disabled={posted}
+            />
+          </div>
+
+          {!posted && (
+            <div>
+              <Input
+                label="Add what arrived"
+                placeholder="Search by name, SKU or barcode…"
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
+              />
+              {(lookup.data ?? []).length > 0 && (
+                <ul className="mt-2 max-h-40 divide-y divide-hairline/70 overflow-y-auto rounded-xl border border-hairline">
+                  {(lookup.data ?? []).map((p) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        onClick={() => addProduct(p)}
+                        className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-raised"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-sm text-ink">{p.name}</span>
+                        <span className="tabular shrink-0 text-xs text-ink-subtle">
+                          {p.stock} on hand · cost {money(p.cost_price)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {lines.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-hairline p-6 text-center text-sm text-ink-muted">
+              Nothing on this delivery yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {lines.map((line, index) => (
+                <li key={line.product_id ?? index} className="rounded-xl border border-hairline p-3">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="min-w-[10rem] flex-1">
+                      <p className="text-sm font-medium text-ink">{line.name}</p>
+                      <p className="text-xs text-ink-subtle">{line.sku ?? '—'}</p>
+                    </div>
+                    <Input
+                      label="Qty"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      className="w-20"
+                      disabled={posted}
+                      value={line.quantity || ''}
+                      onChange={(e) =>
+                        patch(index, { quantity: Math.max(0, Math.floor(toNumber(e.target.value))) })
+                      }
+                    />
+                    <Input
+                      label="Unit cost"
+                      type="number"
+                      inputMode="decimal"
+                      className="w-28"
+                      disabled={posted}
+                      value={line.unit_cost || ''}
+                      onChange={(e) => patch(index, { unit_cost: toNumber(e.target.value) })}
+                    />
+                    <span className="tabular pb-2 text-sm font-semibold text-ink">
+                      {money(line.line_total)}
+                    </span>
+                    {!posted && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={<Trash2 className="h-4 w-4" />}
+                        onClick={() => setLines((c) => c.filter((_, i) => i !== index))}
+                      >
+                        <span className="sr-only">Remove</span>
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Serials. Optional by design — a delivery is not held up at
+                      the counter because nobody had time to scan every box. */}
+                  <div className="mt-3 border-t border-hairline/70 pt-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={cn(
+                          'text-xs font-medium',
+                          line.imeis.length < line.quantity ? 'text-warn' : 'text-success',
+                        )}
+                      >
+                        {line.imeis.length} of {line.quantity} IMEIs captured
+                      </span>
+                      {!posted && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            icon={<ScanLine className="h-4 w-4" />}
+                            onClick={() => setScanFor(index)}
+                          >
+                            Scan
+                          </Button>
+                          <Input
+                            placeholder="or type an IMEI and press Enter"
+                            className="max-w-[16rem]"
+                            onKeyDown={(e) => {
+                              if (e.key !== 'Enter') return;
+                              e.preventDefault();
+                              addSerial(index, e.currentTarget.value);
+                              e.currentTarget.value = '';
+                            }}
+                          />
+                        </>
+                      )}
+                    </div>
+
+                    {line.imeis.length > 0 && (
+                      <ul className="mt-2 flex flex-wrap gap-1.5">
+                        {line.imeis.map((imei) => (
+                          <li key={imei}>
+                            <button
+                              type="button"
+                              disabled={posted}
+                              onClick={() =>
+                                patch(index, { imeis: line.imeis.filter((i) => i !== imei) })
+                              }
+                              className="tabular rounded-md bg-raised px-2 py-1 text-xs text-ink transition-colors hover:bg-danger/10 hover:text-danger disabled:hover:bg-raised disabled:hover:text-ink"
+                            >
+                              {imei}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <Textarea
+            label="Notes"
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            disabled={posted}
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brand-600 px-5 py-4 text-white">
+            <div>
+              <p className="text-2xs font-bold uppercase tracking-[0.14em] text-white/70">
+                Delivery value
+              </p>
+              <p className="tabular font-display text-2xl font-bold">{money(total)}</p>
+            </div>
+            <p className="tabular text-sm text-white/80">
+              {units} unit{units === 1 ? '' : 's'} · {serials} IMEI{serials === 1 ? '' : 's'}
+            </p>
+          </div>
+        </div>
+      </Modal>
+
+      {scanFor !== null && (
+        <BarcodeScanner
+          open
+          onClose={() => setScanFor(null)}
+          onScan={(code) => addSerial(scanFor, code)}
+        />
+      )}
+    </>
+  );
+}
+
+/* ── What the posting did ────────────────────────────────────────────────── */
+
+function ReceiptDialog({ result, onClose }: { result: ReceiptResult; onClose: () => void }) {
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Received into stock"
+      size="lg"
+      footer={<Button onClick={onClose}>Done</Button>}
+    >
+      <div className="space-y-4">
+        <div className="rounded-2xl bg-success px-5 py-4 text-white">
+          <p className="tabular font-display text-3xl font-bold">{result.units} units</p>
+          <p className="text-sm text-white/85">
+            across {result.lines} line{result.lines === 1 ? '' : 's'} · {result.imeis} IMEI
+            {result.imeis === 1 ? '' : 's'} captured
+          </p>
+        </div>
+
+        {result.switched_to_serials.length > 0 && (
+          <Notice tone="warn" title="These are now counted by IMEI">
+            <p className="mb-2">
+              The first serial captured against a product hands its stock figure over to the serial
+              list for good. Whatever was on the books before has been replaced:
+            </p>
+            <ul className="space-y-1">
+              {result.switched_to_serials.map((s) => (
+                <li key={s.name} className="tabular text-sm">
+                  {s.name}: {s.stock_before} → <strong>{s.stock_after}</strong>
+                </li>
+              ))}
+            </ul>
+          </Notice>
+        )}
+
+        {result.short_on_serials.length > 0 && (
+          <Notice tone="warn" title="Some units have no IMEI">
+            <p className="mb-2">
+              These are counted by serial, so the units without one will not appear in stock until
+              somebody captures them:
+            </p>
+            <ul className="space-y-1">
+              {result.short_on_serials.map((s) => (
+                <li key={s.name} className="tabular text-sm">
+                  {s.name}: {s.serials} of {s.received} captured
+                </li>
+              ))}
+            </ul>
+          </Notice>
+        )}
+      </div>
+    </Modal>
+  );
+}

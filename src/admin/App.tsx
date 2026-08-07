@@ -18,6 +18,7 @@ const Records = lazy(() => import('./modules/Records'));
 const Ledger = lazy(() => import('./modules/Ledger'));
 const Settings = lazy(() => import('./modules/Settings'));
 const Activity = lazy(() => import('./modules/Activity'));
+const GoodsReceived = lazy(() => import('./modules/GoodsReceived'));
 
 const ADMIN_ONLY_PATHS = [
   '/purchase-orders',
@@ -91,7 +92,7 @@ export function AdminApp() {
           <Route path="/quotes" element={<Records resource="quotes" />} />
           <Route path="/invoices" element={<Records resource="invoices" />} />
           <Route path="/laybys" element={<Records resource="laybys" />} />
-          <Route path="/grv" element={<Records resource="grvs" />} />
+          <Route path="/grv" element={<GoodsReceived />} />
           <Route path="/stock-takes" element={<Records resource="stock_takes" />} />
 
           {isAdmin && (

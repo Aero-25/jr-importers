@@ -376,14 +376,28 @@ export type InvoiceRow = {
   updated_at: string;
 }
 
+/** A line on a delivery. `imeis` is empty for anything not serial-tracked. */
+export type IntakeLine = {
+  product_id: number | null;
+  name: string;
+  sku?: string | null;
+  color?: string | null;
+  quantity: number;
+  unit_cost: number;
+  line_total: number;
+  imeis: string[];
+};
+
 export type PurchaseOrderRow = {
   id: number;
   supplier_id: number | null;
   supplier_name: string | null;
-  items: LineItem[];
+  items: IntakeLine[];
   total_amount: number;
   notes: string | null;
   status: string;
+  expected_date: string | null;
+  received_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -395,10 +409,15 @@ export type GrvRow = {
   supplier_invoice_no: string | null;
   invoice_date: string | null;
   po_number: string | null;
-  items: LineItem[];
+  purchase_order_id: number | null;
+  items: IntakeLine[];
   total_amount: number;
   notes: string | null;
   status: string;
+  /** Set once and only once, by receive_grv. Its presence means posted. */
+  posted_at: string | null;
+  posted_by: string | null;
+  received_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -702,6 +721,16 @@ export type Database = {
       /** Gross profit for a period, computed server-side. */
       sales_profit: {
         Args: { p_from: string; p_to: string };
+        Returns: Json;
+      };
+      /* Stock intake. Receiving is a posting, not an edit: stock, cost, serials
+         and the movement record move together or not at all. */
+      receive_grv: {
+        Args: { p_id: number };
+        Returns: Json;
+      };
+      grv_from_purchase_order: {
+        Args: { p_po_id: number };
         Returns: Json;
       };
       is_staff: {
