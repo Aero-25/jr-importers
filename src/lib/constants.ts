@@ -165,7 +165,39 @@ export const IMEI_STATUSES = ['available', 'reserved', 'sold', 'returned', 'faul
 export const ADMIN_ROLES: readonly string[] = ['admin', 'owner', 'manager'];
 
 /** Everyone who may open the console at all; cashiers get a reduced module set. */
-export const STAFF_ROLES: readonly string[] = [...ADMIN_ROLES, 'cashier', 'staff'];
+export const STAFF_ROLES: readonly string[] = [...ADMIN_ROLES, 'sales', 'cashier', 'staff'];
+
+/** What each profile means, in the words the person choosing it would use. */
+export const ROLE_PROFILES = [
+  {
+    role: 'sales',
+    label: 'Sales',
+    summary: 'Responsible for selling.',
+    can: [
+      'Open and close the till, and ring up sales',
+      'Take orders, book in job cards and dispatch deliveries',
+      'Add and edit customers',
+      'Raise a refund for a manager to approve',
+    ],
+    cannot: [
+      'See cost prices or margins',
+      'Approve a refund, or amend a cash-up',
+      'Open the money screens, staff, settings or the activity log',
+    ],
+  },
+  {
+    role: 'admin',
+    label: 'Admin',
+    summary: 'Everything, including the money.',
+    can: [
+      'Everything Sales can do',
+      'Approve refunds and amend a closed cash-up',
+      'See cost prices, margins and every report',
+      'Close accounting periods, manage staff and change settings',
+    ],
+    cannot: [],
+  },
+] as const;
 
 /* ── Store ───────────────────────────────────────────────────────────────── */
 

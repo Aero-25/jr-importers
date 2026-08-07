@@ -1,11 +1,25 @@
 import { useState } from 'react';
-import { AlertTriangle, Download, MessageCircle } from 'lucide-react';
+import { AlertTriangle, Download, MessageCircle, PencilLine } from 'lucide-react';
 import type { TillShiftRow } from '@/lib/database.types';
-import { useCashUp, useShifts } from '@/data/till';
+import { useAmendCashUp, useCashUp, useShifts } from '@/data/till';
 import { downloadCashUpPdf, shareCashUp } from '@/lib/cashUpPdf';
 import { useCashUpFile } from '../hooks/useCashUpFile';
 import { formatDateTime, money } from '@/lib/format';
-import { Badge, Button, DataTable, LoadingScreen, Modal, StatTile, type Column, useToast } from '@/ui';
+import {
+  Badge,
+  Button,
+  DataTable,
+  LoadingScreen,
+  Modal,
+  Notice,
+  StatTile,
+  Textarea,
+  type Column,
+  useToast,
+} from '@/ui';
+import { useAuth } from '@/auth/AuthProvider';
+import type { DenominationCounts } from '@/lib/database.types';
+import { DenominationCounter, denominationTotal } from '../components/DenominationCounter';
 import { ModuleHeader } from '../components/AdminShell';
 import { CashUpSummary } from './CloseTill';
 
@@ -150,8 +164,10 @@ export default function CashUps() {
 
 function CashUpDialog({ shift, onClose }: { shift: TillShiftRow; onClose: () => void }) {
   const toast = useToast();
+  const { isAdmin } = useAuth();
   const report = useCashUp(shift.id);
   const [sharing, setSharing] = useState(false);
+  const [amending, setAmending] = useState(false);
   const cashUpFile = useCashUpFile(report.data);
 
   async function share() {
@@ -189,6 +205,15 @@ function CashUpDialog({ shift, onClose }: { shift: TillShiftRow; onClose: () => 
           >
             Download PDF
           </Button>
+          {isAdmin && shift.status === 'Closed' && (
+            <Button
+              variant="secondary"
+              icon={<PencilLine className="h-4 w-4" />}
+              onClick={() => setAmending(true)}
+            >
+              Amend count
+            </Button>
+          )}
           <Button
             variant="success"
             icon={<MessageCircle className="h-4 w-4" />}
@@ -201,6 +226,21 @@ function CashUpDialog({ shift, onClose }: { shift: TillShiftRow; onClose: () => 
         </>
       }
     >
+      {shift.amended_at && (
+        <Notice tone="warn" title={`Amended by ${shift.amended_by ?? '—'}`} className="mb-4">
+          <p className="whitespace-pre-line">{shift.amend_reason}</p>
+          {shift.original_counted !== null && (
+            <p className="tabular mt-2 text-sm">
+              Originally counted {money(shift.original_counted)}.
+            </p>
+          )}
+        </Notice>
+      )}
+
+      {amending && (
+        <AmendDialog shift={shift} onClose={() => setAmending(false)} />
+      )}
+
       {report.isLoading ? (
         <LoadingScreen label="Building the cash up…" />
       ) : report.data ? (
@@ -210,6 +250,82 @@ function CashUpDialog({ shift, onClose }: { shift: TillShiftRow; onClose: () => 
           {report.error?.message ?? 'Could not build this report.'}
         </p>
       )}
+    </Modal>
+  );
+}
+
+/**
+ * Recounting a drawer after the shift has been closed.
+ *
+ * The reason is required and permanent, and the figure that was originally
+ * counted is kept. Without both, this is just a way to make a variance
+ * disappear — which is precisely what a cash-up exists to prevent.
+ */
+function AmendDialog({ shift, onClose }: { shift: TillShiftRow; onClose: () => void }) {
+  const toast = useToast();
+  const amend = useAmendCashUp();
+  const [counts, setCounts] = useState<DenominationCounts>(shift.closing_denominations ?? {});
+  const [reason, setReason] = useState('');
+
+  const counted = denominationTotal(counts);
+  const previous = Number(shift.actual_cash ?? 0);
+
+  async function submit() {
+    if (!reason.trim()) {
+      toast.warn('A reason is required', 'It stays on the shift permanently.');
+      return;
+    }
+    try {
+      await amend.mutateAsync({ shiftId: shift.id, counts, reason: reason.trim() });
+      toast.success('Cash-up amended', 'The original count is kept alongside it.');
+      onClose();
+    } catch (error) {
+      toast.error('Could not amend it', error instanceof Error ? error.message : undefined);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Amend shift #${shift.id}`}
+      description="Recount the drawer. The original figure is kept on the record."
+      size="xl"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="danger" loading={amend.isPending} onClick={submit}>
+            Save the corrected count
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Notice tone="warn" title="This changes a closed shift">
+          The variance is recalculated against the same expected figure, so the correction shows up
+          on the report and the PDF. Both counts stay on the record, and the reason is permanent.
+        </Notice>
+
+        <DenominationCounter counts={counts} onChange={setCounts} />
+
+        <p className="tabular text-sm text-ink-muted">
+          Previously counted {money(previous)} · now {money(counted)} ·{' '}
+          <strong className={counted === previous ? 'text-ink-subtle' : 'text-ink'}>
+            {counted === previous ? 'no change' : `${counted > previous ? '+' : '−'}${money(Math.abs(counted - previous)).replace('N$ ', 'N$')}`}
+          </strong>
+        </p>
+
+        <Textarea
+          label="Why is it being corrected?"
+          rows={3}
+          required
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Recounted with the manager — a N$200 note was stuck under the tray."
+        />
+      </div>
     </Modal>
   );
 }

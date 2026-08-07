@@ -348,6 +348,11 @@ export type TillShiftRow = {
   stock_variance_total: number;
   petty_cash_total: number;
   refunds_total: number;
+  amended_at: string | null;
+  amended_by: string | null;
+  amend_reason: string | null;
+  original_denominations: DenominationCounts | null;
+  original_counted: number | null;
   closed_by: string | null;
   notes: string | null;
   created_at: string;
@@ -804,6 +809,10 @@ export type Database = {
       sales_analysis: { Args: { p_from: string; p_to: string }; Returns: Json };
       generate_alerts: { Args: Record<PropertyKey, never>; Returns: number };
       acknowledge_alert: { Args: { p_id: number }; Returns: Json };
+      amend_cash_up: {
+        Args: { p_shift_id: number; p_counts: Json; p_reason: string; p_notes?: string | null };
+        Returns: Json;
+      };
       is_staff: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;

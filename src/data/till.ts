@@ -273,6 +273,41 @@ export function useAddPettyCash() {
   });
 }
 
+/**
+ * Corrects the counted cash on a closed shift.
+ *
+ * The original count is kept beside the new one server-side. An amendment that
+ * erases what it replaced is not a correction, it is a rewrite — and the whole
+ * value of a cash-up is that it records what was actually found in the drawer.
+ */
+export function useAmendCashUp() {
+  const qc = useQueryClient();
+
+  return useMutation<
+    TillShiftRow,
+    Error,
+    { shiftId: number; counts: DenominationCounts; reason: string; notes?: string }
+  >({
+    mutationFn: async ({ shiftId, counts, reason, notes }) => {
+      const { data, error } = await supabase.rpc('amend_cash_up', {
+        p_shift_id: shiftId,
+        p_counts: counts as unknown as never,
+        p_reason: reason,
+        p_notes: notes ?? null,
+      });
+      if (error) throw new Error(error.message);
+
+      const result = data as unknown as { ok: boolean; message?: string; shift?: TillShiftRow };
+      if (!result?.ok) throw new Error(result?.message ?? 'Could not amend the cash-up.');
+      return result.shift!;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.table('till_shifts') });
+      void qc.invalidateQueries({ queryKey: keys.dashboard('') });
+    },
+  });
+}
+
 /* ── Sales ───────────────────────────────────────────────────────────────── */
 
 export interface PosSaleInput {

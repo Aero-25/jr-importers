@@ -374,9 +374,11 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         key: 'role',
         label: 'Role',
         type: 'select',
-        options: ['customer', 'cashier', 'staff', 'manager', 'admin', 'owner'],
+        // Two profiles worth choosing, and the older names kept working so
+        // nobody's access changes underneath them.
+        options: ['sales', 'admin', 'customer', 'cashier', 'staff', 'manager', 'owner'],
         inList: true,
-        hint: 'manager, admin and owner pass the is_admin() check.',
+        hint: 'sales — the till, orders, job cards and customers. admin — all of that plus the money screens, staff and amending a cash-up. customer has no console access at all.',
       },
       { key: 'phone', label: 'Phone', type: 'tel', secondary: true, inList: true },
       { key: 'active', label: 'Active', type: 'checkbox', inList: true },
