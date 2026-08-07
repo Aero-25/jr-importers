@@ -30,7 +30,7 @@ export function SignIn() {
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
       <Card className="w-full max-w-sm p-6">
         <div className="flex items-center gap-3">
-          <img src="/icon-192.png" alt="" width={36} height={36} className="h-9 w-9" />
+          <img src="/logo-mark.png" alt="" width={31} height={56} className="h-14 w-auto" />
           <div>
             <h1 className="font-display text-lg font-bold text-ink">Retail Console</h1>
             <p className="text-xs text-ink-muted">{STORE.name}</p>

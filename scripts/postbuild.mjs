@@ -67,6 +67,7 @@ async function run() {
     'icon.svg',
     'favicon.ico',
     'logo.png',
+    'logo-mark.png',
     'icon-32.png',
     'icon-48.png',
     'icon-180.png',

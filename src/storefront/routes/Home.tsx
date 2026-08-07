@@ -7,7 +7,7 @@ import { ErrorState } from '@/ui';
 import { useParallax, useReveal } from '@/ui/effects';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
 import { ChipRail } from '../components/ChipRail';
-import { AndroidScribe } from '../components/AndroidScribe';
+import { HeroMark } from '../components/HeroMark';
 import { useSeo } from '../seo';
 
 const PROMISES = [
@@ -91,12 +91,11 @@ export default function Home() {
           </div>
 
           {/*
-            Decorative, and treated as such: aria-hidden, mounted only when
-            scrolled into view, and reduced to a still tableau on reduced
-            motion or a low-memory device. Nothing on the page depends on it.
+            Decorative, and treated as such: aria-hidden, and still on reduced
+            motion. Nothing on the page depends on it.
           */}
           <div className="reveal -mx-4 lg:mx-0" data-reveal-index="2">
-            <AndroidScribe />
+            <HeroMark />
           </div>
         </div>
       </section>

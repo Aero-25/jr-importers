@@ -111,3 +111,43 @@ test('the icon set is served and the head points at it', async ({ page, request 
   const ogImage = await page.locator('meta[property="og:image"]').getAttribute('content');
   expect(ogImage).not.toContain('pages.dev');
 });
+
+// Headless Chromium reports prefers-reduced-motion: reduce, and the mark
+// correctly refuses to animate under it. Opting in is what makes this a test of
+// the tracking rather than a test of the reduced-motion guard.
+test.describe('hero', () => {
+  test.use({ reducedMotion: 'no-preference' });
+
+  test('the mark turns towards the pointer', async ({ page }) => {
+    await page.goto('/');
+
+    const mark = page.locator('img[data-hero-mark]');
+    await expect(mark).toBeVisible();
+
+    // Park the pointer hard left, let the easing settle, and read the transform.
+    await page.mouse.move(5, 400);
+    await page.waitForTimeout(700);
+    const left = await mark.evaluate((el) => getComputedStyle(el).transform);
+
+    await page.mouse.move(1200, 400);
+    await page.waitForTimeout(700);
+    const right = await mark.evaluate((el) => getComputedStyle(el).transform);
+
+    // A 3D rotation produces a matrix3d; the two sides must not agree.
+    expect(left).not.toBe('none');
+    expect(left).not.toBe(right);
+  });
+
+  test('and stays still when reduced motion is asked for', async ({ browser }) => {
+    const context = await browser.newContext({ reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    await page.goto('/');
+
+    const mark = page.locator('img[data-hero-mark]');
+    await page.mouse.move(1200, 400);
+    await page.waitForTimeout(500);
+    expect(await mark.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+
+    await context.close();
+  });
+});
