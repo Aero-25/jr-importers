@@ -10,6 +10,7 @@ const Dashboard = lazy(() => import('./modules/Dashboard'));
 const Pos = lazy(() => import('./modules/Pos'));
 const CashUps = lazy(() => import('./modules/CashUps'));
 const Orders = lazy(() => import('./modules/Orders'));
+const Refunds = lazy(() => import('./modules/Refunds'));
 const Dispatch = lazy(() => import('./modules/Dispatch'));
 const Products = lazy(() => import('./modules/Products'));
 const JobCards = lazy(() => import('./modules/JobCards'));
@@ -55,6 +56,7 @@ export function AdminApp() {
           <Route path="/pos" element={<Pos />} />
           <Route path="/cash-ups" element={<CashUps />} />
           <Route path="/orders" element={<Orders />} />
+          <Route path="/refunds" element={<Refunds />} />
           <Route path="/dispatch" element={<Dispatch />} />
           <Route path="/products" element={<Products />} />
           <Route path="/job-cards" element={<JobCards />} />

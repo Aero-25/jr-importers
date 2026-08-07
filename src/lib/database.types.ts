@@ -237,6 +237,39 @@ export type ShiftStockLine = {
   variance: number;
 };
 
+/** One line on a refund. `restock` false leaves a faulty unit off the shelf. */
+export type RefundLine = {
+  product_id: number | null;
+  name: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  restock: boolean;
+  imei?: string | null;
+};
+
+export type RefundRow = {
+  id: number;
+  refund_number: number;
+  order_id: string | null;
+  original_reference: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  reason: string;
+  method: string;
+  items: RefundLine[];
+  total_amount: number;
+  status: string;
+  restocked: boolean;
+  requested_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  declined_reason: string | null;
+  till_shift_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type TillShiftRow = {
   id: number;
   till_id: number;
@@ -574,6 +607,7 @@ export type Database = {
       stock_takes: Table<StockTakeRow>;
       suppliers: Table<SupplierRow, 'name'>;
       till_shifts: Table<TillShiftRow>;
+      refunds: Table<RefundRow>;
       users: Table<UserRow>;
     };
     // `{ [_ in never]: never }` is the empty-record shape supabase-js's
@@ -625,6 +659,33 @@ export type Database = {
       till_cash_up: {
         Args: { p_shift_id: number };
         Returns: Json;
+      };
+      /* Refunds. No direct writes to the table: these are the only way in, so a
+         refund cannot be recorded without its stock movement, or the reverse. */
+      request_refund: {
+        Args: {
+          p_reason: string;
+          p_method: string;
+          p_items: Json;
+          p_total: number;
+          p_order_id?: string | null;
+          p_original_reference?: string | null;
+          p_customer_name?: string | null;
+          p_customer_phone?: string | null;
+        };
+        Returns: Json;
+      };
+      approve_refund: {
+        Args: { p_id: number };
+        Returns: Json;
+      };
+      decline_refund: {
+        Args: { p_id: number; p_reason?: string | null };
+        Returns: Json;
+      };
+      is_staff: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
       };
       denomination_total: {
         Args: { p_counts: Json };
