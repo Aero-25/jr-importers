@@ -19,6 +19,31 @@ const provisioner = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY, 
   auth: { persistSession: false, autoRefreshToken: false, storageKey: 'jr-provision' },
 });
 
+/**
+ * Gets a readable sentence out of whatever was thrown.
+ *
+ * A failure here surfaced as the string "{}" — the useful part was a database
+ * error nested inside the response, and Error.message was empty. An error
+ * message nobody can act on is barely better than no message.
+ */
+function describe(error: unknown): string {
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const e = error as Record<string, unknown>;
+    for (const key of ['message', 'error_description', 'msg', 'detail', 'hint']) {
+      const value = e[key];
+      if (typeof value === 'string' && value.trim()) return value;
+    }
+    try {
+      const json = JSON.stringify(error);
+      if (json && json !== '{}') return json;
+    } catch {
+      // Circular, and not worth chasing.
+    }
+  }
+  return 'The server rejected it without saying why.';
+}
+
 function randomPassword() {
   // Readable aloud across a counter: no l/1/O/0, and grouped.
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
@@ -70,7 +95,7 @@ export function StaffLogin({ email }: { email: string }) {
         email: email.trim().toLowerCase(),
         password: chosen,
       });
-      if (error) throw new Error(error.message);
+      if (error) throw error;
 
       // Signed out immediately: the account exists, and this client has no
       // business holding a session for it.
@@ -80,9 +105,11 @@ export function StaffLogin({ email }: { email: string }) {
       void qc.invalidateQueries({ queryKey: ['staff-login'] });
       toast.success('Login created', 'Give them the password and ask them to change it.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const message = describe(error);
       toast.error(
-        /already registered/i.test(message) ? 'That email already has a login' : 'Could not create it',
+        /already registered|already exists/i.test(message)
+          ? 'That email already has a login'
+          : 'Could not create it',
         message,
       );
     } finally {
@@ -99,7 +126,7 @@ export function StaffLogin({ email }: { email: string }) {
       if (error) throw new Error(error.message);
       toast.success('Reset link sent', `Check ${email} — it can take a few minutes.`);
     } catch (error) {
-      toast.error('Could not send it', error instanceof Error ? error.message : undefined);
+      toast.error('Could not send it', describe(error));
     } finally {
       setBusy(false);
     }
