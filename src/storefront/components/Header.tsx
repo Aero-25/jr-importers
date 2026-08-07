@@ -61,7 +61,7 @@ export function Header() {
           'px-2.5 transition-[height] duration-300 sm:gap-3 sm:px-4',
           // Tightens once you start reading, giving the page back a little
           // room without the pill ever leaving.
-          scrolled ? 'h-14' : 'h-14 sm:h-16',
+          scrolled ? 'h-16' : 'h-16 sm:h-[4.5rem]',
         )}
       >
         <Link
