@@ -17,7 +17,7 @@ interface FieldSpec {
   /** Most specific first — guessColumn weights earlier entries higher. */
   candidates: string[];
   required?: boolean;
-  kind?: 'text' | 'number';
+  kind?: 'text' | 'number' | 'boolean';
 }
 
 interface Target {
@@ -29,6 +29,8 @@ interface Target {
   hint: string;
   /** The column both sides are matched on, so re-importing updates. */
   matchOn: string;
+  /** Turns an IQ code into something a customer would recognise. */
+  translate?: (row: Record<string, unknown>) => void;
   fields: FieldSpec[];
 }
 
@@ -39,6 +41,33 @@ const TARGETS: Target[] = [
     table: 'products',
     hint: 'Stock → Stock Maintenance → Export. Tick the fields listed in docs/IQ-MIGRATION.md first.',
     matchOn: 'sku',
+    /*
+      IQ's DEPARTMENT is a code, not a name — 001, 002, NS. Imported as-is the
+      whole catalogue lands under "002", which is no use to a customer or to the
+      reports. NS is IQ's non-stock department: commission, courier, job card,
+      insurance excess. Those are ledger lines, not things on a shelf, and they
+      are excluded rather than renamed.
+    */
+    translate: (row) => {
+      const map: Record<string, string> = {
+        '001': 'Smartphones',
+        '002': 'Accessories',
+      };
+      const code = String(row.category ?? '').trim();
+      if (code === 'NS') {
+        row.__skip = 'non-stock department (NS)';
+        return;
+      }
+      if (map[code]) row.category = map[code];
+
+      // A negative quantity is a sale IQ let through against no stock. It is
+      // real information, but importing it would start the new system already
+      // wrong; it comes in at zero and is reported.
+      if (Number(row.stock ?? 0) < 0) {
+        row.__negative = row.stock;
+        row.stock = 0;
+      }
+    },
     // Candidates lead with IQ SaaS 2023 column names, taken from the Select
     // Visible Fields dialog, then fall back to the wordier names older versions
     // and other systems use.
@@ -59,6 +88,9 @@ const TARGETS: Target[] = [
       { key: 'price', label: 'Selling price (incl VAT)', candidates: ['sellpinc1', 'sellpriceincl', 'recommendretail', 'sellprice1', 'sellingprice'], kind: 'number' },
       { key: 'stock', label: 'Quantity on hand', candidates: ['onhand', 'lbonhand', 'qtyonhand', 'quantity', 'soh'], kind: 'number' },
       { key: 'reorder_level', label: 'Reorder level', candidates: ['ord_lvl', 'ordlvl', 'minimumlevel', 'reorderlevel'], kind: 'number' },
+      // IQ keeps discontinued lines in the master forever. Without this the
+      // shop inherits every product it has ever stocked.
+      { key: 'active', label: 'Active in IQ', candidates: ['isactive', 'active'], kind: 'boolean' },
     ],
   },
   {
@@ -109,6 +141,10 @@ interface Preview {
   skipped: Array<{ row: number; why: string }>;
   sample: Array<Record<string, unknown>>;
   value: number;
+  /** Lines IQ shows as oversold, brought in at zero. */
+  negatives: number;
+  /** Lines IQ has discontinued. Imported, but not shown in the shop. */
+  inactive: number;
 }
 
 /**
@@ -171,8 +207,13 @@ export default function ImportIQ() {
       if (!column) continue;
       const raw = row[column] ?? '';
       if (!raw) continue;
-      out[field.key] = field.kind === 'number' ? parseAmount(raw) : raw;
+      if (field.kind === 'number') out[field.key] = parseAmount(raw);
+      else if (field.kind === 'boolean') out[field.key] = /^(true|yes|y|1)$/i.test(raw.trim());
+      // IQ writes 'Not Defined' rather than leaving a field empty, and importing
+      // that literally would put it on the shop as a colour.
+      else if (!/^(not defined|n\/a|none|null)$/i.test(raw.trim())) out[field.key] = raw;
     }
+    target.translate?.(out);
     return out;
   }
 
@@ -184,7 +225,17 @@ export default function ImportIQ() {
       const skipped: Preview['skipped'] = [];
       const keyed = new Map<string, Record<string, unknown>>();
 
+      let negatives = 0;
+      let inactive = 0;
+
       shaped.forEach((row, index) => {
+        if (row.__skip) {
+          skipped.push({ row: index + 2, why: String(row.__skip) });
+          return;
+        }
+        if (row.__negative !== undefined) negatives += 1;
+        if (row.active === false) inactive += 1;
+
         const key = String(row[target.matchOn] ?? '').trim().toLowerCase();
         for (const field of target.fields) {
           if (field.required && !row[field.key]) {
@@ -244,6 +295,8 @@ export default function ImportIQ() {
           (n, r) => n + Number(r.stock ?? 0) * Number(r.cost_price ?? 0),
           0,
         ),
+        negatives,
+        inactive,
       });
     } catch (error) {
       toast.error('Could not check the file', error instanceof Error ? error.message : undefined);
@@ -260,8 +313,16 @@ export default function ImportIQ() {
       for (const row of csv.rows.map(shape)) {
         const key = String(row[target.matchOn] ?? '').trim().toLowerCase();
         if (!key) continue;
+        if (row.__skip) continue;
         if (target.fields.some((f) => f.required && !row[f.key])) continue;
-        keyed.set(key, target.table === 'products' ? { ...row, active: true } : row);
+
+        delete row.__skip;
+        delete row.__negative;
+        // Anything IQ has discontinued comes across but stays off the shop, so
+        // history and reporting keep working without the catalogue inheriting
+        // every product the business has ever stocked.
+        if (target.table === 'products' && row.active === undefined) row.active = true;
+        keyed.set(key, row);
       }
 
       // Matched explicitly rather than by upsert. PostgREST infers the conflict
@@ -514,11 +575,28 @@ export default function ImportIQ() {
             </div>
 
             {target.table === 'products' && (
-              <Notice tone="info" className="mt-4" title="Compare this against IQ before you write">
-                IQ&rsquo;s own stock valuation should show{' '}
-                <strong>{money(preview.value)}</strong>. If it does not, the cost or quantity
-                column is mapped to the wrong field — fix it now rather than after.
-              </Notice>
+              <>
+                <Notice tone="info" className="mt-4" title="Compare this against IQ before you write">
+                  IQ&rsquo;s own stock valuation should show{' '}
+                  <strong>{money(preview.value)}</strong>. If it does not, the cost or quantity
+                  column is mapped to the wrong field — fix it now rather than after.
+                </Notice>
+
+                {preview.negatives > 0 && (
+                  <Notice tone="warn" className="mt-3" title={`${preview.negatives} lines are oversold in IQ`}>
+                    IQ shows a negative quantity on these — it let a sale through against stock it
+                    did not have. They come in at zero rather than carrying the error over. Worth a
+                    look: a negative is usually a receipt that was never booked in.
+                  </Notice>
+                )}
+
+                {preview.inactive > 0 && (
+                  <Notice tone="info" className="mt-3" title={`${preview.inactive} lines are discontinued`}>
+                    Imported but hidden from the shop, so history and reporting still work without
+                    the catalogue inheriting every product the business has ever stocked.
+                  </Notice>
+                )}
+              </>
             )}
 
             {preview.skipped.length > 0 && (
