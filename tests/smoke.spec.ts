@@ -71,3 +71,20 @@ test('the terms and privacy pages are reachable from the footer', async ({ page 
     expect(response?.status(), `${path} should be served`).toBe(200);
   }
 });
+
+test('the sitemap lists products and robots points at it', async ({ request }) => {
+  const sitemap = await request.get('/sitemap.xml');
+  expect(sitemap.status()).toBe(200);
+
+  const xml = await sitemap.text();
+  expect(xml).toContain('<urlset');
+  // Product URLs must carry the same id-slug shape the site links to, or every
+  // handset gets indexed under two addresses.
+  expect(xml).toMatch(/<loc>[^<]+\/product\/\d+-[a-z0-9-]+<\/loc>/);
+
+  const robots = await request.get('/robots.txt');
+  expect(robots.status()).toBe(200);
+  const text = await robots.text();
+  expect(text).toContain('Sitemap:');
+  expect(text).toContain('Disallow: /admin');
+});

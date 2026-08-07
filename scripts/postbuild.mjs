@@ -10,6 +10,7 @@ import { promises as fs } from 'node:fs';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeSitemap } from './sitemap.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(root, 'dist');
@@ -103,6 +104,8 @@ async function run() {
     await fs.copyFile(path.join(dist, 'index.html'), path.join(dist, '404.html'));
     log('storefront mirrored -> /404.html');
   }
+
+  await writeSitemap(dist, root);
 
   log('done — dist/ is ready for Cloudflare Pages (output directory: dist)');
 }

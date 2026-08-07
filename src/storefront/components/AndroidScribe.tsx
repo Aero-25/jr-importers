@@ -49,11 +49,25 @@ export function AndroidScribe({ className }: { className?: string }) {
     const mount = mountRef.current;
     if (!mount) return;
 
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } })
-      .connection;
+    const connection = (
+      navigator as Navigator & {
+        connection?: { saveData?: boolean; effectiveType?: string };
+      }
+    ).connection;
     const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+
     if (connection?.saveData) return;
     if (typeof memory === 'number' && memory <= 2) return;
+
+    // Three.js is 171 KB gzipped for something purely decorative. On a metered
+    // Namibian phone connection that is a real cost, so it is not downloaded at
+    // all below 4g.
+    if (connection?.effectiveType && /^(slow-)?[23]g$/.test(connection.effectiveType)) return;
+
+    // Somebody who has asked for reduced motion was still paying the full
+    // download to be shown a single static frame. The still is drawn as SVG
+    // instead, from the same stroke data, for nothing.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -631,6 +645,44 @@ export function AndroidScribe({ className }: { className?: string }) {
         className,
       )}
       style={{ filter: 'drop-shadow(0 24px 48px rgb(163 230 53 / 0.22))' }}
-    />
+    >
+      {!active && <StillWordmark />}
+    </div>
+  );
+}
+
+/**
+ * What the hero shows when the animation is not worth its download — reduced
+ * motion, save-data, a slow connection, a low-memory device, or no WebGL.
+ *
+ * Drawn from the same stroke data the animation writes, so it is the same
+ * wordmark rather than a different asset that has to be kept in step. It costs
+ * nothing: the paths are already in the bundle.
+ */
+function StillWordmark() {
+  const { strokes, width } = layOut(TEXT);
+
+  return (
+    <svg
+      viewBox={`-0.4 -1.2 ${width + 0.8} 2.2`}
+      className="h-full w-full"
+      role="presentation"
+      focusable="false"
+    >
+      <g
+        fill="none"
+        stroke="rgb(163 230 53)"
+        strokeWidth={0.09}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {strokes.map((stroke, index) => (
+          <polyline
+            key={index}
+            points={stroke.points.map(([x, y]) => `${x},${-y}`).join(' ')}
+          />
+        ))}
+      </g>
+    </svg>
   );
 }
