@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ImagePlus, Loader2, Star, Trash2, UploadCloud } from 'lucide-react';
+import { Camera, ImagePlus, Loader2, Star, Trash2, UploadCloud } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { deleteProductImage, uploadProductImage } from '@/data/storage';
 import { Button, useToast } from '@/ui';
@@ -27,6 +27,7 @@ export function ImageUploader({
 }) {
   const toast = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
 
@@ -168,8 +169,17 @@ export function ImageUploader({
               </button>
             </p>
             <p className="mt-1 text-xs text-ink-subtle">
-              JPG, PNG or WebP up to 5MB. Shoot the actual handset on a plain background.
+              JPG, PNG or WebP up to 5MB. Shoot the actual handset on a plain background —
+              a real photo of the unit sells better than a press shot every time.
             </p>
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-lime-500 px-3 py-1.5 text-xs font-semibold text-brand-800 transition-colors hover:bg-lime-400 sm:hidden"
+            >
+              <Camera aria-hidden className="h-3.5 w-3.5" />
+              Take a photo
+            </button>
           </>
         )}
 
@@ -178,6 +188,27 @@ export function ImageUploader({
           type="file"
           accept="image/jpeg,image/png,image/webp,image/avif"
           multiple
+          className="sr-only"
+          onChange={(e) => {
+            if (e.target.files?.length) void ingest(e.target.files);
+            e.target.value = '';
+          }}
+        />
+
+        {/*
+          A second input, camera-first.
+
+          Every product photo on the shop is still a stock image, and the reason
+          is friction: photographing a handset means a camera, a cable and a
+          desktop. `capture` opens the rear camera straight from the phone the
+          person is already holding at the counter, which is the only version of
+          this anyone will actually do.
+        */}
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
           className="sr-only"
           onChange={(e) => {
             if (e.target.files?.length) void ingest(e.target.files);

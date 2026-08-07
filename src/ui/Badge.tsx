@@ -62,10 +62,20 @@ export function StockBadge({
   stock,
   reorderLevel = 10,
   size,
+  showCount = true,
 }: {
   stock: number;
   reorderLevel?: number;
   size?: 'sm' | 'md';
+  /**
+   * Whether to publish the exact figure.
+   *
+   * Staff need the number. Customers should only be shown one the shop can
+   * stand behind — which today means a count backed by captured IMEIs. A
+   * shelf figure nobody has verified becomes a promise the moment it is on a
+   * product page, and the apology falls due when someone drives in for it.
+   */
+  showCount?: boolean;
 }) {
   if (stock <= 0) {
     return (
@@ -77,13 +87,13 @@ export function StockBadge({
   if (stock <= reorderLevel) {
     return (
       <Badge tone="warn" size={size}>
-        Low · {stock} left
+        {showCount ? `Low · ${stock} left` : 'Only a few left'}
       </Badge>
     );
   }
   return (
     <Badge tone="success" size={size}>
-      In stock · {stock}
+      {showCount ? `In stock · ${stock}` : 'In stock'}
     </Badge>
   );
 }

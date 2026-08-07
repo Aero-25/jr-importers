@@ -1,6 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { BellRing, Check, ChevronLeft, Minus, Phone, Plus, ShoppingBag, Truck } from 'lucide-react';
+import {
+  BellRing,
+  Check,
+  ChevronLeft,
+  Minus,
+  Phone,
+  Plus,
+  ShieldCheck,
+  ShoppingBag,
+  Truck,
+} from 'lucide-react';
 import {
   colourSwatch,
   productImages,
@@ -200,7 +210,14 @@ export default function ProductDetail() {
             {service ? (
               <Badge tone="info">Quoted at the counter</Badge>
             ) : (
-              <StockBadge stock={onHand} reorderLevel={product.reorder_level} />
+              /* Exact figures are published only where captured IMEIs back
+                 them; elsewhere the shop says it has the handset without
+                 claiming to know how many. */
+              <StockBadge
+                stock={onHand}
+                reorderLevel={product.reorder_level}
+                showCount={serialised}
+              />
             )}
           </div>
           <p className="mt-1 text-xs text-ink-subtle">
@@ -208,6 +225,16 @@ export default function ProductDetail() {
               ? 'Indicative price. The final quote depends on the handset and the parts it needs.'
               : 'VAT inclusive'}
           </p>
+
+          {/* The one thing a customer buying an imported handset is actually
+              worried about. Shown only when it is true — a trust badge on a
+              product whose serials were never captured is worse than none. */}
+          {!service && serialised && (
+            <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-lime-500/15 px-3 py-1.5 text-xs font-medium text-brand-700">
+              <ShieldCheck aria-hidden className="h-3.5 w-3.5 text-lime-700" />
+              Each unit is logged against its IMEI before it goes on the shelf
+            </p>
+          )}
 
           {product.description && (
             <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-ink-muted">

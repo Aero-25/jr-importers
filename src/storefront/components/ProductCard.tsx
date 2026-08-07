@@ -122,7 +122,15 @@ export function ProductCard({
                 Quoted at the counter
               </Badge>
             ) : (
-              <StockBadge stock={product.stock} reorderLevel={product.reorder_level} size="sm" />
+              // No figure on a card: the catalogue cannot tell whether a
+              // product's count is IMEI-backed, and an unverified number in
+              // public is a promise the shop has not agreed to.
+              <StockBadge
+                stock={product.stock}
+                reorderLevel={product.reorder_level}
+                size="sm"
+                showCount={false}
+              />
             )}
           </div>
 
