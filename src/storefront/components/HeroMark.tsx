@@ -14,8 +14,18 @@ import { cn } from '@/lib/cn';
  * hover effect that happens to be nearby.
  */
 
-/** How far it will turn. Past about 20° the flat image starts to look sheared. */
-const MAX_TILT = 17;
+/**
+ * How far it turns.
+ *
+ * A flat image cannot actually rotate, so this pairs a large rotateY with a
+ * matching horizontal squeeze: turning away foreshortens what you see, and it
+ * is the squeeze rather than the rotation that reads as a body turning. Without
+ * it, anything past about 20 degrees just looks sheared.
+ */
+const MAX_YAW = 34;
+const MAX_PITCH = 16;
+/** A little lean into the turn, the way a person shifts weight to look. */
+const MAX_LEAN = 5;
 /** Parallax on the layers, in pixels at full deflection. */
 const GLOW_SHIFT = 26;
 const MARK_SHIFT = 10;
@@ -55,8 +65,11 @@ export function HeroMark({ className }: { className?: string }) {
       // Normalised to roughly [-1, 1] against half the viewport, so the mark is
       // at full deflection when the pointer reaches the edge of the screen
       // rather than the edge of its own box.
-      targetX = Math.max(-1, Math.min(1, (event.clientX - cx) / (window.innerWidth / 2)));
-      targetY = Math.max(-1, Math.min(1, (event.clientY - cy) / (window.innerHeight / 2)));
+      // Deflection is measured against a radius a little tighter than half the
+      // viewport, so the mark reaches a full turn well before the pointer gets
+      // to the edge of the screen rather than only at the very corner.
+      targetX = Math.max(-1, Math.min(1, (event.clientX - cx) / (window.innerWidth * 0.34)));
+      targetY = Math.max(-1, Math.min(1, (event.clientY - cy) / (window.innerHeight * 0.42)));
       idle = false;
     }
 
@@ -73,9 +86,17 @@ export function HeroMark({ className }: { className?: string }) {
 
       // Y drives rotateX inverted: pointer below centre should tip the mark
       // towards the viewer's chin, not away from it.
+      const yaw = x * MAX_YAW;
+      // cos of the yaw is how wide a real object would look once turned. The
+      // mark keeps a floor of 0.8 so it never squashes into a sliver.
+      const squeeze = Math.max(0.8, Math.cos((yaw * Math.PI) / 180));
+
       mark!.style.transform =
         `translate3d(${(-x * MARK_SHIFT).toFixed(2)}px, ${(-y * MARK_SHIFT).toFixed(2)}px, 0) ` +
-        `rotateY(${(x * MAX_TILT).toFixed(2)}deg) rotateX(${(-y * MAX_TILT).toFixed(2)}deg)`;
+        `rotateY(${yaw.toFixed(2)}deg) ` +
+        `rotateX(${(-y * MAX_PITCH).toFixed(2)}deg) ` +
+        `rotateZ(${(x * MAX_LEAN).toFixed(2)}deg) ` +
+        `scaleX(${squeeze.toFixed(3)})`;
 
       glow!.style.transform =
         `translate3d(${(x * GLOW_SHIFT).toFixed(2)}px, ${(y * GLOW_SHIFT).toFixed(2)}px, 0)`;

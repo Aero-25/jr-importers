@@ -72,11 +72,11 @@ export function Header() {
           <img
             src="/logo-mark.png"
             alt=""
-            width={27}
-            height={48}
-            className="h-10 w-auto sm:h-12"
+            width={31}
+            height={56}
+            className="h-12 w-auto sm:h-14"
           />
-          <span className="hidden font-display text-base font-bold tracking-tight text-white sm:block">
+          <span className="hidden font-display text-xl font-bold tracking-tight text-white sm:block lg:text-2xl">
             JR <span className="text-lime-400">Importers</span>
           </span>
         </Link>
@@ -100,6 +100,21 @@ export function Header() {
                 </NavLink>
               </li>
             ))}
+            <li>
+              <NavLink
+                to="/about"
+                className={({ isActive }) =>
+                  cn(
+                    'rounded-full px-3.5 py-2 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'sweep-pill text-white'
+                      : 'text-white/80 hover:bg-white/10 hover:text-white',
+                  )
+                }
+              >
+                About us
+              </NavLink>
+            </li>
           </ul>
         </nav>
 
@@ -204,6 +219,15 @@ export function Header() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link
+                  to="/about"
+                  onClick={() => setMenuOpen(false)}
+                  className="glass block rounded-2xl px-4 py-3 text-sm font-medium text-ink"
+                >
+                  About us
+                </Link>
+              </li>
             </ul>
           </nav>
 
