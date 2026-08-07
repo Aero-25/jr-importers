@@ -38,6 +38,8 @@ export type LineItem = {
   sku?: string | null;
   /** Unit price at the time of sale — never re-read from `products`. */
   price: number;
+  /** Unit cost at the time of sale, for margin reporting. Same reasoning. */
+  cost_price?: number | null;
   quantity: number;
   color?: string | null;
   imei?: string | null;
@@ -268,6 +270,19 @@ export type RefundRow = {
   till_shift_id: number | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Written by trigger; never by the app. See 20260807050000_activity_log.sql. */
+export type ActivityLogRow = {
+  id: number;
+  actor: string | null;
+  actor_id: string | null;
+  action: string;
+  entity: string;
+  entity_id: string | null;
+  summary: string | null;
+  changes: Record<string, unknown[]> | null;
+  created_at: string;
 }
 
 export type TillShiftRow = {
@@ -608,6 +623,7 @@ export type Database = {
       suppliers: Table<SupplierRow, 'name'>;
       till_shifts: Table<TillShiftRow>;
       refunds: Table<RefundRow>;
+      activity_log: Table<ActivityLogRow>;
       users: Table<UserRow>;
     };
     // `{ [_ in never]: never }` is the empty-record shape supabase-js's
@@ -681,6 +697,11 @@ export type Database = {
       };
       decline_refund: {
         Args: { p_id: number; p_reason?: string | null };
+        Returns: Json;
+      };
+      /** Gross profit for a period, computed server-side. */
+      sales_profit: {
+        Args: { p_from: string; p_to: string };
         Returns: Json;
       };
       is_staff: {

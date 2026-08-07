@@ -15,6 +15,7 @@ import {
   Receipt,
   RotateCcw,
   ScrollText,
+  ShieldCheck,
   Settings,
   ShoppingCart,
   Store,
@@ -115,6 +116,7 @@ export const NAV: NavSection[] = [
     label: 'Administration',
     items: [
       { id: 'staff', label: 'Staff & access', path: '/staff', icon: Users, adminOnly: true },
+      { id: 'activity', label: 'Activity log', path: '/activity', icon: ShieldCheck, adminOnly: true },
       { id: 'settings', label: 'Settings', path: '/settings', icon: Settings, adminOnly: true },
     ],
   },

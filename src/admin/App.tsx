@@ -17,6 +17,27 @@ const JobCards = lazy(() => import('./modules/JobCards'));
 const Records = lazy(() => import('./modules/Records'));
 const Ledger = lazy(() => import('./modules/Ledger'));
 const Settings = lazy(() => import('./modules/Settings'));
+const Activity = lazy(() => import('./modules/Activity'));
+
+const ADMIN_ONLY_PATHS = [
+  '/purchase-orders',
+  '/expenses',
+  '/coupons',
+  '/staff',
+  '/ledger',
+  '/settings',
+  '/activity',
+];
+
+function NotPermitted() {
+  return (
+    <div className="p-8">
+      <Notice tone="warn" title="You do not have access to this screen">
+        This one is limited to managers. Ask an administrator if you need it.
+      </Notice>
+    </div>
+  );
+}
 
 export function AdminApp() {
   const { ready, isAuthenticated, isStaff, isAdmin, profile } = useAuth();
@@ -81,8 +102,17 @@ export function AdminApp() {
               <Route path="/staff" element={<Records resource="users" />} />
               <Route path="/ledger" element={<Ledger />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/activity" element={<Activity />} />
             </>
           )}
+
+          {/* Without these, a cashier following a bookmark to a manager screen
+              is told the page does not exist, which sends them looking for a
+              bug instead of asking for access. */}
+          {!isAdmin &&
+            ADMIN_ONLY_PATHS.map((path) => (
+              <Route key={path} path={path} element={<NotPermitted />} />
+            ))}
 
           <Route
             path="*"

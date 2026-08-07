@@ -29,6 +29,10 @@ export interface CashUp {
   total_sales: number;
   transaction_count: number;
   petty_cash: number;
+  /** Approved refunds in this shift. Only the cash ones come out of the drawer. */
+  refunds: number;
+  cash_refunds: number;
+  refund_count: number;
   expected_cash: number;
   counted_cash: number;
   variance: number;

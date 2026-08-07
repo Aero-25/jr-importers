@@ -109,6 +109,9 @@ export default function Pos() {
           name: product.name,
           sku: product.sku,
           price: Number(product.price) || 0,
+          // Stamped at the moment of sale. Profit reporting must value a sale
+          // at what the unit cost us then, not what a replacement costs today.
+          cost_price: Number(product.cost_price) || 0,
           quantity: 1,
           color: product.color,
         },

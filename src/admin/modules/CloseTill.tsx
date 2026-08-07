@@ -348,6 +348,12 @@ export function CashUpSummary({ report }: { report: CashUp }) {
               value={money(report.total_sales)}
               bold
             />
+            {report.refunds > 0 && (
+              <Line label="Less refunds" value={`− ${money(report.refunds)}`} />
+            )}
+            {report.refunds > 0 && (
+              <Line label="Net takings" value={money(report.total_sales - report.refunds)} bold />
+            )}
           </dl>
         </section>
 
@@ -359,6 +365,12 @@ export function CashUpSummary({ report }: { report: CashUp }) {
             <Line label="Opening float" value={money(report.opening_float)} />
             <Line label="Cash takings" value={money(report.cash_sales)} highlight />
             <Line label="Petty cash out" value={`− ${money(report.petty_cash)}`} />
+            {report.cash_refunds > 0 && (
+              <Line
+                label={`Refunds paid out (${report.refund_count})`}
+                value={`− ${money(report.cash_refunds)}`}
+              />
+            )}
             <Line label="Expected" value={money(report.expected_cash)} bold />
             <Line label="Counted" value={money(report.counted_cash)} bold />
           </dl>

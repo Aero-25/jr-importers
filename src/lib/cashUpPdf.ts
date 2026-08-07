@@ -101,6 +101,10 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   line(y - 2);
   y += 2;
   row(`Total sales  (${report.transaction_count} transactions)`, money(report.total_sales), { bold: true });
+  if (report.refunds > 0) {
+    row('Less refunds', `− ${money(report.refunds)}`);
+    row('Net takings', money(report.total_sales - report.refunds), { bold: true });
+  }
   y += 3;
 
   /* Drawer */
@@ -112,6 +116,9 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   row('Opening float (counted)', money(report.opening_float));
   row('Cash takings', money(report.cash_sales), { highlight: true });
   row('Petty cash paid out', `− ${money(report.petty_cash)}`);
+  if (report.cash_refunds > 0) {
+    row(`Refunds paid out (${report.refund_count})`, `− ${money(report.cash_refunds)}`);
+  }
   line(y - 2);
   y += 2;
   row('Expected in drawer', money(report.expected_cash), { bold: true });

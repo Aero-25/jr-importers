@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Package, Receipt, ShoppingCart, TrendingUp, Users } from 'lucide-react';
+import { AlertTriangle, Coins, Package, Receipt, ShoppingCart, TrendingUp, Users } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { keys } from '@/data/keys';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
 import { formatDate, money, moneyCompact, round2 } from '@/lib/format';
-import { Card, ErrorState, StatTile, StatusBadge, Skeleton } from '@/ui';
+import { useSalesProfit, startOfMonth as monthStart, startOfToday as todayStart } from '@/data/profit';
+import { Card, ErrorState, Notice, StatTile, StatusBadge, Skeleton } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
 
 interface DashboardData {
@@ -84,6 +85,10 @@ function useDashboard() {
 export default function Dashboard() {
   const { data, isLoading, isError, error, refetch } = useDashboard();
 
+  const now = new Date();
+  const today = useSalesProfit(todayStart(), now, 'today');
+  const month = useSalesProfit(monthStart(), now, 'month');
+
   if (isError) {
     return (
       <>
@@ -100,6 +105,16 @@ export default function Dashboard() {
       <ModuleHeader title="Dashboard" description="How the shop is trading right now." />
 
       <div className="space-y-6 p-6">
+        {/* Says so plainly when the margin cannot be trusted, rather than
+            printing a proud number derived from missing cost prices. */}
+        {month.data && month.data.costed_lines < month.data.total_lines && (
+          <Notice tone="warn" title="Some sales have no cost price behind them">
+            {month.data.total_lines - month.data.costed_lines} of {month.data.total_lines} lines sold
+            this month could not be matched to a product cost, so they are counted as pure profit.
+            The real margin is lower than shown.
+          </Notice>
+        )}
+
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-card" />)
@@ -112,11 +127,36 @@ export default function Dashboard() {
                 icon={<TrendingUp className="h-4 w-4" />}
                 tone="success"
               />
+              {/* Turnover and profit sit next to each other deliberately: a
+                  record day on takings and a day that lost money look identical
+                  until the second number is on the screen. */}
+              <StatTile
+                label="Gross profit today"
+                value={today.isLoading ? '—' : money(today.data?.gross_profit ?? 0)}
+                sub={
+                  today.data && today.data.revenue_net > 0
+                    ? `${today.data.margin_pct}% margin`
+                    : 'No sales yet'
+                }
+                icon={<Coins className="h-4 w-4" />}
+                tone="success"
+              />
               <StatTile
                 label="Revenue this month"
                 value={moneyCompact(data!.monthRevenue)}
                 icon={<Receipt className="h-4 w-4" />}
                 tone="brand"
+              />
+              <StatTile
+                label="Gross profit this month"
+                value={month.isLoading ? '—' : moneyCompact(month.data?.gross_profit ?? 0)}
+                sub={
+                  month.data && month.data.revenue_net > 0
+                    ? `${month.data.margin_pct}% margin · cost ${moneyCompact(month.data.cost_of_sales)}`
+                    : 'No sales yet'
+                }
+                icon={<Coins className="h-4 w-4" />}
+                tone="success"
               />
               <StatTile
                 label="Open orders"
