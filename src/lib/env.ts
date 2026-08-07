@@ -36,7 +36,7 @@ declare global {
 const DEFAULTS: RuntimeConfig = {
   SUPABASE_URL: '',
   SUPABASE_ANON_KEY: '',
-  LOGO_URL: '/icon.svg',
+  LOGO_URL: '/icon-192.png',
   AERO_LOGO_URL: '/icon.svg',
   SMS_WORKER_URL: '',
   WHATSAPP_WORKER_URL: '',

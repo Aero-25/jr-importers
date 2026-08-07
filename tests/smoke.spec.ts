@@ -88,3 +88,26 @@ test('the sitemap lists products and robots points at it', async ({ request }) =
   expect(text).toContain('Sitemap:');
   expect(text).toContain('Disallow: /admin');
 });
+
+test('the icon set is served and the head points at it', async ({ page, request }) => {
+  for (const icon of ['/favicon.ico', '/icon-32.png', '/icon-180.png', '/icon-192.png', '/logo.png']) {
+    const response = await request.get(icon);
+    expect(response.status(), `${icon} should be served`).toBe(200);
+  }
+
+  await page.goto('/');
+
+  // Vite fingerprints these into /assets/, so the assertion is on the shape of
+  // the reference rather than the literal path — the unhashed copies above are
+  // what a browser asks for by convention when the tags are missing.
+  const favicon = await page.locator('link[rel="icon"]').first().getAttribute('href');
+  expect(favicon).toMatch(/\.(ico|png|svg)$/);
+
+  const touch = await page.locator('link[rel="apple-touch-icon"]').getAttribute('href');
+  expect(touch).toMatch(/\.png$/);
+
+  // The old build pointed og:image and the JSON-LD at a host that never
+  // resolved, which is invisible until somebody shares a link.
+  const ogImage = await page.locator('meta[property="og:image"]').getAttribute('content');
+  expect(ogImage).not.toContain('pages.dev');
+});

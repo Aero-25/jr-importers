@@ -65,6 +65,14 @@ async function run() {
     '_worker.js',          // Pages advanced-mode worker: /api/* + static fallthrough
     'config.js',           // runtime Supabase/worker config (window.JR_CONFIG)
     'icon.svg',
+    'favicon.ico',
+    'logo.png',
+    'icon-32.png',
+    'icon-48.png',
+    'icon-180.png',
+    'icon-192.png',
+    'icon-512.png',
+    'icon-maskable-512.png',
     'manifest.webmanifest',
     'admin.webmanifest',
     'sw.js',

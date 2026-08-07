@@ -15,7 +15,7 @@ window.JR_CONFIG = Object.freeze({
     // footer and About page hide their WhatsApp buttons entirely while this is
     // blank, which is how they had been rendering.
     STORE_WHATSAPP_NUMBER: '264815629203',
-    LOGO_URL: '/icon.svg',
+    LOGO_URL: '/icon-192.png',
     AERO_LOGO_URL: '/icon.svg',
     SMS_WORKER_URL: '',
     WHATSAPP_WORKER_URL: '',

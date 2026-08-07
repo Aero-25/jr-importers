@@ -22,7 +22,7 @@ export function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <img src="/icon.svg" alt="" width={30} height={30} className="h-7 w-7" />
+              <img src="/icon-192.png" alt="" width={30} height={30} className="h-7 w-7" />
               <span className="font-display text-base font-bold text-white">
                 JR <span className="text-lime-400">Importers</span>
               </span>

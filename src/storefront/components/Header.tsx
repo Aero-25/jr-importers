@@ -69,7 +69,7 @@ export function Header() {
           className="flex shrink-0 items-center gap-2 rounded-full pl-1.5 pr-1"
           aria-label={`${STORE.name} home`}
         >
-          <img src="/icon.svg" alt="" width={30} height={30} className="h-7 w-7 sm:h-8 sm:w-8" />
+          <img src="/icon-192.png" alt="" width={30} height={30} className="h-7 w-7 sm:h-8 sm:w-8" />
           <span className="hidden font-display text-base font-bold tracking-tight text-white sm:block">
             JR <span className="text-lime-400">Importers</span>
           </span>
