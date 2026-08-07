@@ -7,6 +7,7 @@ import { heroImages } from '@/data/resources';
 import { DEFAULT_VAT_RATE, percent } from '@/lib/format';
 import { Button, Card, Input, Notice, Panel, useToast } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
+import { MfaPanel } from '../components/MfaPanel';
 
 /** Store settings, merchandising, and the housekeeping jobs staff can trigger. */
 export default function Settings() {
@@ -14,6 +15,7 @@ export default function Settings() {
     <>
       <ModuleHeader title="Settings" description="Store configuration and housekeeping." />
       <div className="grid gap-4 p-6 lg:grid-cols-2">
+        <MfaPanel />
         <StoreSettings />
         <Housekeeping />
         <HeroImages />

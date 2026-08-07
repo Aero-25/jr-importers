@@ -6,5 +6,6 @@ export { Modal, ConfirmDialog, type ModalProps } from './Modal';
 export { ToastProvider, useToast } from './Toast';
 export { Spinner, LoadingScreen, Skeleton, EmptyState, ErrorState, Notice } from './feedback';
 export { DataTable, type Column, type DataTableProps } from './DataTable';
+export { Pagination } from './Pagination';
 export { PatternLock, PatternPreview } from './PatternLock';
 export { SignaturePad } from './SignaturePad';

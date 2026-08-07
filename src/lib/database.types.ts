@@ -313,6 +313,20 @@ export type ClientErrorRow = {
   resolved_by: string | null;
 }
 
+export type AlertRow = {
+  id: number;
+  kind: string;
+  severity: string;
+  title: string;
+  detail: string | null;
+  dedupe_key: string;
+  entity: string | null;
+  entity_id: string | null;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+  created_at: string;
+}
+
 export type TillShiftRow = {
   id: number;
   till_id: number;
@@ -673,6 +687,7 @@ export type Database = {
       activity_log: Table<ActivityLogRow>;
       accounting_periods: Table<AccountingPeriodRow>;
       client_errors: Table<ClientErrorRow>;
+      alerts: Table<AlertRow>;
       users: Table<UserRow>;
     };
     // `{ [_ in never]: never }` is the empty-record shape supabase-js's
@@ -787,6 +802,8 @@ export type Database = {
       };
       resolve_client_error: { Args: { p_id: number }; Returns: Json };
       sales_analysis: { Args: { p_from: string; p_to: string }; Returns: Json };
+      generate_alerts: { Args: Record<PropertyKey, never>; Returns: number };
+      acknowledge_alert: { Args: { p_id: number }; Returns: Json };
       is_staff: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;

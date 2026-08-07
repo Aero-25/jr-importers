@@ -33,25 +33,74 @@ export interface ListOptions<T extends TableName> {
   select?: string;
 }
 
-async function fetchList<T extends TableName>(
-  table: T,
-  options: ListOptions<T> = {},
-): Promise<Row<T>[]> {
-  let query = db.from(table).select(options.select ?? '*');
+/** One page of rows plus the total the filters match. */
+export interface Page<T> {
+  rows: T[];
+  total: number;
+}
 
+/**
+ * Applies the shared filters. Split out so the list and the paged read cannot
+ * drift apart — a count that filters differently to the rows it counts is worse
+ * than no count.
+ */
+function applyFilters<T extends TableName>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  query: any,
+  options: ListOptions<T>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
   for (const [column, value] of Object.entries(options.eq ?? {})) {
     if (value !== undefined && value !== null) query = query.eq(column, value);
   }
 
   const term = options.search?.term.trim();
   if (term && options.search) {
-    // PostgREST `or` takes a comma-joined filter list. Commas and parens inside
-    // the term would break out of that grammar, so strip them.
     const safe = term.replace(/[,()]/g, ' ').trim();
     if (safe) {
       query = query.or(options.search.columns.map((c) => `${c}.ilike.%${safe}%`).join(','));
     }
   }
+  return query;
+}
+
+/**
+ * Reads one page, and how many rows there are in total.
+ *
+ * Counting is what makes paging honest. Without it a list can only say "here
+ * are 500 rows" and stay silent about the rest, which reads as an answer rather
+ * than a truncation — the worst way for a list to fail.
+ */
+async function fetchPage<T extends TableName>(
+  table: T,
+  options: ListOptions<T>,
+  page: number,
+  pageSize: number,
+): Promise<Page<Row<T>>> {
+  const from = Math.max(0, page) * pageSize;
+
+  let query = db.from(table).select(options.select ?? '*', { count: 'exact' });
+  query = applyFilters(query, options);
+
+  if (options.orderBy) {
+    query = query.order(options.orderBy.column, { ascending: options.orderBy.ascending ?? true });
+  }
+
+  const { data, error, count } = await query.range(from, from + pageSize - 1);
+  if (error) throw new Error(error.message);
+
+  return { rows: (data ?? []) as unknown as Row<T>[], total: count ?? 0 };
+}
+
+async function fetchList<T extends TableName>(
+  table: T,
+  options: ListOptions<T> = {},
+): Promise<Row<T>[]> {
+  let query = db.from(table).select(options.select ?? '*');
+
+  // PostgREST `or` takes a comma-joined filter list, so commas and parens
+  // inside a search term have to be stripped or they break out of the grammar.
+  query = applyFilters(query, options);
 
   if (options.orderBy) {
     query = query.order(options.orderBy.column, { ascending: options.orderBy.ascending ?? true });
@@ -84,6 +133,18 @@ export function createResource<T extends TableName>(table: T, defaults: ListOpti
       queryKey: keys.list(table, merged),
       queryFn: () => fetchList(table, merged),
       ...queryOptions,
+    });
+  }
+
+  /** Server-side paging. Rows and the matching total come back together. */
+  function usePage(options: ListOptions<T> = {}, page = 0, pageSize = 50) {
+    const merged = { ...defaults, ...options };
+    return useQuery<Page<Row<T>>, Error>({
+      queryKey: keys.list(table, { ...merged, page, pageSize }),
+      queryFn: () => fetchPage(table, merged, page, pageSize),
+      // Keeps the previous page on screen while the next loads, so paging does
+      // not flash an empty table.
+      placeholderData: (previous) => previous,
     });
   }
 
@@ -150,5 +211,5 @@ export function createResource<T extends TableName>(table: T, defaults: ListOpti
     });
   }
 
-  return { table, useList, useDetail, useCreate, useUpdate, useRemove, fetchList };
+  return { table, useList, usePage, useDetail, useCreate, useUpdate, useRemove, fetchList, fetchPage };
 }

@@ -56,6 +56,7 @@ export const NAV: NavSection[] = [
     label: 'Sell',
     items: [
       { id: 'dashboard', label: 'Dashboard', path: '/', icon: BarChart3 },
+      { id: 'alerts', label: 'Needs attention', path: '/alerts', icon: BellRing },
       { id: 'pos', label: 'POS Terminal', path: '/pos', icon: Store },
       { id: 'cash-ups', label: 'Cash ups', path: '/cash-ups', icon: Banknote },
       { id: 'orders', label: 'Orders', path: '/orders', icon: ShoppingCart },

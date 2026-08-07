@@ -21,6 +21,7 @@ const Activity = lazy(() => import('./modules/Activity'));
 const GoodsReceived = lazy(() => import('./modules/GoodsReceived'));
 const Finance = lazy(() => import('./modules/Finance'));
 const Reports = lazy(() => import('./modules/Reports'));
+const Alerts = lazy(() => import('./modules/Alerts'));
 const Faults = lazy(() => import('./modules/Faults'));
 
 const ADMIN_ONLY_PATHS = [
@@ -81,6 +82,7 @@ export function AdminApp() {
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/alerts" element={<Alerts />} />
           <Route path="/pos" element={<Pos />} />
           <Route path="/cash-ups" element={<CashUps />} />
           <Route path="/orders" element={<Orders />} />

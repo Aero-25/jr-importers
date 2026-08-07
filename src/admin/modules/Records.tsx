@@ -8,6 +8,7 @@ import {
   Checkbox,
   ConfirmDialog,
   DataTable,
+  Pagination,
   Input,
   Modal,
   Notice,
@@ -46,14 +47,26 @@ export default function Records({ resource: specKey }: { resource: string }) {
   return <RecordsModule key={specKey} spec={spec} />;
 }
 
+/** Fifty rows fills a laptop screen without making the browser sort a thousand. */
+const PAGE_SIZE = 50;
+
 function RecordsModule({ spec }: { spec: RecordSpec }) {
   const resource = spec.resource as unknown as Resource;
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<AnyRow | 'new' | null>(null);
 
-  const list = resource.useList({
-    search: search ? { term: search, columns: spec.searchColumns as never } : undefined,
-  });
+  // Filtering changes what "page 3" means, so it starts again from the top.
+  function searchFor(term: string) {
+    setSearch(term);
+    setPage(0);
+  }
+
+  const list = resource.usePage(
+    { search: search ? { term: search, columns: spec.searchColumns as never } : undefined },
+    page,
+    PAGE_SIZE,
+  );
 
   const columns = useMemo<Column<AnyRow>[]>(
     () =>
@@ -88,7 +101,7 @@ function RecordsModule({ spec }: { spec: RecordSpec }) {
         <Input
           label="Search"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => searchFor(e.target.value)}
           placeholder={`Search ${spec.title.toLowerCase()}…`}
           leading={<Search className="h-4 w-4" />}
           containerClassName="mb-4 max-w-md"
@@ -96,7 +109,7 @@ function RecordsModule({ spec }: { spec: RecordSpec }) {
 
         <div className="overflow-hidden rounded-card border border-hairline bg-surface">
           <DataTable
-            rows={(list.data ?? []) as AnyRow[]}
+            rows={(list.data?.rows ?? []) as AnyRow[]}
             columns={columns}
             rowKey={(row) => String(row.id)}
             loading={list.isLoading}
@@ -109,6 +122,14 @@ function RecordsModule({ spec }: { spec: RecordSpec }) {
                   ? 'Records appear here as customers send them.'
                   : undefined,
             }}
+            footer={
+              <Pagination
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={list.data?.total ?? 0}
+                onPage={setPage}
+              />
+            }
           />
         </div>
       </div>
