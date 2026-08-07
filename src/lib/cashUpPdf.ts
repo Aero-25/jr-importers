@@ -254,27 +254,10 @@ export async function downloadCashUpPdf(report: CashUp): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-/**
- * Publishes the report and hands back a WhatsApp deep link.
- *
- * WhatsApp deep links carry text only — there is no way to attach a file to a
- * `wa.me` URL. So the PDF is uploaded to the public bucket and the message
- * carries a link to it, which is also more useful than an attachment: the
- * owner can open it on any device without it filling up their phone.
- */
-export async function shareCashUpOnWhatsApp(report: CashUp): Promise<string> {
-  const blob = await buildCashUpPdf(report);
-  const path = `cashups/${cashUpFileName(report)}`;
-
-  const { error } = await supabase.storage
-    .from('Images')
-    .upload(path, blob, { contentType: 'application/pdf', upsert: true });
-  if (error) throw new Error(`Could not upload the report: ${error.message}`);
-
-  const { data } = supabase.storage.from('Images').getPublicUrl(path);
-
+/** Summary text that accompanies the report, however it is sent. */
+function summaryText(report: CashUp): string {
   const short = report.variance < -0.005 ? 'SHORT' : report.variance > 0.005 ? 'OVER' : 'Balanced';
-  const message = [
+  return [
     `*${STORE.name} — Cash up*`,
     `Shift #${report.shift_id} · Till ${report.till_id}`,
     `Cashier: ${report.cashier ?? '—'}`,
@@ -289,10 +272,71 @@ export async function shareCashUpOnWhatsApp(report: CashUp): Promise<string> {
     report.stock_lines_off > 0
       ? `⚠ Phone count: ${report.stock_lines_off} line(s) do not match`
       : 'Phone count: all matched',
-    '',
-    'Full report:',
-    data.publicUrl,
   ].join('\n');
+}
+
+export type ShareOutcome = 'attached' | 'link' | 'cancelled';
+
+/**
+ * Sends the cash-up to the owner, attaching the PDF where the device allows it.
+ *
+ * A `wa.me` deep link carries text only — there is no way to attach a file to
+ * one. The Web Share API can hand the actual PDF to the system share sheet,
+ * which is where WhatsApp picks it up as a real attachment; that path works on
+ * the phone the till is actually closed from.
+ *
+ * Desktop browsers largely cannot share files, so there the report is published
+ * to storage and the message carries a link. Either way the owner gets the same
+ * numbers in the message body, so the summary is readable without opening
+ * anything.
+ */
+export async function shareCashUp(report: CashUp, prepared?: File): Promise<ShareOutcome> {
+  const text = summaryText(report);
+
+  // Built ahead of the tap where possible. Safari treats an await before
+  // navigator.share() as spending the user activation, so rendering the PDF
+  // inside the click handler makes the share silently fail on the exact device
+  // the till is closed from.
+  const file = prepared ?? (await prepareCashUpFile(report));
+  const canAttach =
+    typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
+
+  if (canAttach) {
+    try {
+      await navigator.share({ files: [file], title: `Cash up — shift #${report.shift_id}`, text });
+      return 'attached';
+    } catch (error) {
+      // Dismissing the share sheet throws AbortError; that is a choice, not a
+      // failure, so do not fall through and open WhatsApp behind their back.
+      if (error instanceof Error && error.name === 'AbortError') return 'cancelled';
+    }
+  }
+
+  window.open(await cashUpWhatsAppLink(report, file), '_blank', 'noopener');
+  return 'link';
+}
+
+/** Renders the report as a shareable file, ready before the share is tapped. */
+export async function prepareCashUpFile(report: CashUp): Promise<File> {
+  const blob = await buildCashUpPdf(report);
+  return new File([blob], cashUpFileName(report), { type: 'application/pdf' });
+}
+
+/** Publishes the report and returns a WhatsApp deep link carrying its URL. */
+export async function cashUpWhatsAppLink(report: CashUp, existing?: Blob): Promise<string> {
+  const blob = existing ?? (await buildCashUpPdf(report));
+  const path = `cashups/${cashUpFileName(report)}`;
+
+  const { error } = await supabase.storage
+    .from('Images')
+    .upload(path, blob, { contentType: 'application/pdf', upsert: true });
+  if (error) throw new Error(`Could not upload the report: ${error.message}`);
+
+  const { data } = supabase.storage.from('Images').getPublicUrl(path);
+  const message = `${summaryText(report)}
+
+Full report:
+${data.publicUrl}`;
 
   return `https://wa.me/${CASHUP_WHATSAPP}?text=${encodeURIComponent(message)}`;
 }

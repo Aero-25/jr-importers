@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { keys } from '@/data/keys';
 import type { DenominationCounts, ShiftStockLine, TillShiftRow } from '@/lib/database.types';
 import { useCloseTill, type CashUp } from '@/data/till';
-import { downloadCashUpPdf, shareCashUpOnWhatsApp } from '@/lib/cashUpPdf';
+import { downloadCashUpPdf, shareCashUp } from '@/lib/cashUpPdf';
+import { useCashUpFile } from '../hooks/useCashUpFile';
 import { money } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Badge, Button, Modal, Notice, Textarea, useToast } from '@/ui';
@@ -42,6 +43,7 @@ export function CloseTillDialog({
   const [notes, setNotes] = useState('');
   const [report, setReport] = useState<CashUp | null>(null);
   const [sharing, setSharing] = useState(false);
+  const cashUpFile = useCashUpFile(report);
 
   const phones = useQuery({
     queryKey: keys.list('products', { stockTake: 'phones' }),
@@ -105,8 +107,10 @@ export function CloseTillDialog({
     if (!report) return;
     setSharing(true);
     try {
-      const link = await shareCashUpOnWhatsApp(report);
-      window.open(link, '_blank', 'noopener');
+      const outcome = await shareCashUp(report, cashUpFile);
+      if (outcome === 'link') {
+        toast.info('PDF link sent', 'This device cannot attach files, so WhatsApp opened with a link to the report.');
+      }
     } catch (error) {
       toast.error('Could not share the report', error instanceof Error ? error.message : undefined);
     } finally {

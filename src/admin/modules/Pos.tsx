@@ -36,7 +36,6 @@ import {
   Notice,
   Select,
   StockBadge,
-  Textarea,
   useToast,
 } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';

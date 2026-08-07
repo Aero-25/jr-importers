@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { AlertTriangle, Download, MessageCircle } from 'lucide-react';
 import type { TillShiftRow } from '@/lib/database.types';
 import { useCashUp, useShifts } from '@/data/till';
-import { downloadCashUpPdf, shareCashUpOnWhatsApp } from '@/lib/cashUpPdf';
+import { downloadCashUpPdf, shareCashUp } from '@/lib/cashUpPdf';
+import { useCashUpFile } from '../hooks/useCashUpFile';
 import { formatDateTime, money } from '@/lib/format';
 import { Badge, Button, DataTable, LoadingScreen, Modal, StatTile, type Column, useToast } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
@@ -151,12 +152,16 @@ function CashUpDialog({ shift, onClose }: { shift: TillShiftRow; onClose: () => 
   const toast = useToast();
   const report = useCashUp(shift.id);
   const [sharing, setSharing] = useState(false);
+  const cashUpFile = useCashUpFile(report.data);
 
   async function share() {
     if (!report.data) return;
     setSharing(true);
     try {
-      window.open(await shareCashUpOnWhatsApp(report.data), '_blank', 'noopener');
+      const outcome = await shareCashUp(report.data, cashUpFile);
+      if (outcome === 'link') {
+        toast.info('PDF link sent', 'This device cannot attach files, so WhatsApp opened with a link to the report.');
+      }
     } catch (error) {
       toast.error('Could not share the report', error instanceof Error ? error.message : undefined);
     } finally {
