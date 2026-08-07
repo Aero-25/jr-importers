@@ -339,7 +339,7 @@ export function CashUpSummary({ report }: { report: CashUp }) {
             Takings
           </h3>
           <dl className="space-y-1.5 text-sm">
-            <Line label="Cash" value={money(report.cash_sales)} />
+            <Line label="Cash" value={money(report.cash_sales)} highlight />
             <Line label="Card" value={money(report.card_sales)} />
             <Line label="EFT" value={money(report.eft_sales)} />
             {report.other_sales > 0 && <Line label="Other" value={money(report.other_sales)} />}
@@ -357,7 +357,7 @@ export function CashUpSummary({ report }: { report: CashUp }) {
           </h3>
           <dl className="space-y-1.5 text-sm">
             <Line label="Opening float" value={money(report.opening_float)} />
-            <Line label="Cash takings" value={money(report.cash_sales)} />
+            <Line label="Cash takings" value={money(report.cash_sales)} highlight />
             <Line label="Petty cash out" value={`− ${money(report.petty_cash)}`} />
             <Line label="Expected" value={money(report.expected_cash)} bold />
             <Line label="Counted" value={money(report.counted_cash)} bold />
@@ -369,40 +369,86 @@ export function CashUpSummary({ report }: { report: CashUp }) {
         <h3 className="mb-2 text-2xs font-bold uppercase tracking-[0.14em] text-ink-subtle">
           Phone count
         </h3>
-        {report.stock_lines_off > 0 ? (
-          <ul className="divide-y divide-hairline/70 rounded-xl border border-danger/40">
-            {(report.stock_count ?? [])
-              .filter((l) => l.variance !== 0)
-              .map((l) => (
-                <li key={l.product_id} className="flex items-center gap-3 px-3 py-2 text-sm">
+        {(report.stock_count ?? []).length === 0 ? (
+          <p className="text-sm text-ink-muted">No phone count was recorded for this shift.</p>
+        ) : (
+          <>
+            <p
+              className={cn(
+                'mb-2 text-sm font-semibold',
+                report.stock_lines_off > 0 ? 'text-danger' : 'text-success',
+              )}
+            >
+              {report.stock_count.length} handsets counted
+              {report.stock_lines_off > 0
+                ? ` · ${report.stock_lines_off} do not match`
+                : ' · all matched'}
+            </p>
+            {/* The full count, not just the exceptions: the report has to show
+                that the count was done, which a list of discrepancies cannot. */}
+            <ul
+              className={cn(
+                'max-h-64 divide-y divide-hairline/70 overflow-y-auto rounded-xl border',
+                report.stock_lines_off > 0 ? 'border-danger/40' : 'border-hairline',
+              )}
+            >
+              {report.stock_count.map((l) => (
+                <li
+                  key={l.product_id}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2 text-sm',
+                    l.variance !== 0 && 'bg-danger/5',
+                  )}
+                >
                   <span className="min-w-0 flex-1 truncate text-ink">{l.name}</span>
                   <span className="tabular text-xs text-ink-muted">
                     system {l.system_qty} · counted {l.counted_qty}
                   </span>
-                  <span className="tabular shrink-0 font-bold text-danger">
-                    {l.variance > 0 ? '+' : ''}
-                    {l.variance}
+                  <span
+                    className={cn(
+                      'tabular w-10 shrink-0 text-right font-bold',
+                      l.variance !== 0 ? 'text-danger' : 'text-ink-subtle',
+                    )}
+                  >
+                    {l.variance === 0 ? '—' : `${l.variance > 0 ? '+' : ''}${l.variance}`}
                   </span>
                 </li>
               ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-success">All counted lines matched the system.</p>
+            </ul>
+          </>
         )}
       </section>
     </div>
   );
 }
 
-function Line({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+/**
+ * `highlight` marks cash.
+ *
+ * Card and EFT are reported for completeness but settle at the bank; cash is
+ * the only tender that has to be in the drawer at the end of the shift, so it
+ * is the line the variance is actually explained by and reads that way.
+ */
+function Line({
+  label,
+  value,
+  bold,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  bold?: boolean;
+  highlight?: boolean;
+}) {
   return (
     <div
       className={cn(
         'flex justify-between',
         bold && 'border-t border-hairline/70 pt-1.5 font-bold text-ink',
+        highlight && '-mx-2 rounded-lg bg-lime-500/15 px-2 py-1 font-semibold text-ink',
       )}
     >
-      <dt className={bold ? '' : 'text-ink-muted'}>{label}</dt>
+      <dt className={bold || highlight ? '' : 'text-ink-muted'}>{label}</dt>
       <dd className="tabular">{value}</dd>
     </div>
   );

@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { JobCardChecks, JobCardRow } from '@/lib/database.types';
 import { config } from '@/lib/env';
-import { STORE } from '@/lib/constants';
+import { JOB_CARD_QUOTE_THRESHOLD, STORE } from '@/lib/constants';
 import { money } from '@/lib/format';
+import { whatsappNumber } from '@/lib/phone';
+import { publishJobCardPdf } from '@/lib/jobCardPdf';
 import { createResource } from './crud';
 import { keys } from './keys';
 
@@ -178,59 +180,166 @@ export function jobCardUrl(token: string): string {
 }
 
 /**
- * A `wa.me` deep link staff tap to send the card from their own WhatsApp.
+ * The message the customer receives with their job card.
  *
- * This needs no API credentials and works today. If a WhatsApp Business worker
- * is configured later, `sendJobCardViaWorker` takes over and this stays as the
- * manual fallback.
+ * Written to be read on a phone: who it is from and what it concerns first,
+ * then one clear instruction, then the links. WhatsApp's own emphasis is used
+ * rather than shouting in capitals, and the shop's hours are included because
+ * the most common reply to any of these is "when are you open".
  */
-export function jobCardWhatsAppLink(card: {
-  job_number: number;
-  customer_name: string;
-  customer_phone: string;
-  handset_type: string | null;
-  accept_token: string;
-}): string {
-  const phone = card.customer_phone.replace(/\D/g, '');
+function jobCardMessage(
+  card: {
+    job_number: number;
+    customer_name: string;
+    handset_type: string | null;
+    accepted_at?: string | null;
+    accept_token: string;
+  },
+  pdfUrl: string | null,
+): string {
   const firstName = card.customer_name.trim().split(/\s+/)[0] ?? '';
+  const handset = card.handset_type?.trim();
+  const accepted = Boolean(card.accepted_at);
 
-  const message = [
-    `Hi ${firstName}, thank you for choosing ${STORE.name}.`,
+  const lines = [
+    `*${STORE.name.toUpperCase()}*`,
+    `Job Card *#${card.job_number}*${handset ? ` — ${handset}` : ''}`,
     ``,
-    `Job Card #${card.job_number}${card.handset_type ? ` — ${card.handset_type}` : ''}`,
+    `Good day${firstName ? ` ${firstName}` : ''},`,
     ``,
-    `Please open the link below to read our terms, sign, and receive your PDF job card:`,
-    jobCardUrl(card.accept_token),
-    ``,
-    `${STORE.address}`,
-    `${STORE.phone}`,
-  ].join('\n');
+  ];
 
-  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  if (accepted) {
+    lines.push(
+      `Thank you for accepting your job card. We will be in touch as soon as your handset is ready.`,
+      ``,
+      `You can check the status of your repair here at any time:`,
+      ``,
+      jobCardUrl(card.accept_token),
+      ``,
+    );
+  } else {
+    lines.push(
+      `Thank you for booking ${handset ? `your ${handset}` : 'your handset'} in with us.`,
+      ``,
+      `Please open the link below to read our terms and accept the job card. We start work as soon as it is accepted.`,
+      ``,
+      jobCardUrl(card.accept_token),
+      ``,
+    );
+  }
+
+  if (pdfUrl) {
+    lines.push(accepted ? `Your signed job card (PDF):` : `Your copy of the job card (PDF):`, pdfUrl, ``);
+  }
+
+  lines.push(
+    `Please quote *#${card.job_number}* on any enquiry.`,
+    ``,
+    STORE.hours,
+    STORE.address,
+    STORE.phone,
+  );
+
+  return lines.join('\n');
 }
 
-export function quoteWhatsAppLink(card: {
-  job_number: number;
-  customer_name: string;
-  customer_phone: string;
-  quote_amount: number | null;
-  accept_token: string;
-}): string {
-  const phone = card.customer_phone.replace(/\D/g, '');
+/**
+ * A `wa.me` deep link staff tap to send the card from their own WhatsApp.
+ *
+ * Deliberately a deep link rather than the system share sheet, even though the
+ * share sheet could attach the PDF as a real file: customers are almost never
+ * saved in the staff member's contacts, and the share sheet gives no way to
+ * message a number that is not. The link addresses the chat directly, and the
+ * PDF rides along as a URL.
+ */
+export function jobCardWhatsAppLink(
+  card: {
+    job_number: number;
+    customer_name: string;
+    customer_phone: string;
+    handset_type: string | null;
+    accepted_at?: string | null;
+    accept_token: string;
+  },
+  pdfUrl: string | null = null,
+): string {
+  return `https://wa.me/${whatsappNumber(card.customer_phone)}?text=${encodeURIComponent(
+    jobCardMessage(card, pdfUrl),
+  )}`;
+}
+
+export function quoteWhatsAppLink(
+  card: {
+    job_number: number;
+    customer_name: string;
+    customer_phone: string;
+    handset_type?: string | null;
+    quote_amount: number | null;
+    quote_note?: string | null;
+    accept_token: string;
+  },
+  pdfUrl: string | null = null,
+): string {
   const firstName = card.customer_name.trim().split(/\s+/)[0] ?? '';
+  const handset = card.handset_type?.trim();
 
-  const message = [
-    `Hi ${firstName}, we have assessed your handset.`,
+  const lines = [
+    `*${STORE.name.toUpperCase()}*`,
+    `Job Card *#${card.job_number}*${handset ? ` — ${handset}` : ''}`,
     ``,
-    `Job Card #${card.job_number}`,
-    `Quoted repair cost: ${money(card.quote_amount)}`,
+    `Good day${firstName ? ` ${firstName}` : ''},`,
     ``,
-    `As per our terms, repairs above N$350 need your approval before we start.`,
-    `Please approve or decline here:`,
+    `We have assessed your handset and prepared a quote.`,
+    ``,
+    `Quoted repair cost: *${money(card.quote_amount)}*`,
+  ];
+
+  if (card.quote_note?.trim()) lines.push(card.quote_note.trim());
+
+  lines.push(
+    ``,
+    `As per our terms, repairs above ${money(JOB_CARD_QUOTE_THRESHOLD)} need your approval before we begin. Please approve or decline here:`,
+    ``,
     jobCardUrl(card.accept_token),
-  ].join('\n');
+    ``,
+  );
 
-  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  if (pdfUrl) lines.push(`Your job card (PDF):`, pdfUrl, ``);
+
+  lines.push(
+    `The handset is safe with us until we hear from you.`,
+    ``,
+    STORE.hours,
+    STORE.address,
+    STORE.phone,
+  );
+
+  return `https://wa.me/${whatsappNumber(card.customer_phone)}?text=${encodeURIComponent(lines.join('\n'))}`;
+}
+
+/**
+ * Publishes the customer's PDF, then hands back the addressed WhatsApp link.
+ *
+ * A failure to publish must not block the send — the acceptance link is the
+ * part that matters, and a customer who can accept but has no PDF attached is
+ * far better off than one who receives nothing because storage was down.
+ */
+export async function buildJobCardSendLink(
+  card: JobCardRow,
+  kind: 'card' | 'quote' = 'card',
+): Promise<{ href: string; pdfUrl: string | null }> {
+  let pdfUrl: string | null = null;
+  try {
+    pdfUrl = await publishJobCardPdf(card, card.accept_token);
+  } catch {
+    pdfUrl = null;
+  }
+
+  return {
+    href: kind === 'quote' ? quoteWhatsAppLink(card, pdfUrl) : jobCardWhatsAppLink(card, pdfUrl),
+    pdfUrl,
+  };
 }
 
 /**

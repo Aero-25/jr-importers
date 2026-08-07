@@ -125,7 +125,10 @@ export function DenominationCounter({
         </section>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brand-600 px-5 py-4 text-white">
+      {/* Sticks to the bottom of the scroll area: the running total is the one
+          number the person counting is watching, and there are more note rows
+          than fit on a screen, so it must not scroll out of sight. */}
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brand-600 px-5 py-4 text-white shadow-lg shadow-brand-900/25">
         <div>
           <p className="text-2xs font-bold uppercase tracking-[0.14em] text-white/70">
             Counted total

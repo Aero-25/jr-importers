@@ -336,3 +336,47 @@ export async function downloadJobCardPdf(card: JobCardPdfInput): Promise<void> {
   // Revoking immediately can cancel the download in Safari.
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
+
+export function jobCardFileName(jobNumber: number): string {
+  return `JR-Importers-JobCard-${jobNumber}.pdf`;
+}
+
+/**
+ * The copy the customer is allowed to hold.
+ *
+ * The unlock pattern is stripped. It is on the shop's copy because a technician
+ * needs it to work on the handset, but a WhatsApp message gets forwarded,
+ * screenshotted and backed up, and a document that pairs an IMEI with the
+ * pattern that unlocks it should not travel that way.
+ */
+export function customerJobCardPdfInput(card: JobCardPdfInput): JobCardPdfInput {
+  const { pattern_pin: _pattern, ...rest } = card;
+  return rest;
+}
+
+/**
+ * Publishes the customer's copy and returns a URL to it.
+ *
+ * Keyed by the accept token rather than the job number: `…/1352.pdf` would be
+ * trivially walkable, and every neighbouring file is another customer's name,
+ * number and handset. The token is already the secret that guards this card, so
+ * the PDF is exactly as private as the link the customer was sent.
+ */
+export async function publishJobCardPdf(
+  card: JobCardPdfInput,
+  acceptToken: string,
+): Promise<string> {
+  const { supabase } = await import('./supabase');
+  const blob = await buildJobCardPdf(customerJobCardPdfInput(card));
+
+  const { error } = await supabase.storage
+    .from('Images')
+    .upload(`jobcards/${acceptToken}.pdf`, blob, {
+      contentType: 'application/pdf',
+      upsert: true,
+    });
+  if (error) throw new Error(`Could not publish the job card PDF: ${error.message}`);
+
+  const { data } = supabase.storage.from('Images').getPublicUrl(`jobcards/${acceptToken}.pdf`);
+  return data.publicUrl;
+}

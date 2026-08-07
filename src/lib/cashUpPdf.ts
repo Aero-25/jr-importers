@@ -37,7 +37,19 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
     doc.line(left, yy, right, yy);
   };
 
-  const row = (text: string, value: string, opts: { bold?: boolean; colour?: [number, number, number] } = {}) => {
+  const LIME: [number, number, number] = [214, 240, 168];
+
+  const row = (
+    text: string,
+    value: string,
+    opts: { bold?: boolean; colour?: [number, number, number]; highlight?: boolean } = {},
+  ) => {
+    // Cash is the only tender that has to be in the drawer, so it is banded on
+    // the page the same way it is on screen.
+    if (opts.highlight) {
+      doc.setFillColor(...LIME);
+      doc.rect(left - 1.5, y - 3.8, right - left + 3, 5.8, 'F');
+    }
     doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
     doc.setFontSize(opts.bold ? 11 : 9.6);
     doc.setTextColor(...(opts.colour ?? INK));
@@ -82,7 +94,7 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   doc.text('TAKINGS', left, y);
   y += 6;
 
-  row('Cash', money(report.cash_sales));
+  row('Cash', money(report.cash_sales), { highlight: true });
   row('Card', money(report.card_sales));
   row('EFT', money(report.eft_sales));
   if (report.other_sales > 0) row('Other tenders', money(report.other_sales));
@@ -98,7 +110,7 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   y += 6;
 
   row('Opening float (counted)', money(report.opening_float));
-  row('Cash takings', money(report.cash_sales));
+  row('Cash takings', money(report.cash_sales), { highlight: true });
   row('Petty cash paid out', `− ${money(report.petty_cash)}`);
   line(y - 2);
   y += 2;
@@ -148,7 +160,8 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   y = Math.max(leftEnd, rightEnd) + 4;
 
   /* Phone count — advisory, and said so plainly */
-  const offLines = (report.stock_count ?? []).filter((l) => l.variance !== 0);
+  const countLines = report.stock_count ?? [];
+  const offLines = countLines.filter((l) => l.variance !== 0);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.text('PHONE COUNT', left, y);
@@ -161,46 +174,80 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   doc.setTextColor(...INK);
   y += 5.4;
 
-  if ((report.stock_count ?? []).length === 0) {
+  if (countLines.length === 0) {
     doc.setTextColor(...GREY);
     doc.text('No phone count recorded for this shift.', left, y);
     doc.setTextColor(...INK);
     y += 5;
-  } else if (offLines.length === 0) {
-    doc.setTextColor(...GREEN);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`All ${report.stock_count.length} lines counted and matched.`, left, y);
-    doc.setTextColor(...INK);
-    doc.setFont('helvetica', 'normal');
-    y += 5;
   } else {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.4);
-    doc.text('Handset', left, y);
-    doc.text('System', left + 108, y, { align: 'right' });
-    doc.text('Counted', left + 138, y, { align: 'right' });
-    doc.text('Variance', right, y, { align: 'right' });
-    y += 4.6;
-    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...(offLines.length > 0 ? RED : GREEN));
+    doc.text(
+      offLines.length > 0
+        ? `${countLines.length} handsets counted · ${offLines.length} do not match`
+        : `${countLines.length} handsets counted · all matched`,
+      left,
+      y,
+    );
+    doc.setTextColor(...INK);
+    y += 5.6;
 
-    for (const l of offLines) {
+    const columns = () => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.4);
+      doc.text('Handset', left, y);
+      doc.text('System', left + 108, y, { align: 'right' });
+      doc.text('Counted', left + 138, y, { align: 'right' });
+      doc.text('Variance', right, y, { align: 'right' });
+      y += 1.6;
+      doc.setDrawColor(...GREY);
+      doc.setLineWidth(0.2);
+      doc.line(left, y, right, y);
+      y += 4;
+      doc.setFont('helvetica', 'normal');
+    };
+    columns();
+
+    // Every line is listed, not only the discrepancies. The report is the
+    // evidence that the count happened at all, and a list of exceptions cannot
+    // show the difference between "counted and correct" and "never counted".
+    for (const l of countLines) {
+      if (y > 276) {
+        doc.addPage();
+        y = 18;
+        columns();
+      }
+
+      const off = l.variance !== 0;
+      doc.setTextColor(...(off ? RED : INK));
+      doc.setFont('helvetica', off ? 'bold' : 'normal');
       doc.text(String(l.name).slice(0, 52), left, y);
       doc.text(String(l.system_qty), left + 108, y, { align: 'right' });
       doc.text(String(l.counted_qty), left + 138, y, { align: 'right' });
-      doc.setTextColor(...RED);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${l.variance > 0 ? '+' : ''}${l.variance}`, right, y, { align: 'right' });
+      if (off) {
+        doc.text(`${l.variance > 0 ? '+' : ''}${l.variance}`, right, y, { align: 'right' });
+      } else {
+        doc.setTextColor(...GREY);
+        doc.text('—', right, y, { align: 'right' });
+      }
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...INK);
       y += 4.6;
     }
-    y += 1;
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...RED);
-    doc.text(`${offLines.length} line(s) do not match — investigate before adjusting stock.`, left, y);
-    doc.setTextColor(...INK);
-    doc.setFont('helvetica', 'normal');
-    y += 5;
+
+    if (offLines.length > 0) {
+      y += 2;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...RED);
+      doc.text(
+        `${offLines.length} line(s) do not match — investigate before adjusting stock.`,
+        left,
+        y,
+      );
+      doc.setTextColor(...INK);
+      doc.setFont('helvetica', 'normal');
+      y += 5;
+    }
   }
 
   if (report.notes) {
@@ -217,6 +264,12 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   }
 
   /* Signatures */
+  // A long stock count can run onto a second page; the signatures follow the
+  // content rather than being stamped over the tail of the table.
+  if (y > 236) {
+    doc.addPage();
+    y = 18;
+  }
   const sigY = Math.min(Math.max(y + 14, 250), 268);
   doc.setDrawColor(...INK);
   doc.setLineWidth(0.3);

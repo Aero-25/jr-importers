@@ -11,10 +11,9 @@ import {
 } from 'lucide-react';
 import type { JobCardChecks, JobCardRow } from '@/lib/database.types';
 import {
+  buildJobCardSendLink,
   jobCardUrl,
-  jobCardWhatsAppLink,
   jobCards,
-  quoteWhatsAppLink,
   useJobCards,
   useSendQuote,
 } from '@/data/jobCards';
@@ -27,6 +26,7 @@ import {
   JOB_CARD_STATUS_TONE,
 } from '@/lib/constants';
 import { downloadJobCardPdf } from '@/lib/jobCardPdf';
+import { isSendableNumber } from '@/lib/phone';
 import { formatDate, formatDateTime, money, relativeTime, toNumber } from '@/lib/format';
 import {
   Badge,
@@ -244,6 +244,8 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
         },
   );
 
+  const [sending, setSending] = useState(false);
+
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -297,9 +299,39 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
   }
 
   async function sendWhatsApp() {
-    const record = await ensureSaved();
-    if (!record) return;
-    window.open(jobCardWhatsAppLink(record), '_blank', 'noopener');
+    // The tab is claimed during the click. Publishing the PDF takes long enough
+    // that a window.open() afterwards is treated as an unrequested popup and
+    // blocked, so the handle is taken first and pointed at WhatsApp after.
+    const tab = window.open('about:blank', '_blank');
+    setSending(true);
+    try {
+      const record = await ensureSaved();
+      if (!record) {
+        tab?.close();
+        return;
+      }
+      if (!isSendableNumber(record.customer_phone)) {
+        tab?.close();
+        toast.warn('Check the contact number', `WhatsApp cannot open a chat for “${record.customer_phone}”.`);
+        return;
+      }
+
+      const { href, pdfUrl } = await buildJobCardSendLink(record);
+      if (tab) tab.location.href = href;
+      else window.location.href = href;
+
+      if (pdfUrl) toast.success('WhatsApp opened', 'The message carries the acceptance link and the PDF.');
+      else
+        toast.warn(
+          'Sent without the PDF',
+          'The message and acceptance link are there, but the PDF could not be published.',
+        );
+    } catch (error) {
+      tab?.close();
+      toast.error('Could not prepare the message', error instanceof Error ? error.message : undefined);
+    } finally {
+      setSending(false);
+    }
   }
 
   async function copyLink() {
@@ -362,6 +394,7 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
                   variant="success"
                   icon={<MessageCircle className="h-4 w-4" />}
                   onClick={sendWhatsApp}
+                  loading={sending}
                 >
                   Send via WhatsApp
                 </Button>
@@ -649,12 +682,16 @@ function QuoteDialog({
       return;
     }
 
+    const tab = window.open('about:blank', '_blank');
     try {
       const updated = await send({ id: card.id, amount: value, note: note.trim() || null });
-      window.open(quoteWhatsAppLink(updated), '_blank', 'noopener');
+      const { href } = await buildJobCardSendLink(updated, 'quote');
+      if (tab) tab.location.href = href;
+      else window.location.href = href;
       toast.success('Quote sent for approval');
       onSent(updated);
     } catch (error) {
+      tab?.close();
       toast.error('Could not send the quote', error instanceof Error ? error.message : undefined);
     }
   }
