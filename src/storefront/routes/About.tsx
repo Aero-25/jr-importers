@@ -41,7 +41,7 @@ export default function About() {
         addressLocality: STORE.city,
         addressCountry: 'NA',
       },
-      openingHours: ['Mo-Fr 08:00-17:30', 'Sa 09:00-13:00'],
+      openingHours: ['Mo-Fr 09:00-17:00', 'Sa 09:00-12:00'],
       areaServed: { '@type': 'Country', name: STORE.country },
     },
   });
@@ -86,7 +86,11 @@ export default function About() {
                 <Clock aria-hidden className="mt-0.5 h-4.5 w-4.5 shrink-0 text-lime-700" />
                 <div>
                   <dt className="font-semibold text-ink">Opening hours</dt>
-                  <dd className="text-ink-muted">{STORE.hours}</dd>
+                  <dd className="text-ink-muted">
+                    {STORE.hours}
+                    <br />
+                    <span className="text-ink-subtle">{STORE.holidays}</span>
+                  </dd>
                 </div>
               </div>
             </dl>

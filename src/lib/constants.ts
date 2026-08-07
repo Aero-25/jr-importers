@@ -171,13 +171,14 @@ export const STAFF_ROLES: readonly string[] = [...ADMIN_ROLES, 'cashier', 'staff
 
 export const STORE = {
   name: 'JR Importers',
-  hours: 'Mon–Fri 08:00–17:30 · Sat 09:00–13:00',
+  hours: 'Mon–Fri 09:00–17:00 · Sat 09:00–12:00',
+  holidays: 'Closed on public holidays',
   tagline: 'Namibia’s cellphone specialists',
   country: 'Namibia',
   city: 'Walvis Bay',
   address: 'Pelican Mall, Walvis Bay',
   phone: '+264 81 562 9203',
-  email: 'JR.Importers@iway.na',
+  email: 'sales@jrimporters.com',
 } as const;
 
 /** How long a checkout holds stock before the reservation lapses. */

@@ -105,7 +105,11 @@ export function Footer() {
               </li>
               <li className="flex gap-2.5">
                 <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-lime-700" />
-                <span>{STORE.hours}</span>
+                <span>
+                  {STORE.hours}
+                  <br />
+                  <span className="text-ink-subtle">{STORE.holidays}</span>
+                </span>
               </li>
               <li>
                 <a

@@ -191,6 +191,7 @@ export type OrderRow = {
   picked_up_at: string | null;
   paid_at: string | null;
   delivery_notes: string | null;
+  till_shift_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -224,6 +225,18 @@ export type StockMovementRow = {
   created_at: string;
 }
 
+/** `{ "200": 4, "0.50": 8 }` — face value to piece count. */
+export type DenominationCounts = Record<string, number>;
+
+/** One line of the closing phone count. Advisory: it never moves stock. */
+export type ShiftStockLine = {
+  product_id: number;
+  name: string;
+  system_qty: number;
+  counted_qty: number;
+  variance: number;
+};
+
 export type TillShiftRow = {
   id: number;
   till_id: number;
@@ -239,6 +252,14 @@ export type TillShiftRow = {
   card_sales: number | null;
   transaction_count: number;
   status: string;
+  opening_denominations: DenominationCounts;
+  closing_denominations: DenominationCounts;
+  closing_stock_count: ShiftStockLine[];
+  stock_variance_total: number;
+  petty_cash_total: number;
+  refunds_total: number;
+  closed_by: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -254,6 +275,7 @@ export type ExpenseRow = {
   tax_deductible: boolean;
   notes: string | null;
   expense_date: string;
+  till_shift_id: number | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -598,6 +620,15 @@ export type Database = {
       respond_job_card_quote: {
         Args: { p_token: string; p_approved: boolean };
         Returns: Json;
+      };
+      /** Server-side cash-up so the till and the back office cannot disagree. */
+      till_cash_up: {
+        Args: { p_shift_id: number };
+        Returns: Json;
+      };
+      denomination_total: {
+        Args: { p_counts: Json };
+        Returns: number;
       };
     };
     Enums: { [_ in never]: never };

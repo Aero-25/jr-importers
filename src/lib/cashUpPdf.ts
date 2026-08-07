@@ -1,0 +1,298 @@
+import type { CashUp } from '@/data/till';
+import { supabase } from './supabase';
+import { STORE } from './constants';
+import { formatDateTime, money } from './format';
+
+const INK: [number, number, number] = [13, 38, 63];
+const GREY: [number, number, number] = [110, 122, 143];
+const RED: [number, number, number] = [198, 40, 40];
+const GREEN: [number, number, number] = [22, 143, 79];
+
+/** Where the cash-up is sent when a shift closes. */
+export const CASHUP_WHATSAPP = '264811447669';
+
+const label = (face: string) =>
+  Number(face) >= 1 ? `N$${Number(face)}` : `${Math.round(Number(face) * 100)}c`;
+
+/**
+ * The shift report.
+ *
+ * Laid out as an accountant would read it: how the drawer opened, what was
+ * taken and by which tender, what left the drawer, what the till therefore
+ * *should* hold, and what was actually counted. The variance is stated once,
+ * in one place, and coloured — a shift report that buries the variance is a
+ * shift report nobody checks.
+ */
+export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const left = 14;
+  const right = 196;
+  let y = 18;
+
+  const line = (yy: number) => {
+    doc.setDrawColor(...GREY);
+    doc.setLineWidth(0.2);
+    doc.line(left, yy, right, yy);
+  };
+
+  const row = (text: string, value: string, opts: { bold?: boolean; colour?: [number, number, number] } = {}) => {
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
+    doc.setFontSize(opts.bold ? 11 : 9.6);
+    doc.setTextColor(...(opts.colour ?? INK));
+    doc.text(text, left, y);
+    doc.text(value, right, y, { align: 'right' });
+    y += opts.bold ? 7 : 5.6;
+    doc.setTextColor(...INK);
+  };
+
+  /* Header */
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(...INK);
+  doc.text('CASH UP', left, y);
+
+  doc.setFontSize(11);
+  doc.text(`Shift #${report.shift_id}`, right, y, { align: 'right' });
+
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.6);
+  doc.setTextColor(...GREY);
+  doc.text(`${STORE.name} · ${STORE.address}`, left, y);
+  doc.text(`Till ${report.till_id}`, right, y, { align: 'right' });
+  y += 4.4;
+  doc.text(`Opened ${formatDateTime(report.opened_at)}`, left, y);
+  if (report.closed_at) doc.text(`Closed ${formatDateTime(report.closed_at)}`, right, y, { align: 'right' });
+  y += 4.4;
+  doc.text(`Cashier: ${report.cashier ?? '—'}`, left, y);
+  if (report.closed_by) doc.text(`Closed by: ${report.closed_by}`, right, y, { align: 'right' });
+
+  y += 6;
+  doc.setDrawColor(...INK);
+  doc.setLineWidth(0.5);
+  doc.line(left, y, right, y);
+  y += 8;
+
+  /* Takings */
+  doc.setTextColor(...INK);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('TAKINGS', left, y);
+  y += 6;
+
+  row('Cash', money(report.cash_sales));
+  row('Card', money(report.card_sales));
+  row('EFT', money(report.eft_sales));
+  if (report.other_sales > 0) row('Other tenders', money(report.other_sales));
+  line(y - 2);
+  y += 2;
+  row(`Total sales  (${report.transaction_count} transactions)`, money(report.total_sales), { bold: true });
+  y += 3;
+
+  /* Drawer */
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('DRAWER', left, y);
+  y += 6;
+
+  row('Opening float (counted)', money(report.opening_float));
+  row('Cash takings', money(report.cash_sales));
+  row('Petty cash paid out', `− ${money(report.petty_cash)}`);
+  line(y - 2);
+  y += 2;
+  row('Expected in drawer', money(report.expected_cash), { bold: true });
+  row('Counted in drawer', money(report.counted_cash), { bold: true });
+
+  const over = report.variance > 0.005;
+  const short = report.variance < -0.005;
+  row(
+    short ? 'SHORT' : over ? 'OVER' : 'BALANCED',
+    money(Math.abs(report.variance)),
+    { bold: true, colour: short ? RED : over ? RED : GREEN },
+  );
+  y += 4;
+
+  /* Denominations, side by side */
+  const denomBlock = (title: string, counts: Record<string, number>, x: number) => {
+    let dy = y;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.6);
+    doc.setTextColor(...INK);
+    doc.text(title, x, dy);
+    dy += 4.6;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.4);
+    const entries = Object.entries(counts ?? {})
+      .filter(([, qty]) => Number(qty) > 0)
+      .sort((a, b) => Number(b[0]) - Number(a[0]));
+
+    if (entries.length === 0) {
+      doc.setTextColor(...GREY);
+      doc.text('not counted', x, dy);
+      doc.setTextColor(...INK);
+      dy += 4.4;
+    }
+    for (const [face, qty] of entries) {
+      doc.text(`${label(face)} × ${qty}`, x, dy);
+      doc.text(money(Number(face) * Number(qty)), x + 62, dy, { align: 'right' });
+      dy += 4.4;
+    }
+    return dy;
+  };
+
+  const leftEnd = denomBlock('OPENING COUNT', report.opening_denominations, left);
+  const rightEnd = denomBlock('CLOSING COUNT', report.closing_denominations, left + 78);
+  y = Math.max(leftEnd, rightEnd) + 4;
+
+  /* Phone count — advisory, and said so plainly */
+  const offLines = (report.stock_count ?? []).filter((l) => l.variance !== 0);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('PHONE COUNT', left, y);
+  y += 5.6;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.4);
+  doc.setTextColor(...GREY);
+  doc.text('Advisory only — this count does not adjust system stock.', left, y);
+  doc.setTextColor(...INK);
+  y += 5.4;
+
+  if ((report.stock_count ?? []).length === 0) {
+    doc.setTextColor(...GREY);
+    doc.text('No phone count recorded for this shift.', left, y);
+    doc.setTextColor(...INK);
+    y += 5;
+  } else if (offLines.length === 0) {
+    doc.setTextColor(...GREEN);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`All ${report.stock_count.length} lines counted and matched.`, left, y);
+    doc.setTextColor(...INK);
+    doc.setFont('helvetica', 'normal');
+    y += 5;
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.4);
+    doc.text('Handset', left, y);
+    doc.text('System', left + 108, y, { align: 'right' });
+    doc.text('Counted', left + 138, y, { align: 'right' });
+    doc.text('Variance', right, y, { align: 'right' });
+    y += 4.6;
+    doc.setFont('helvetica', 'normal');
+
+    for (const l of offLines) {
+      doc.text(String(l.name).slice(0, 52), left, y);
+      doc.text(String(l.system_qty), left + 108, y, { align: 'right' });
+      doc.text(String(l.counted_qty), left + 138, y, { align: 'right' });
+      doc.setTextColor(...RED);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${l.variance > 0 ? '+' : ''}${l.variance}`, right, y, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...INK);
+      y += 4.6;
+    }
+    y += 1;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...RED);
+    doc.text(`${offLines.length} line(s) do not match — investigate before adjusting stock.`, left, y);
+    doc.setTextColor(...INK);
+    doc.setFont('helvetica', 'normal');
+    y += 5;
+  }
+
+  if (report.notes) {
+    y += 3;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('NOTES', left, y);
+    y += 4.6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.6);
+    const wrapped = doc.splitTextToSize(report.notes, right - left) as string[];
+    doc.text(wrapped, left, y);
+    y += wrapped.length * 4.2;
+  }
+
+  /* Signatures */
+  const sigY = Math.min(Math.max(y + 14, 250), 268);
+  doc.setDrawColor(...INK);
+  doc.setLineWidth(0.3);
+  doc.line(left, sigY, left + 74, sigY);
+  doc.line(left + 96, sigY, right, sigY);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('CASHIER', left, sigY + 4);
+  doc.text('MANAGER', left + 96, sigY + 4);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.4);
+  doc.setTextColor(...GREY);
+  doc.text(`Generated ${formatDateTime(new Date())} · ${STORE.name}`, left, 288);
+
+  return doc.output('blob');
+}
+
+export function cashUpFileName(report: CashUp): string {
+  const stamp = (report.closed_at ?? report.opened_at ?? '').slice(0, 10);
+  return `JR-CashUp-Shift${report.shift_id}-${stamp || 'draft'}.pdf`;
+}
+
+export async function downloadCashUpPdf(report: CashUp): Promise<void> {
+  const blob = await buildCashUpPdf(report);
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = cashUpFileName(report);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/**
+ * Publishes the report and hands back a WhatsApp deep link.
+ *
+ * WhatsApp deep links carry text only — there is no way to attach a file to a
+ * `wa.me` URL. So the PDF is uploaded to the public bucket and the message
+ * carries a link to it, which is also more useful than an attachment: the
+ * owner can open it on any device without it filling up their phone.
+ */
+export async function shareCashUpOnWhatsApp(report: CashUp): Promise<string> {
+  const blob = await buildCashUpPdf(report);
+  const path = `cashups/${cashUpFileName(report)}`;
+
+  const { error } = await supabase.storage
+    .from('Images')
+    .upload(path, blob, { contentType: 'application/pdf', upsert: true });
+  if (error) throw new Error(`Could not upload the report: ${error.message}`);
+
+  const { data } = supabase.storage.from('Images').getPublicUrl(path);
+
+  const short = report.variance < -0.005 ? 'SHORT' : report.variance > 0.005 ? 'OVER' : 'Balanced';
+  const message = [
+    `*${STORE.name} — Cash up*`,
+    `Shift #${report.shift_id} · Till ${report.till_id}`,
+    `Cashier: ${report.cashier ?? '—'}`,
+    '',
+    `Sales: ${money(report.total_sales)} (${report.transaction_count} txns)`,
+    `Cash: ${money(report.cash_sales)} · Card: ${money(report.card_sales)} · EFT: ${money(report.eft_sales)}`,
+    `Petty cash out: ${money(report.petty_cash)}`,
+    '',
+    `Expected: ${money(report.expected_cash)}`,
+    `Counted: ${money(report.counted_cash)}`,
+    `*${short}: ${money(Math.abs(report.variance))}*`,
+    report.stock_lines_off > 0
+      ? `⚠ Phone count: ${report.stock_lines_off} line(s) do not match`
+      : 'Phone count: all matched',
+    '',
+    'Full report:',
+    data.publicUrl,
+  ].join('\n');
+
+  return `https://wa.me/${CASHUP_WHATSAPP}?text=${encodeURIComponent(message)}`;
+}

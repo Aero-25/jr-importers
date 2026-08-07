@@ -8,6 +8,7 @@ import { SignIn } from './components/SignIn';
 
 const Dashboard = lazy(() => import('./modules/Dashboard'));
 const Pos = lazy(() => import('./modules/Pos'));
+const CashUps = lazy(() => import('./modules/CashUps'));
 const Orders = lazy(() => import('./modules/Orders'));
 const Dispatch = lazy(() => import('./modules/Dispatch'));
 const Products = lazy(() => import('./modules/Products'));
@@ -52,6 +53,7 @@ export function AdminApp() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/pos" element={<Pos />} />
+          <Route path="/cash-ups" element={<CashUps />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/dispatch" element={<Dispatch />} />
           <Route path="/products" element={<Products />} />

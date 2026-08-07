@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Truck } from 'lucide-react';
+import { FileText, MessageCircle, Truck } from 'lucide-react';
 import type { OrderRow } from '@/lib/database.types';
 import { orderItems, useOrders, useUpdateOrder } from '@/data/orders';
 import { formatDate, money, relativeTime } from '@/lib/format';
+import { dispatchWhatsAppLink, downloadDispatchNote } from '@/lib/dispatchNote';
 import {
   Badge,
   Button,
@@ -180,6 +181,27 @@ function DispatchDialog({ order, onClose }: { order: OrderRow; onClose: () => vo
       description={`${order.customer_name ?? 'Walk-in'} · ${money(order.total_amount)}`}
       footer={
         <>
+          <Button
+            variant="secondary"
+            className="mr-auto"
+            icon={<FileText className="h-4 w-4" />}
+            onClick={() =>
+              downloadDispatchNote(order).catch((e) =>
+                toast.error('Could not build the note', e instanceof Error ? e.message : undefined),
+              )
+            }
+          >
+            Dispatch note
+          </Button>
+          {order.customer_phone && (
+            <Button
+              variant="ghost"
+              icon={<MessageCircle className="h-4 w-4" />}
+              onClick={() => window.open(dispatchWhatsAppLink(order), '_blank', 'noopener')}
+            >
+              Tell the customer
+            </Button>
+          )}
           <Button variant="ghost" onClick={onClose}>
             Close
           </Button>
