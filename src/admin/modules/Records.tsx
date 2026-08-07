@@ -18,6 +18,7 @@ import {
   useToast,
 } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
+import { StaffLogin } from '../components/StaffLogin';
 import { RECORD_SPECS, type FieldSpec, type RecordSpec } from './recordSpecs';
 
 type AnyRow = Record<string, unknown>;
@@ -316,6 +317,15 @@ function RecordDialog({
             />
           ))}
         </div>
+
+        {/* Staff only. The record says what somebody may do; this says whether
+            they can get through the door at all, and the two were separate
+            with nothing in the console joining them up. */}
+        {spec.table === 'users' && !isNew && (
+          <div className="mt-4">
+            <StaffLogin email={String(form.email ?? '')} />
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog

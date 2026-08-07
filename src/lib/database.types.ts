@@ -813,6 +813,7 @@ export type Database = {
         Args: { p_shift_id: number; p_counts: Json; p_reason: string; p_notes?: string | null };
         Returns: Json;
       };
+      staff_has_login: { Args: { p_email: string }; Returns: boolean };
       is_staff: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
