@@ -316,16 +316,11 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
         return;
       }
 
-      const { href, pdfUrl } = await buildJobCardSendLink(record);
+      const { href } = buildJobCardSendLink(record);
       if (tab) tab.location.href = href;
       else window.location.href = href;
 
-      if (pdfUrl) toast.success('WhatsApp opened', 'The message carries the acceptance link and the PDF.');
-      else
-        toast.warn(
-          'Sent without the PDF',
-          'The message and acceptance link are there, but the PDF could not be published.',
-        );
+      toast.success('WhatsApp opened', 'They get their PDF when they approve it.');
     } catch (error) {
       tab?.close();
       toast.error('Could not prepare the message', error instanceof Error ? error.message : undefined);
@@ -685,7 +680,7 @@ function QuoteDialog({
     const tab = window.open('about:blank', '_blank');
     try {
       const updated = await send({ id: card.id, amount: value, note: note.trim() || null });
-      const { href } = await buildJobCardSendLink(updated, 'quote');
+      const { href } = buildJobCardSendLink(updated, 'quote');
       if (tab) tab.location.href = href;
       else window.location.href = href;
       toast.success('Quote sent for approval');

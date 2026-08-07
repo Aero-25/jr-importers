@@ -2,10 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { JobCardChecks, JobCardRow } from '@/lib/database.types';
 import { config } from '@/lib/env';
-import { JOB_CARD_QUOTE_THRESHOLD, STORE } from '@/lib/constants';
+import { STORE } from '@/lib/constants';
 import { money } from '@/lib/format';
 import { whatsappNumber } from '@/lib/phone';
-import { publishJobCardPdf } from '@/lib/jobCardPdf';
 import { createResource } from './crud';
 import { keys } from './keys';
 
@@ -187,163 +186,91 @@ export function jobCardUrl(token: string): string {
 /**
  * The message the customer receives with their job card.
  *
- * Written to be read on a phone: who it is from and what it concerns first,
- * then one clear instruction, then the links. WhatsApp's own emphasis is used
- * rather than shouting in capitals, and the shop's hours are included because
- * the most common reply to any of these is "when are you open".
+ * Deliberately almost empty. Everything that was in here — handset, condition,
+ * fees, terms, hours, address — is on the job card itself, and repeating it in
+ * a WhatsApp message gave somebody a wall of text to scroll past on the way to
+ * the only thing that matters, which is the link.
+ *
+ * The PDF is not attached or linked either. It is delivered by the approve
+ * page the moment they accept, so the document they end up holding is the one
+ * with their acceptance on it rather than an unsigned copy sent beforehand.
  */
-function jobCardMessage(
-  card: {
-    job_number: number;
-    customer_name: string;
-    handset_type: string | null;
-    accepted_at?: string | null;
-    accept_token: string;
-  },
-  pdfUrl: string | null,
-): string {
-  const firstName = card.customer_name.trim().split(/\s+/)[0] ?? '';
-  const handset = card.handset_type?.trim();
+function jobCardMessage(card: {
+  job_number: number;
+  accepted_at?: string | null;
+  accept_token: string;
+}): string {
   const accepted = Boolean(card.accepted_at);
 
-  const lines = [
-    `*${STORE.name.toUpperCase()}*`,
-    `Job Card *#${card.job_number}*${handset ? ` — ${handset}` : ''}`,
+  return [
+    `*${STORE.name}*`,
+    `Job Card *#${card.job_number}*`,
     ``,
-    `Good day${firstName ? ` ${firstName}` : ''},`,
+    accepted
+      ? `Your signed job card:`
+      : `Please approve your job card here. Your PDF copy downloads as soon as you do.`,
     ``,
-  ];
-
-  if (accepted) {
-    lines.push(
-      `Thank you for accepting your job card. We will be in touch as soon as your handset is ready.`,
-      ``,
-      `You can check the status of your repair here at any time:`,
-      ``,
-      jobCardUrl(card.accept_token),
-      ``,
-    );
-  } else {
-    lines.push(
-      `Thank you for booking ${handset ? `your ${handset}` : 'your handset'} in with us.`,
-      ``,
-      `Please open the link below to read our terms and accept the job card. We start work as soon as it is accepted.`,
-      ``,
-      jobCardUrl(card.accept_token),
-      ``,
-    );
-  }
-
-  if (pdfUrl) {
-    lines.push(accepted ? `Your signed job card (PDF):` : `Your copy of the job card (PDF):`, pdfUrl, ``);
-  }
-
-  lines.push(
-    `Please quote *#${card.job_number}* on any enquiry.`,
-    ``,
-    STORE.hours,
-    STORE.address,
-    STORE.phone,
-  );
-
-  return lines.join('\n');
+    jobCardUrl(card.accept_token),
+  ].join('\n');
 }
 
 /**
  * A `wa.me` deep link staff tap to send the card from their own WhatsApp.
  *
- * Deliberately a deep link rather than the system share sheet, even though the
- * share sheet could attach the PDF as a real file: customers are almost never
- * saved in the staff member's contacts, and the share sheet gives no way to
- * message a number that is not. The link addresses the chat directly, and the
- * PDF rides along as a URL.
+ * Deliberately a deep link rather than the system share sheet: customers are
+ * almost never in the staff member's contacts, and the share sheet gives no way
+ * to message a number that is not.
  */
-export function jobCardWhatsAppLink(
-  card: {
-    job_number: number;
-    customer_name: string;
-    customer_phone: string;
-    handset_type: string | null;
-    accepted_at?: string | null;
-    accept_token: string;
-  },
-  pdfUrl: string | null = null,
-): string {
+export function jobCardWhatsAppLink(card: {
+  job_number: number;
+  accepted_at?: string | null;
+  accept_token: string;
+  customer_phone: string;
+}): string {
   return `https://wa.me/${whatsappNumber(card.customer_phone)}?text=${encodeURIComponent(
-    jobCardMessage(card, pdfUrl),
+    jobCardMessage(card),
   )}`;
 }
 
-export function quoteWhatsAppLink(
-  card: {
-    job_number: number;
-    customer_name: string;
-    customer_phone: string;
-    handset_type?: string | null;
-    quote_amount: number | null;
-    quote_note?: string | null;
-    accept_token: string;
-  },
-  pdfUrl: string | null = null,
-): string {
-  const firstName = card.customer_name.trim().split(/\s+/)[0] ?? '';
-  const handset = card.handset_type?.trim();
-
-  const lines = [
-    `*${STORE.name.toUpperCase()}*`,
-    `Job Card *#${card.job_number}*${handset ? ` — ${handset}` : ''}`,
+/**
+ * The quote message. Same restraint, with the one number that cannot be left
+ * out — a quote the customer has to open a link to read is not a quote.
+ */
+export function quoteWhatsAppLink(card: {
+  job_number: number;
+  customer_phone: string;
+  quote_amount: number | null;
+  accept_token: string;
+}): string {
+  const message = [
+    `*${STORE.name}*`,
+    `Job Card *#${card.job_number}*`,
     ``,
-    `Good day${firstName ? ` ${firstName}` : ''},`,
+    `Quote to repair: *${money(card.quote_amount)}*`,
     ``,
-    `We have assessed your handset and prepared a quote.`,
-    ``,
-    `Quoted repair cost: *${money(card.quote_amount)}*`,
-  ];
-
-  if (card.quote_note?.trim()) lines.push(card.quote_note.trim());
-
-  lines.push(
-    ``,
-    `As per our terms, repairs above ${money(JOB_CARD_QUOTE_THRESHOLD)} need your approval before we begin. Please approve or decline here:`,
+    `Please approve or decline here:`,
     ``,
     jobCardUrl(card.accept_token),
-    ``,
-  );
+  ].join('\n');
 
-  if (pdfUrl) lines.push(`Your job card (PDF):`, pdfUrl, ``);
-
-  lines.push(
-    `The handset is safe with us until we hear from you.`,
-    ``,
-    STORE.hours,
-    STORE.address,
-    STORE.phone,
-  );
-
-  return `https://wa.me/${whatsappNumber(card.customer_phone)}?text=${encodeURIComponent(lines.join('\n'))}`;
+  return `https://wa.me/${whatsappNumber(card.customer_phone)}?text=${encodeURIComponent(message)}`;
 }
 
 /**
- * Publishes the customer's PDF, then hands back the addressed WhatsApp link.
+ * The addressed WhatsApp link for a card or a quote.
  *
- * A failure to publish must not block the send — the acceptance link is the
- * part that matters, and a customer who can accept but has no PDF attached is
- * far better off than one who receives nothing because storage was down.
+ * No longer publishes a PDF first. The customer receives their copy from the
+ * approve page at the moment they accept, which means the document they keep
+ * carries their acceptance — and it removes a permanently public file holding a
+ * customer's name, number and IMEI from storage altogether.
  */
-export async function buildJobCardSendLink(
+export function buildJobCardSendLink(
   card: JobCardRow,
   kind: 'card' | 'quote' = 'card',
-): Promise<{ href: string; pdfUrl: string | null }> {
-  let pdfUrl: string | null = null;
-  try {
-    pdfUrl = await publishJobCardPdf(card, card.accept_token);
-  } catch {
-    pdfUrl = null;
-  }
-
+): { href: string; pdfUrl: null } {
   return {
-    href: kind === 'quote' ? quoteWhatsAppLink(card, pdfUrl) : jobCardWhatsAppLink(card, pdfUrl),
-    pdfUrl,
+    href: kind === 'quote' ? quoteWhatsAppLink(card) : jobCardWhatsAppLink(card),
+    pdfUrl: null,
   };
 }
 

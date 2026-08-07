@@ -43,3 +43,6 @@ mobile/www/offline.html
 /playwright-report/
 /blob-report/
 /.playwright/
+
+# Capacitor bundle — generated from dist/ by mobile/copy-web.js
+/mobile/www/
