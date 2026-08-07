@@ -29,8 +29,17 @@ const MAX_LEAN = 5;
 /** Parallax on the layers, in pixels at full deflection. */
 const GLOW_SHIFT = 26;
 const MARK_SHIFT = 10;
-/** Approach rate per frame. Lower is heavier; this settles in ~15 frames. */
-const EASE = 0.09;
+/** Approach rate per frame. Fast enough to feel attached to the pointer. */
+const EASE = 0.16;
+/**
+ * Deflection radius as a fraction of the viewport.
+ *
+ * A third of the screen was too far: normal mouse movement produced a few
+ * degrees of turn, which the slow idle drift then swamped, so the mark looked
+ * like it was breathing rather than watching. A fifth means an ordinary
+ * movement across the hero swings it fully.
+ */
+const REACH = 0.2;
 
 export function HeroMark({ className }: { className?: string }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -46,9 +55,6 @@ export function HeroMark({ className }: { className?: string }) {
     if (!root || !mark || !glow || !sheen) return;
 
     const still = window.matchMedia('(prefers-reduced-motion: reduce)');
-    // A touch device has no cursor to face. Rather than leave it inert, the
-    // idle drift below keeps it alive without pretending to track anything.
-    const fine = window.matchMedia('(pointer: fine)');
 
     let targetX = 0;
     let targetY = 0;
@@ -56,6 +62,7 @@ export function HeroMark({ className }: { className?: string }) {
     let y = 0;
     let frame = 0;
     let idle = true;
+    let idleTimer = 0;
 
     function onPointerMove(event: PointerEvent) {
       const box = root!.getBoundingClientRect();
@@ -68,17 +75,22 @@ export function HeroMark({ className }: { className?: string }) {
       // Deflection is measured against a radius a little tighter than half the
       // viewport, so the mark reaches a full turn well before the pointer gets
       // to the edge of the screen rather than only at the very corner.
-      targetX = Math.max(-1, Math.min(1, (event.clientX - cx) / (window.innerWidth * 0.34)));
-      targetY = Math.max(-1, Math.min(1, (event.clientY - cy) / (window.innerHeight * 0.42)));
+      targetX = Math.max(-1, Math.min(1, (event.clientX - cx) / (window.innerWidth * REACH)));
+      targetY = Math.max(-1, Math.min(1, (event.clientY - cy) / (window.innerHeight * REACH * 1.3)));
       idle = false;
+      window.clearTimeout(idleTimer);
+      // Back to drifting only after the pointer has genuinely been abandoned.
+      idleTimer = window.setTimeout(() => {
+        idle = true;
+      }, 4000);
     }
 
     function tick(time: number) {
       if (idle) {
         // A slow lissajous drift so it is never completely static — the same
         // shape a head makes when someone is looking around a room.
-        targetX = Math.sin(time / 2600) * 0.45;
-        targetY = Math.sin(time / 3700) * 0.3;
+        targetX = Math.sin(time / 3200) * 0.22;
+        targetY = Math.sin(time / 4300) * 0.14;
       }
 
       x += (targetX - x) * EASE;
@@ -118,12 +130,19 @@ export function HeroMark({ className }: { className?: string }) {
       return;
     }
 
-    if (fine.matches) window.addEventListener('pointermove', onPointerMove, { passive: true });
+    // Both events, and no pointer-type gate. A device without a pointer simply
+    // never fires them and keeps the drift; gating on `pointer: fine` meant any
+    // browser that reported otherwise — a touchscreen laptop, most notably —
+    // silently lost the tracking altogether.
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('mousemove', onPointerMove as EventListener, { passive: true });
     frame = requestAnimationFrame(tick);
 
     return () => {
       cancelAnimationFrame(frame);
+      window.clearTimeout(idleTimer);
       window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('mousemove', onPointerMove as EventListener);
     };
   }, []);
 
