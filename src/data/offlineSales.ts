@@ -11,6 +11,7 @@ import {
 } from '@/lib/offlineQueue';
 import { DEFAULT_VAT_RATE, round2, vatFromInclusive } from '@/lib/format';
 import { keys } from './keys';
+import type { OrderRow } from '@/lib/database.types';
 import type { PosSaleInput } from './till';
 
 /**
@@ -22,14 +23,16 @@ import type { PosSaleInput } from './till';
  * time it was rung up rather than the time it synced, and its id is the id
  * generated on the device, which is what makes a retry safe.
  */
-async function postSale(sale: QueuedSale): Promise<void> {
+async function postSale(sale: QueuedSale): Promise<OrderRow | null> {
   const subtotal = round2(sale.items.reduce((sum, l) => sum + l.price * l.quantity, 0));
   const discount = round2(Math.min(Math.max(sale.discount, 0), subtotal));
   const total = round2(subtotal - discount);
   const { net, vat } = vatFromInclusive(total, DEFAULT_VAT_RATE);
 
-  const { error } = await supabase.from('orders').insert({
-    id: sale.id,
+  const { data: inserted, error } = await supabase
+    .from('orders')
+    .insert({
+      id: sale.id,
     user_id: sale.customer?.id ?? null,
     customer_name: sale.customer?.name || 'Walk-in customer',
     customer_phone: sale.customer?.phone ?? null,
@@ -45,10 +48,12 @@ async function postSale(sale: QueuedSale): Promise<void> {
     created_at: sale.takenAt,
     paid_at: sale.takenAt,
     till_shift_id: sale.shiftId,
-    notes: [sale.notes, `Sold by ${sale.cashierName}`, 'Rung up offline']
-      .filter(Boolean)
-      .join(' · '),
-  });
+      notes: [sale.notes, `Sold by ${sale.cashierName}`, 'Rung up offline']
+        .filter(Boolean)
+        .join(' · '),
+    })
+    .select()
+    .maybeSingle();
 
   // A duplicate primary key means this sale already landed — the response was
   // lost, not the sale. Treat it as done rather than ringing it up twice.
@@ -69,6 +74,8 @@ async function postSale(sale: QueuedSale): Promise<void> {
       .update({ notes: `Rung up offline · stock conflict on sync: ${result.message ?? 'unknown'}` })
       .eq('id', sale.id);
   }
+
+  return inserted ?? null;
 }
 
 export interface OfflineState {
@@ -152,7 +159,7 @@ export function useOfflineSales() {
 
   /** Rings up a sale, taking the offline path only when the online one fails. */
   const sell = useCallback(
-    async (input: PosSaleInput): Promise<'posted' | 'queued'> => {
+    async (input: PosSaleInput): Promise<{ outcome: 'posted' | 'queued'; order: OrderRow | null }> => {
       const sale = await queueSale({
         items: input.items,
         discount: input.discount,
@@ -168,17 +175,18 @@ export function useOfflineSales() {
         // Queued first, then posted immediately. Writing to the queue before
         // the network attempt is what guarantees a sale is never lost to a
         // request that dies halfway.
-        await postSale(sale);
+        const order = await postSale(sale);
         await removeSale(sale.id);
         await refresh();
         void qc.invalidateQueries({ queryKey: keys.table('orders') });
         void qc.invalidateQueries({ queryKey: keys.table('products') });
-        return 'posted';
+        return { outcome: 'posted', order };
       } catch (error) {
         await recordFailure(sale, error instanceof Error ? error.message : 'Unknown error');
         setState((s) => ({ ...s, online: false }));
         await refresh();
-        return 'queued';
+        // No order row to invoice from until it syncs.
+        return { outcome: 'queued', order: null };
       }
     },
     [qc, refresh],

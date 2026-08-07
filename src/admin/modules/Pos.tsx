@@ -11,7 +11,7 @@ import {
   Unlock,
   Wallet,
 } from 'lucide-react';
-import type { DenominationCounts, LineItem, ProductRow } from '@/lib/database.types';
+import type { DenominationCounts, LineItem, OrderRow, ProductRow } from '@/lib/database.types';
 import {
   useAddPettyCash,
   useOpenShift,
@@ -42,6 +42,7 @@ import { ModuleHeader } from '../components/AdminShell';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { DenominationCounter, denominationTotal } from '../components/DenominationCounter';
 import { CloseTillDialog } from './CloseTill';
+import { InvoiceDialog } from '../components/InvoiceDialog';
 
 export default function Pos() {
   const { profile } = useAuth();
@@ -65,6 +66,9 @@ export default function Pos() {
   const petty = usePettyCash(shift.data?.id);
   const till = useOfflineSales();
   const [selling, setSelling] = useState(false);
+  // Held after a sale so the invoice can be issued without hunting for the
+  // order again — which is the only moment the customer is still standing there.
+  const [invoiceFor, setInvoiceFor] = useState<OrderRow | null>(null);
 
   const totals = useMemo(() => cartTotals(lines, toNumber(discount)), [lines, discount]);
   const takings = useMemo(
@@ -136,7 +140,7 @@ export default function Pos() {
   async function finalise(paymentMethod: string, tendered: number) {
     setSelling(true);
     try {
-      const outcome = await till.sell({
+      const sold = await till.sell({
         items: lines,
         discount: toNumber(discount),
         paymentMethod,
@@ -144,6 +148,9 @@ export default function Pos() {
         cashierName: cashier,
         shiftId: shift.data?.id ?? null,
       });
+
+      const outcome = sold.outcome;
+      if (sold.order) setInvoiceFor(sold.order);
 
       if (outcome === 'queued') {
         toast.warn(
@@ -441,6 +448,12 @@ export default function Pos() {
         onConfirm={finalise}
         busy={selling}
       />
+
+      {/* Offered the moment the sale lands, because that is the only time the
+          customer is still standing there to say where to send it. */}
+      {invoiceFor && (
+        <InvoiceDialog order={invoiceFor} onClose={() => setInvoiceFor(null)} />
+      )}
     </>
   );
 }

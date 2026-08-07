@@ -123,53 +123,48 @@ export async function buildDispatchNote(order: OrderRow): Promise<Blob> {
 
   y = Math.max(y + 4, boxY + 42);
 
-  /* Contents — quantities and identifiers only, no prices */
+  /*
+    Deliberately no contents list.
+
+    The note travels taped to the outside of a parcel and is read by couriers,
+    depot staff and whoever is at the gate. Printing "Samsung S24 Ultra" and an
+    IMEI on it tells every one of them exactly what is worth stealing and how to
+    identify it afterwards. The courier needs to know where it goes and how many
+    pieces there are; nobody in that chain needs to know what is inside.
+
+    What was shipped is on the invoice, which goes to the customer.
+  */
   doc.setDrawColor(...GREY);
   doc.setLineWidth(0.2);
   doc.line(left, y, right, y);
   y += 6;
 
+  const items = orderItems(order);
+  const units = items.reduce((n, i) => n + i.quantity, 0);
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(...GREY);
-  doc.text('CONTENTS', left, y);
-  y += 6;
+  doc.text('PARCEL', left, y);
+  y += 8;
 
   doc.setTextColor(...INK);
-  doc.setFontSize(8.6);
-  doc.text('QTY', left, y);
-  doc.text('ITEM', left + 14, y);
-  doc.text('IMEI / SERIAL', right, y, { align: 'right' });
-  y += 2;
-  doc.line(left, y, right, y);
-  y += 5;
-
-  const items = orderItems(order);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9.4);
-
-  for (const item of items) {
-    doc.setFont('helvetica', 'bold');
-    doc.text(String(item.quantity), left, y);
-    doc.setFont('helvetica', 'normal');
-
-    const name = [item.name, item.color].filter(Boolean).join(' · ');
-    doc.text(doc.splitTextToSize(name, 116)[0] ?? name, left + 14, y);
-
-    doc.setFontSize(8.4);
-    doc.text(item.imei ?? item.sku ?? '—', right, y, { align: 'right' });
-    doc.setFontSize(9.4);
-    y += 6;
-  }
-
-  const units = items.reduce((n, i) => n + i.quantity, 0);
-  y += 1;
-  doc.setDrawColor(...GREY);
-  doc.line(left, y, right, y);
-  y += 5.5;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.6);
-  doc.text(`${items.length} line(s) · ${units} unit(s)`, left, y);
+  doc.setFontSize(18);
+  doc.text(`${units} item${units === 1 ? '' : 's'}`, left, y);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...GREY);
+  doc.text(`${items.length} line${items.length === 1 ? '' : 's'}`, left + 46, y);
+  doc.setTextColor(...INK);
+  y += 9;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.2);
+  doc.setTextColor(...GREY);
+  doc.text('Contents are not listed on this note. Check against the invoice on delivery.', left, y);
+  doc.setTextColor(...INK);
   y += 8;
 
   if (order.delivery_notes) {
