@@ -176,7 +176,12 @@ export function jobCardUrl(token: string): string {
   // A real file plus a query string, not a routed path. This is the one URL
   // customers receive rather than click through to, so it must not depend on
   // host rewrite rules to resolve.
-  return `${config.SITE_URL}/jobcard/?t=${encodeURIComponent(token)}`;
+  // Falls back to wherever the console is being used from, so a missing or
+  // blank SITE_URL degrades to a link that at least resolves rather than one
+  // that fails in the customer's hand.
+  const origin =
+    config.SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  return `${origin}/jobcard/?t=${encodeURIComponent(token)}`;
 }
 
 /**

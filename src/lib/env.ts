@@ -44,7 +44,10 @@ const DEFAULTS: RuntimeConfig = {
   ONESIGNAL_SAFARI_WEB_ID: '',
   PAYMENT_WORKER_URL: '',
   STORE_WHATSAPP_NUMBER: '',
-  SITE_URL: 'https://jr-importers.pages.dev',
+  // The live domain. This is not cosmetic: it is the host of every job card
+  // link sent to a customer, so a value that does not resolve produces a link
+  // that fails in their hand, with nothing on our side to show for it.
+  SITE_URL: 'https://jrimporters.com',
 };
 
 const viteEnv = import.meta.env as Record<string, string | undefined>;
