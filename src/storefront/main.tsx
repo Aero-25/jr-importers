@@ -2,8 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AppProviders } from '@/app/providers';
+import { installErrorReporting } from '@/lib/errorReporter';
 import '@/styles/global.css';
 import { ShopApp } from './App';
+
+installErrorReporting();
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Missing #root element.');

@@ -16,6 +16,7 @@ import {
   RotateCcw,
   ScrollText,
   ShieldCheck,
+  Siren,
   Settings,
   ShoppingCart,
   Store,
@@ -106,6 +107,7 @@ export const NAV: NavSection[] = [
     id: 'money',
     label: 'Money',
     items: [
+      { id: 'finance', label: 'Finance & VAT', path: '/finance', icon: Landmark, adminOnly: true },
       { id: 'ledger', label: 'Debtors & creditors', path: '/ledger', icon: Landmark, adminOnly: true },
       { id: 'expenses', label: 'Expenses', path: '/expenses', icon: Banknote, adminOnly: true },
       { id: 'coupons', label: 'Coupons', path: '/coupons', icon: BadgePercent, adminOnly: true },
@@ -117,6 +119,7 @@ export const NAV: NavSection[] = [
     items: [
       { id: 'staff', label: 'Staff & access', path: '/staff', icon: Users, adminOnly: true },
       { id: 'activity', label: 'Activity log', path: '/activity', icon: ShieldCheck, adminOnly: true },
+      { id: 'errors', label: 'Faults', path: '/errors', icon: Siren, adminOnly: true },
       { id: 'settings', label: 'Settings', path: '/settings', icon: Settings, adminOnly: true },
     ],
   },

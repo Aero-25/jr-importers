@@ -6,6 +6,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { initials } from '@/lib/format';
 import { IconButton } from '@/ui';
 import { visibleSections } from '../nav';
+import { IdleLock } from './IdleLock';
 
 /**
  * Console chrome.
@@ -189,6 +190,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </main>
         </div>
       </div>
+
+      <IdleLock />
     </div>
   );
 }

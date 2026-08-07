@@ -285,6 +285,34 @@ export type ActivityLogRow = {
   created_at: string;
 }
 
+export type AccountingPeriodRow = {
+  id: number;
+  period_from: string;
+  period_to: string;
+  status: string;
+  locked_at: string | null;
+  locked_by: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export type ClientErrorRow = {
+  id: number;
+  fingerprint: string;
+  message: string;
+  stack: string | null;
+  surface: string | null;
+  url: string | null;
+  actor: string | null;
+  user_agent: string | null;
+  context: Record<string, unknown> | null;
+  seen_count: number;
+  first_seen: string;
+  last_seen: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}
+
 export type TillShiftRow = {
   id: number;
   till_id: number;
@@ -643,6 +671,8 @@ export type Database = {
       till_shifts: Table<TillShiftRow>;
       refunds: Table<RefundRow>;
       activity_log: Table<ActivityLogRow>;
+      accounting_periods: Table<AccountingPeriodRow>;
+      client_errors: Table<ClientErrorRow>;
       users: Table<UserRow>;
     };
     // `{ [_ in never]: never }` is the empty-record shape supabase-js's
@@ -733,6 +763,29 @@ export type Database = {
         Args: { p_po_id: number };
         Returns: Json;
       };
+      /* Finance. Reports are computed server-side so the figure a manager reads
+         and the figure the books hold cannot drift apart. */
+      vat_return: { Args: { p_from: string; p_to: string }; Returns: Json };
+      stock_valuation: { Args: { p_dead_days?: number }; Returns: Json };
+      debtors_ageing: { Args: Record<PropertyKey, never>; Returns: Json };
+      supplier_recon: { Args: { p_from: string; p_to: string }; Returns: Json };
+      close_period: { Args: { p_from: string; p_to: string; p_notes?: string | null }; Returns: Json };
+      reopen_period: { Args: { p_id: number; p_reason: string }; Returns: Json };
+      is_period_locked: { Args: { p_when: string }; Returns: boolean };
+      /* Error tracking. Repeats fold into a counter rather than a new row. */
+      report_client_error: {
+        Args: {
+          p_fingerprint: string;
+          p_message: string;
+          p_stack?: string | null;
+          p_surface?: string | null;
+          p_url?: string | null;
+          p_user_agent?: string | null;
+          p_context?: Json | null;
+        };
+        Returns: undefined;
+      };
+      resolve_client_error: { Args: { p_id: number }; Returns: Json };
       is_staff: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;

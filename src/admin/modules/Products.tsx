@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus, Search } from 'lucide-react';
 import type { ProductRow } from '@/lib/database.types';
 import { products } from '@/data/products';
+import { useAuth } from '@/auth/AuthProvider';
 import { keys } from '@/data/keys';
 import { supabase } from '@/lib/supabase';
 import { CATEGORIES } from '@/lib/constants';
@@ -27,6 +28,7 @@ import { ImageUploader } from '../components/ImageUploader';
 import { ImeiManager } from '../components/ImeiManager';
 
 export default function Products() {
+  const { isAdmin } = useAuth();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [editing, setEditing] = useState<ProductRow | 'new' | null>(null);
@@ -78,7 +80,10 @@ export default function Products() {
       render: (product) => <span className="tabular font-medium">{money(product.price)}</span>,
       sortValue: (product) => Number(product.price),
     },
-    {
+    // Cost and margin walk out of the door with anyone who leaves, so the
+    // column is built only for the roles that are meant to see it.
+    ...(isAdmin
+      ? [{
       key: 'margin',
       header: 'Margin',
       align: 'right',
@@ -102,7 +107,8 @@ export default function Products() {
         const cost = Number(product.cost_price);
         return price && cost ? ((price - cost) / price) * 100 : -1;
       },
-    },
+    } satisfies Column<ProductRow>]
+      : []),
     {
       key: 'stock',
       header: 'Stock',

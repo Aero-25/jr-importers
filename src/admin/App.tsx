@@ -19,6 +19,8 @@ const Ledger = lazy(() => import('./modules/Ledger'));
 const Settings = lazy(() => import('./modules/Settings'));
 const Activity = lazy(() => import('./modules/Activity'));
 const GoodsReceived = lazy(() => import('./modules/GoodsReceived'));
+const Finance = lazy(() => import('./modules/Finance'));
+const Faults = lazy(() => import('./modules/Faults'));
 
 const ADMIN_ONLY_PATHS = [
   '/purchase-orders',
@@ -28,6 +30,8 @@ const ADMIN_ONLY_PATHS = [
   '/ledger',
   '/settings',
   '/activity',
+  '/finance',
+  '/errors',
 ];
 
 function NotPermitted() {
@@ -104,6 +108,8 @@ export function AdminApp() {
               <Route path="/ledger" element={<Ledger />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/activity" element={<Activity />} />
+              <Route path="/finance" element={<Finance />} />
+              <Route path="/errors" element={<Faults />} />
             </>
           )}
 
