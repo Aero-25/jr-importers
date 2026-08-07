@@ -8,8 +8,11 @@ import { money, round2 } from '@/lib/format';
  * Counting runs big-to-small the way a cashier actually counts a drawer, so
  * the form matches the hand movement rather than the number line.
  */
-export const NAD_NOTES = [200, 100, 50, 20, 10] as const;
-export const NAD_COINS = [5, 1, 0.5, 0.1, 0.05] as const;
+// Includes the N$30 and N$60 commemoratives, which do circulate here.
+export const NAD_NOTES = [200, 100, 60, 50, 30, 20, 10] as const;
+// Cents are not counted: the shop rounds to the dollar, so a cents column just
+// adds fields nobody fills in and slows the count down.
+export const NAD_COINS = [5, 1] as const;
 
 export type DenominationCounts = Record<string, number>;
 
@@ -25,7 +28,7 @@ export function denominationTotal(counts: DenominationCounts): number {
   );
 }
 
-const label = (face: number) => (face >= 1 ? `N$${face}` : `${Math.round(face * 100)}c`);
+const label = (face: number) => `N$${face}`;
 
 /**
  * Counts a cash drawer piece by piece.
