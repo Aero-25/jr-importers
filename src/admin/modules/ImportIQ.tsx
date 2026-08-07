@@ -23,7 +23,9 @@ interface FieldSpec {
 interface Target {
   id: string;
   label: string;
-  table: 'products' | 'customers' | 'suppliers';
+  table: 'products' | 'customers' | 'suppliers' | 'product_imeis';
+  /** Rows carry a stock code that has to become a product id before writing. */
+  resolveProduct?: boolean;
   hint: string;
   /** The column both sides are matched on, so re-importing updates. */
   matchOn: string;
@@ -45,8 +47,9 @@ const TARGETS: Target[] = [
       { key: 'name', label: 'Description', candidates: ['descript', 'description', 'itemdescription', 'name'], required: true },
       { key: 'barcode', label: 'Barcode', candidates: ['barcode', 'gencode', 'ean', 'upc'] },
       { key: 'category', label: 'Department', candidates: ['department', 'subdepartm', 'itemcategory', 'category', 'range'] },
-      { key: 'brand', label: 'Brand', candidates: ['stylerdesc', 'styledesc', 'brand', 'manufacturer', 'make'] },
-      { key: 'color', label: 'Colour', candidates: ['colourdesc', 'colordesc', 'colour', 'color'] },
+      { key: 'brand', label: 'Brand', candidates: ['brand', 'manufacturer', 'make', 'styledesc'] },
+      { key: 'color', label: 'Colour', candidates: ['colordetailed', 'colourdesc', 'colordesc', 'colour', 'color'] },
+      { key: 'description', label: 'Long description / specs', candidates: ['technicalspec', 'memo', 'notes', 'alt_descript', 'longdescription'] },
       // Average cost, not last cost: it is what IQ values the shelf at, so it
       // is the figure the stock valuation report has to agree with.
       { key: 'cost_price', label: 'Cost price', candidates: ['avrgcost', 'averagecost', 'basecost', 'lstcost', 'cost'], kind: 'number' },
@@ -56,6 +59,19 @@ const TARGETS: Target[] = [
       { key: 'price', label: 'Selling price (incl VAT)', candidates: ['sellpinc1', 'sellpriceincl', 'recommendretail', 'sellprice1', 'sellingprice'], kind: 'number' },
       { key: 'stock', label: 'Quantity on hand', candidates: ['onhand', 'lbonhand', 'qtyonhand', 'quantity', 'soh'], kind: 'number' },
       { key: 'reorder_level', label: 'Reorder level', candidates: ['ord_lvl', 'ordlvl', 'minimumlevel', 'reorderlevel'], kind: 'number' },
+    ],
+  },
+  {
+    id: 'serials',
+    label: 'Serial numbers (IMEIs)',
+    table: 'product_imeis',
+    resolveProduct: true,
+    hint: 'Stock → Serial Number Tracking. One row per handset, with its stock code.',
+    matchOn: 'imei',
+    fields: [
+      { key: 'imei', label: 'Serial / IMEI', candidates: ['serialno', 'serialnumber', 'serial', 'imei'], required: true },
+      { key: 'sku', label: 'Stock code', candidates: ['code', 'stockcode', 'itemcode'], required: true },
+      { key: 'color', label: 'Colour', candidates: ['colordetailed', 'colourdesc', 'colour', 'color'] },
     ],
   },
   {
@@ -184,6 +200,26 @@ export default function ImportIQ() {
         keyed.set(key, row);
       });
 
+      if (target.resolveProduct) {
+        const skus = [...new Set([...keyed.values()].map((r) => String(r.sku ?? '')))];
+        const known = new Set<string>();
+        for (let i = 0; i < skus.length; i += 200) {
+          const { data } = await supabase
+            .from('products')
+            .select('sku')
+            .in('sku', skus.slice(i, i + 200));
+          for (const row of (data ?? []) as unknown as Array<Record<string, unknown>>) {
+            known.add(String(row.sku ?? '').toLowerCase());
+          }
+        }
+        for (const [key, row] of [...keyed]) {
+          if (!known.has(String(row.sku ?? '').toLowerCase())) {
+            keyed.delete(key);
+            skipped.push({ row: 0, why: `stock code ${row.sku} is not in the system yet` });
+          }
+        }
+      }
+
       const existingKeys = new Set<string>();
       const all = [...keyed.keys()];
       // Chunked: a few thousand codes in one `in` filter exceeds the URL limit.
@@ -243,6 +279,44 @@ export default function ImportIQ() {
         if (error) throw new Error(error.message);
         for (const row of (data ?? []) as unknown as Array<Record<string, unknown>>) {
           existing.set(String(row[target.matchOn] ?? '').toLowerCase(), row.id as string | number);
+        }
+      }
+
+      if (target.resolveProduct) {
+        // product_imeis holds a product id, not a stock code. Resolving here
+        // rather than in the database keeps the unmatched codes visible: a
+        // serial attached to a product that was never imported would otherwise
+        // fail the whole batch with nothing to say which row caused it.
+        const skus = [...new Set([...keyed.values()].map((r) => String(r.sku ?? '')))];
+        const bySku = new Map<string, number>();
+        for (let i = 0; i < skus.length; i += 200) {
+          const { data, error } = await supabase
+            .from('products')
+            .select('id, sku')
+            .in('sku', skus.slice(i, i + 200));
+          if (error) throw new Error(error.message);
+          for (const row of (data ?? []) as unknown as Array<Record<string, unknown>>) {
+            bySku.set(String(row.sku ?? '').toLowerCase(), row.id as number);
+          }
+        }
+
+        let orphans = 0;
+        for (const [key, row] of [...keyed]) {
+          const id = bySku.get(String(row.sku ?? '').toLowerCase());
+          if (id === undefined) {
+            keyed.delete(key);
+            orphans += 1;
+            continue;
+          }
+          delete row.sku;
+          row.product_id = id;
+          row.status = 'available';
+        }
+        if (orphans > 0) {
+          toast.warn(
+            `${orphans} serial(s) skipped`,
+            'Their stock code is not in the system. Import the stock master first.',
+          );
         }
       }
 
