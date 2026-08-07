@@ -35,18 +35,27 @@ const TARGETS: Target[] = [
     id: 'stock',
     label: 'Stock master',
     table: 'products',
-    hint: 'Stock → Stock Maintenance. Include cost, selling price and quantity on hand.',
+    hint: 'Stock → Stock Maintenance → Export. Tick the fields listed in docs/IQ-MIGRATION.md first.',
     matchOn: 'sku',
+    // Candidates lead with IQ SaaS 2023 column names, taken from the Select
+    // Visible Fields dialog, then fall back to the wordier names older versions
+    // and other systems use.
     fields: [
-      { key: 'sku', label: 'Stock code', candidates: ['stockcode', 'itemcode', 'code', 'sku'], required: true },
-      { key: 'name', label: 'Description', candidates: ['description', 'itemdescription', 'name'], required: true },
-      { key: 'barcode', label: 'Barcode', candidates: ['barcode', 'ean', 'upc'] },
-      { key: 'brand', label: 'Brand', candidates: ['brand', 'manufacturer', 'make'] },
-      { key: 'category', label: 'Category', candidates: ['department', 'category', 'majordepartment', 'group'] },
-      { key: 'cost_price', label: 'Cost price', candidates: ['averagecost', 'cost', 'lastcost', 'costprice'], kind: 'number' },
-      { key: 'price', label: 'Selling price', candidates: ['sellingprice', 'selling', 'retail', 'price1', 'price'], kind: 'number' },
-      { key: 'stock', label: 'Quantity on hand', candidates: ['qtyonhand', 'onhand', 'quantity', 'soh', 'qty'], kind: 'number' },
-      { key: 'reorder_level', label: 'Reorder level', candidates: ['minimumlevel', 'reorderlevel', 'minlevel'], kind: 'number' },
+      { key: 'sku', label: 'Stock code', candidates: ['code', 'stockcode', 'itemcode', 'sku'], required: true },
+      { key: 'name', label: 'Description', candidates: ['descript', 'description', 'itemdescription', 'name'], required: true },
+      { key: 'barcode', label: 'Barcode', candidates: ['barcode', 'gencode', 'ean', 'upc'] },
+      { key: 'category', label: 'Department', candidates: ['department', 'subdepartm', 'itemcategory', 'category', 'range'] },
+      { key: 'brand', label: 'Brand', candidates: ['stylerdesc', 'styledesc', 'brand', 'manufacturer', 'make'] },
+      { key: 'color', label: 'Colour', candidates: ['colourdesc', 'colordesc', 'colour', 'color'] },
+      // Average cost, not last cost: it is what IQ values the shelf at, so it
+      // is the figure the stock valuation report has to agree with.
+      { key: 'cost_price', label: 'Cost price', candidates: ['avrgcost', 'averagecost', 'basecost', 'lstcost', 'cost'], kind: 'number' },
+      // SELLPINC1 is VAT inclusive. Prices are shown and stored inclusive
+      // throughout — mapping the exclusive column instead understates every
+      // price by 15% and quietly wrecks the margin reports.
+      { key: 'price', label: 'Selling price (incl VAT)', candidates: ['sellpinc1', 'sellpriceincl', 'recommendretail', 'sellprice1', 'sellingprice'], kind: 'number' },
+      { key: 'stock', label: 'Quantity on hand', candidates: ['onhand', 'lbonhand', 'qtyonhand', 'quantity', 'soh'], kind: 'number' },
+      { key: 'reorder_level', label: 'Reorder level', candidates: ['ord_lvl', 'ordlvl', 'minimumlevel', 'reorderlevel'], kind: 'number' },
     ],
   },
   {

@@ -10,6 +10,58 @@ and unpicking that is worse than any variance report.
 
 ---
 
+## Confirmed setup
+
+**IQ SaaS POS, Version 2023.1.0.0** — JR Importers Walvisbay.
+Stock Maintenance holds **1,574 items**, against 43 in the new system.
+
+Because it is the SaaS edition the database is hosted by IQ, so ODBC is not on
+the table. The export route is the route, and it is enough.
+
+---
+
+## The stock export, field by field
+
+In **Stock → Stock Maintenance**, click **Select Visible Fields** and tick
+exactly these. Everything else can stay off — extra columns are harmless but
+make the mapping screen longer to read.
+
+| Tick | IQ field | Becomes | Note |
+|---|---|---|---|
+| ✓ | `CODE` | Stock code | The key everything matches on |
+| ✓ | `DESCRIPT` | Description | |
+| ✓ | `BARCODE` | Barcode | Lets the till scan it |
+| ✓ | `DEPARTMENT` | Category | |
+| ✓ | `AVRGCOST` | Cost price | **Average cost, not last cost** — it is what IQ values the shelf at |
+| ✓ | `SELLPINC1` | Selling price | **The inclusive one.** See below |
+| ✓ | `ONHAND` | Quantity on hand | The opening count |
+| ✓ | `ORD_LVL` | Reorder level | Drives the low-stock alerts |
+| ✓ | `SINGLE_SER` | — | Not imported, but tells us which lines IQ tracks by serial |
+| ✓ | `ColourDesc` | Colour | Only if you use it |
+| ✓ | `SUPPLIERCO` | — | Not imported yet; useful for checking |
+
+### The one that matters most
+
+Tick **`SELLPINC1`**, not `SELLPRICE1`.
+
+`SELLPRICE1` is exclusive of VAT; `SELLPINC1` includes it. Prices are stored
+and shown inclusive throughout this system — the shop says "VAT inclusive", and
+the invoice works VAT backwards out of the total. Mapping the exclusive column
+would understate every price by 15% and quietly wreck every margin figure.
+
+`OnHandValue` is worth ticking too, purely to sanity-check: its total should
+equal `ONHAND × AVRGCOST`.
+
+### Then export
+
+**Accept** → **Export** at the bottom of Stock Maintenance → **CSV**.
+
+Do not open it in Excel and re-save. Excel rewrites number formats and strips
+leading zeros off codes, and a stock code that loses its zeros stops matching
+anything.
+
+---
+
 ## Step 1 — Find out what you are running
 
 **Product and version**
