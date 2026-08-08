@@ -7,6 +7,26 @@ import { whatsappNumber } from './phone';
 const INK: [number, number, number] = [13, 38, 63];
 const GREY: [number, number, number] = [110, 122, 143];
 const LINE: [number, number, number] = [196, 205, 218];
+/** The shop's green — the logo's colour carries the document. */
+export const BRAND_GREEN: [number, number, number] = [22, 101, 52];
+export const BRAND_GREEN_SOFT: [number, number, number] = [232, 246, 236];
+
+/** The logo as a data URL, or null when it cannot be fetched (offline). */
+export async function loadBrandLogo(): Promise<string | null> {
+  try {
+    const res = await fetch('/logo-mark.png');
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
 
 /** Company details a tax invoice must carry. Read live so they stay editable. */
 export interface InvoiceCompany {
@@ -87,8 +107,9 @@ export async function buildInvoicePdf(order: OrderRow, company: InvoiceCompany):
     doc.roundedRect(x, y, w, h, 1.5, 1.5, 'S');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
-    doc.setTextColor(...INK);
+    doc.setTextColor(...BRAND_GREEN);
     doc.text(title, x + w / 2, y + 5, { align: 'center' });
+    doc.setTextColor(...INK);
   };
 
   const pair = (label: string, value: string, x: number, y: number, gap = 32) => {
@@ -100,13 +121,24 @@ export async function buildInvoicePdf(order: OrderRow, company: InvoiceCompany):
     doc.text(value, x + gap, y);
   };
 
-  /* Title bar */
-  doc.setFillColor(240, 243, 247);
+  /* Title bar — the shop's green, with the logo standing at the left. */
+  const logo = await loadBrandLogo();
+  doc.setFillColor(...BRAND_GREEN_SOFT);
   doc.rect(left, 12, right - left, 8, 'F');
+  doc.setFillColor(...BRAND_GREEN);
+  doc.rect(left, 12, 1.6, 8, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
-  doc.setTextColor(...INK);
+  doc.setTextColor(...BRAND_GREEN);
   doc.text('TAX INVOICE', (left + right) / 2, 17.6, { align: 'center' });
+  doc.setTextColor(...INK);
+  if (logo) {
+    try {
+      doc.addImage(logo, 'PNG', mid - 3 - 26, 28, 20, 20);
+    } catch {
+      // A corrupt cache entry must not sink the invoice.
+    }
+  }
 
   /* From / contact */
   box(left, 24, mid - left - 3, 34, 'Invoice From');
@@ -171,10 +203,11 @@ export async function buildInvoicePdf(order: OrderRow, company: InvoiceCompany):
   y += 10;
 
   /* Lines */
-  doc.setFillColor(240, 243, 247);
+  doc.setFillColor(...BRAND_GREEN_SOFT);
   doc.rect(left, y, right - left, 7, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
+  doc.setTextColor(...BRAND_GREEN);
   y += 4.8;
   doc.text('Item Code', left + 2, y);
   doc.text('Description', left + 30, y);
@@ -185,6 +218,7 @@ export async function buildInvoicePdf(order: OrderRow, company: InvoiceCompany):
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.6);
+  doc.setTextColor(...INK);
   const items = order.items ?? [];
   for (const item of items) {
     if (y > 232) {
@@ -239,8 +273,10 @@ export async function buildInvoicePdf(order: OrderRow, company: InvoiceCompany):
   const totalRow = (label: string, value: string, ty: number, bold = false) => {
     doc.setFont('helvetica', bold ? 'bold' : 'normal');
     doc.setFontSize(bold ? 10 : 8.6);
+    doc.setTextColor(...(bold ? BRAND_GREEN : INK));
     doc.text(label, left + 118, ty);
     doc.text(value, right - 4, ty, { align: 'right' });
+    doc.setTextColor(...INK);
   };
   totalRow('Subtotal (Exclusive)', money(net).replace('N$ ', ''), footY + 11);
   totalRow('Discount', discount ? money(discount).replace('N$ ', '') : '—', footY + 17);

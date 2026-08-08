@@ -334,6 +334,30 @@ function RecordDialog({
                   Delete
                 </Button>
               )}
+              {!isNew && spec.pdf && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        const pdf = await import('@/lib/documentPdf');
+                        if (spec.pdf === 'quote') {
+                          await pdf.downloadQuotePdf(record as never);
+                        } else {
+                          await pdf.downloadInvoiceRecordPdf(record as never);
+                        }
+                      } catch (error) {
+                        toast.error(
+                          'Could not build the PDF',
+                          error instanceof Error ? error.message : undefined,
+                        );
+                      }
+                    })();
+                  }}
+                >
+                  PDF
+                </Button>
+              )}
               <Button variant="ghost" onClick={onClose}>
                 Cancel
               </Button>

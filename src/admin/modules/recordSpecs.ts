@@ -64,6 +64,8 @@ export interface RecordSpec {
    * shown is worked backwards out of the total, same as the till.
    */
   lineItems?: boolean;
+  /** The record prints as an A4 document of this kind. */
+  pdf?: 'quote' | 'invoice';
 }
 
 const money = (key: string, label: string, extra: Partial<FieldSpec> = {}): FieldSpec => ({
@@ -186,6 +188,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     resource: resources.quotes,
     searchColumns: ['quote_number', 'customer_name', 'customer_email'],
     lineItems: true,
+    pdf: 'quote',
     fields: [
       {
         key: 'quote_number',
@@ -213,6 +216,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     resource: resources.invoices,
     searchColumns: ['invoice_number', 'customer_name', 'customer_email'],
     lineItems: true,
+    pdf: 'invoice',
     fields: [
       {
         key: 'invoice_number',
