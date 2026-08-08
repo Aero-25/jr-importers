@@ -58,10 +58,6 @@ export const heroImages = createResource('hero_images', {
   orderBy: { column: 'order_index', ascending: true },
 });
 
-export const messages = createResource('messages', {
-  orderBy: { column: 'created_at', ascending: false },
-});
-
 export const specialOrders = createResource('special_order_requests', {
   orderBy: { column: 'created_at', ascending: false },
 });

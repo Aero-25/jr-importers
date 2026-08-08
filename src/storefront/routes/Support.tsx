@@ -1,14 +1,14 @@
 import { useState, type FormEvent } from 'react';
-import { MessageSquare, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { Button, Card, Input, Textarea, useToast } from '@/ui';
+import { Button, Card, Input, useToast } from '@/ui';
 import { useSeo } from '../seo';
 
 export default function Support() {
   useSeo({
     title: 'Support & special orders',
     description:
-      'Ask JR Importers a question, or request a specific phone, laptop or accessory to be imported for you.',
+      'Request a specific phone, laptop or accessory to be imported for you by JR Importers.',
     path: '/support',
   });
 
@@ -21,9 +21,8 @@ export default function Support() {
         Cannot find what you need? Tell us the exact model and we will quote you on importing it.
       </p>
 
-      <div className="mt-8 grid gap-6 md:grid-cols-2">
+      <div className="mt-8 max-w-xl">
         <SpecialOrderForm />
-        <ContactForm />
       </div>
     </div>
   );
@@ -114,65 +113,6 @@ function SpecialOrderForm() {
         </div>
         <Button type="submit" fullWidth loading={busy}>
           Send request
-        </Button>
-      </form>
-    </Card>
-  );
-}
-
-/** Writes to `messages` — the console's Messages module reads these. */
-function ContactForm() {
-  const toast = useToast();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-
-    const { error } = await supabase.from('messages').insert({
-      name: name.trim() || null,
-      email: email.trim().toLowerCase() || null,
-      message: message.trim(),
-    });
-    setBusy(false);
-
-    if (error) {
-      toast.error('Could not send your message', error.message);
-      return;
-    }
-
-    toast.success('Message sent', 'We usually reply within a business day.');
-    setMessage('');
-  }
-
-  return (
-    <Card className="p-5">
-      <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-ink">
-        <MessageSquare aria-hidden className="h-5 w-5 text-brand-400" />
-        Send us a message
-      </h2>
-
-      <form onSubmit={submit} className="mt-4 space-y-3">
-        <Input label="Your name" value={name} onChange={(e) => setName(e.target.value)} />
-        <Input
-          label="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <Textarea
-          label="Message"
-          required
-          rows={5}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="How can we help?"
-        />
-        <Button type="submit" fullWidth loading={busy}>
-          Send message
         </Button>
       </form>
     </Card>

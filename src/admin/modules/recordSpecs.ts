@@ -16,6 +16,7 @@ export type FieldType =
   | 'money'
   | 'date'
   | 'select'
+  | 'lookup'
   | 'textarea'
   | 'checkbox'
   | 'readonly';
@@ -25,6 +26,11 @@ export interface FieldSpec {
   label: string;
   type: FieldType;
   options?: readonly string[];
+  /**
+   * For `lookup` fields: the table whose names fill the dropdown. The chosen
+   * name is stored as plain text, so existing rows keep working unchanged.
+   */
+  lookup?: 'suppliers' | 'customers';
   required?: boolean;
   hint?: string;
   /** Show as a table column. Fields without this are edit-only. */
@@ -109,21 +115,6 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     ],
   },
 
-  messages: {
-    title: 'Messages',
-    description: 'Enquiries sent from the shop’s contact form.',
-    table: 'messages',
-    resource: resources.messages,
-    searchColumns: ['name', 'email', 'message'],
-    readOnly: true,
-    fields: [
-      { key: 'created_at', label: 'Received', type: 'readonly', inList: true, secondary: true },
-      { key: 'name', label: 'From', type: 'readonly', inList: true },
-      { key: 'email', label: 'Email', type: 'readonly', inList: true },
-      { key: 'message', label: 'Message', type: 'readonly', inList: true, wide: true },
-    ],
-  },
-
   requests: {
     title: 'Special orders',
     description: 'Customers asking you to import something specific.',
@@ -183,7 +174,13 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     resource: resources.quotes,
     searchColumns: ['quote_number', 'customer_name', 'customer_email'],
     fields: [
-      { key: 'quote_number', label: 'Quote no.', type: 'text', inList: true },
+      {
+        key: 'quote_number',
+        label: 'Quote no.',
+        type: 'readonly',
+        inList: true,
+        hint: 'Assigned automatically when the quote is created — numbers run in order.',
+      },
       { key: 'customer_name', label: 'Customer', type: 'text', required: true, inList: true },
       { key: 'customer_email', label: 'Email', type: 'email' },
       { key: 'customer_phone', label: 'Phone', type: 'tel' },
@@ -201,8 +198,15 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     description: 'Issued invoices and their payment state.',
     table: 'invoices',
     resource: resources.invoices,
-    searchColumns: ['customer_name', 'customer_email'],
+    searchColumns: ['invoice_number', 'customer_name', 'customer_email'],
     fields: [
+      {
+        key: 'invoice_number',
+        label: 'Invoice no.',
+        type: 'readonly',
+        inList: true,
+        hint: 'Assigned automatically when the invoice is created — numbers run in order.',
+      },
       { key: 'customer_name', label: 'Customer', type: 'text', required: true, inList: true },
       { key: 'customer_email', label: 'Email', type: 'email', inList: true, secondary: true },
       money('subtotal_amount', 'Subtotal', { secondary: true }),
@@ -240,7 +244,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     resource: resources.grvs,
     searchColumns: ['supplier_name', 'supplier_invoice_no', 'po_number'],
     fields: [
-      { key: 'supplier_name', label: 'Supplier', type: 'text', required: true, inList: true },
+      { key: 'supplier_name', label: 'Supplier', type: 'lookup', lookup: 'suppliers', required: true, inList: true },
       { key: 'supplier_invoice_no', label: 'Supplier invoice', type: 'text', inList: true },
       { key: 'po_number', label: 'PO number', type: 'text', secondary: true, inList: true },
       { key: 'invoice_date', label: 'Invoice date', type: 'date', inList: true, secondary: true },
@@ -263,7 +267,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     resource: resources.purchaseOrders,
     searchColumns: ['supplier_name'],
     fields: [
-      { key: 'supplier_name', label: 'Supplier', type: 'text', required: true, inList: true },
+      { key: 'supplier_name', label: 'Supplier', type: 'lookup', lookup: 'suppliers', required: true, inList: true },
       money('total_amount', 'Total', { inList: true }),
       {
         key: 'status',

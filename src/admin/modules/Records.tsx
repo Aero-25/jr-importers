@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import type { createResource } from '@/data/crud';
+import { customers, suppliers } from '@/data/resources';
 import { formatDate, formatDateTime, money, toDateInput, toNumber, truncate } from '@/lib/format';
 import {
   Badge,
@@ -381,7 +382,21 @@ function FieldControl({
                 ? formatDateTime(value as string)
                 : String(value)}
           </p>
+          {field.hint && (value === null || value === undefined || value === '') && (
+            <p className="mt-0.5 text-xs text-ink-subtle">{field.hint}</p>
+          )}
         </div>
+      );
+
+    case 'lookup':
+      return (
+        <LookupSelect
+          field={field}
+          value={String(value ?? '')}
+          onChange={onChange}
+          disabled={disabled}
+          containerClassName={wide}
+        />
       );
 
     case 'checkbox':
@@ -457,4 +472,53 @@ function FieldControl({
         />
       );
   }
+}
+
+/**
+ * A dropdown fed by another table's names, stored as plain text.
+ *
+ * Typing supplier names freehand produced "MTC", "M.T.C." and "mtc" as three
+ * different suppliers, which quietly splits the purchase history three ways.
+ * The record keeps a text column so nothing existing breaks — but the value
+ * saved on a record that predates the list, or whose supplier was deleted,
+ * still has to be shown and re-savable, so it is folded into the options.
+ */
+function LookupSelect({
+  field,
+  value,
+  onChange,
+  disabled,
+  containerClassName,
+}: {
+  field: FieldSpec;
+  value: string;
+  onChange: (value: unknown) => void;
+  disabled?: boolean;
+  containerClassName?: string;
+}) {
+  const source = field.lookup === 'customers' ? customers : suppliers;
+  const list = source.useList({ orderBy: { column: 'name', ascending: true } });
+
+  const names = useMemo(() => {
+    const fromTable = (list.data ?? [])
+      .map((row) => String((row as { name?: unknown }).name ?? '').trim())
+      .filter(Boolean);
+    const unique = [...new Set(fromTable)];
+    if (value && !unique.includes(value)) unique.unshift(value);
+    return unique;
+  }, [list.data, value]);
+
+  return (
+    <Select
+      label={field.label}
+      hint={field.hint}
+      required={field.required}
+      disabled={disabled}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      options={names}
+      placeholder={list.isLoading ? 'Loading…' : '—'}
+      containerClassName={containerClassName}
+    />
+  );
 }

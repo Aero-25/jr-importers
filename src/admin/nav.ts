@@ -7,7 +7,6 @@ import {
   Building2,
   ClipboardList,
   FileText,
-  Inbox,
   Landmark,
   type LucideIcon,
   Package,
@@ -92,7 +91,6 @@ export const NAV: NavSection[] = [
     items: [
       { id: 'customers', label: 'Customers', path: '/customers', icon: Users },
       { id: 'suppliers', label: 'Suppliers', path: '/suppliers', icon: Building2 },
-      { id: 'messages', label: 'Messages', path: '/messages', icon: Inbox },
       { id: 'requests', label: 'Special orders', path: '/requests', icon: Bell },
       { id: 'stock-alerts', label: 'Stock alerts', path: '/stock-alerts', icon: BellRing },
     ],
