@@ -27,9 +27,18 @@ export function BarcodeScanner({
   const controlsRef = useRef<{ stop: () => void } | null>(null);
   const lastCode = useRef<{ value: string; at: number }>({ value: '', at: 0 });
 
+  // The scan callback lives in a ref so a parent re-render (which recreates
+  // the inline callback) never restarts the camera. Restart churn was the
+  // scanner's original sin: the camera opened, closed, and reopened within a
+  // second, and many Android phones answer that with NotReadableError.
+  const onScanRef = useRef(onScan);
+  onScanRef.current = onScan;
+  const preferredRef = useRef(0);
+
   const [error, setError] = useState<string | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [deviceIndex, setDeviceIndex] = useState(0);
+  /** null = automatic (prefer the rear camera); a number = user's choice. */
+  const [deviceIndex, setDeviceIndex] = useState<number | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -41,6 +50,12 @@ export function BarcodeScanner({
 
     void (async () => {
       try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error(
+            'This browser cannot open a camera here. The site must be on HTTPS (or the app build), not plain HTTP.',
+          );
+        }
+
         const { BrowserMultiFormatReader } = await import('@zxing/browser');
         if (cancelled || !videoRef.current) return;
 
@@ -58,18 +73,13 @@ export function BarcodeScanner({
         setDevices(cams);
 
         // Prefer the rear camera; a laptop's only camera is fine as a fallback.
-        const preferred =
-          cams.findIndex((d) => /back|rear|environment/i.test(d.label)) !== -1
-            ? cams.findIndex((d) => /back|rear|environment/i.test(d.label))
-            : 0;
-        const index = deviceIndex || preferred;
-        setDeviceIndex(index);
+        const rear = cams.findIndex((d) => /back|rear|environment/i.test(d.label));
+        preferredRef.current = rear === -1 ? 0 : rear;
+        const index = deviceIndex ?? preferredRef.current;
 
         const reader = new BrowserMultiFormatReader();
-        const controls = await reader.decodeFromVideoDevice(
-          cams[index]?.deviceId,
-          videoRef.current,
-          (result) => {
+        const start = () =>
+          reader.decodeFromVideoDevice(cams[index]?.deviceId, videoRef.current!, (result) => {
             if (!result) return;
             const value = result.getText().trim();
             if (!value) return;
@@ -81,9 +91,21 @@ export function BarcodeScanner({
             lastCode.current = { value, at: now };
 
             if (navigator.vibrate) navigator.vibrate(40);
-            onScan(value);
-          },
-        );
+            onScanRef.current(value);
+          });
+
+        let controls;
+        try {
+          controls = await start();
+        } catch (first) {
+          // Some phones refuse a camera reopened straight after the probe.
+          // One breath, one retry.
+          const text = first instanceof Error ? `${first.name} ${first.message}` : String(first);
+          if (!/NotReadable|TrackStart|source|in use/i.test(text)) throw first;
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          if (cancelled || !videoRef.current) return;
+          controls = await start();
+        }
 
         if (cancelled) {
           controls.stop();
@@ -93,13 +115,18 @@ export function BarcodeScanner({
         setReady(true);
       } catch (e) {
         if (cancelled) return;
+        const name = e instanceof Error ? e.name : '';
         const message = e instanceof Error ? e.message : String(e);
         setError(
-          /permission|denied|NotAllowed/i.test(message)
+          /NotAllowed|permission|denied/i.test(`${name} ${message}`)
             ? 'Camera access was blocked. Allow the camera for this site in your browser settings, then try again.'
-            : /NotFound|no camera/i.test(message)
+            : /NotFound|Overconstrained|no camera/i.test(`${name} ${message}`)
               ? 'No camera found on this device.'
-              : message,
+              : /NotReadable|TrackStart|in use/i.test(`${name} ${message}`)
+                ? 'The camera is busy — another app or tab is holding it. Close that and try again.'
+                : name
+                  ? `${name}: ${message}`
+                  : message,
         );
       }
     })();
@@ -109,7 +136,7 @@ export function BarcodeScanner({
       controlsRef.current?.stop();
       controlsRef.current = null;
     };
-  }, [open, deviceIndex, onScan]);
+  }, [open, deviceIndex]);
 
   return (
     <Modal
@@ -124,7 +151,9 @@ export function BarcodeScanner({
             <Button
               variant="secondary"
               icon={<SwitchCamera className="h-4 w-4" />}
-              onClick={() => setDeviceIndex((i) => (i + 1) % devices.length)}
+              onClick={() =>
+                setDeviceIndex(((deviceIndex ?? preferredRef.current) + 1) % devices.length)
+              }
             >
               Switch camera
             </Button>
