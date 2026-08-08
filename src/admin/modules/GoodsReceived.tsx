@@ -20,6 +20,7 @@ import {
   type ReceiptResult,
 } from '@/data/goodsReceived';
 import { matchInvoiceLines, readInvoicePdf, type ParsedInvoiceLine } from '@/lib/invoiceReader';
+import { suppliers } from '@/data/resources';
 import { formatDate, money, round2, toNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import {
@@ -29,6 +30,7 @@ import {
   Input,
   Modal,
   Notice,
+  Select,
   Textarea,
   type Column,
   useToast,
@@ -451,12 +453,7 @@ function GrvDialog({
       >
         <div className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-3">
-            <Input
-              label="Supplier"
-              value={supplier}
-              onChange={(e) => setSupplier(e.target.value)}
-              disabled={posted}
-            />
+            <SupplierSelect value={supplier} onChange={setSupplier} disabled={posted} />
             <Input
               label="Supplier invoice no."
               value={invoiceNo}
@@ -722,6 +719,45 @@ function GrvDialog({
 }
 
 /* ── What the posting did ────────────────────────────────────────────────── */
+
+/**
+ * Supplier picked from the suppliers list, stored as plain text — freehand
+ * names split one supplier's purchase history three ways, and now that
+ * posting raises a creditor bill, the name is also what the ledger matches
+ * the supplier account on. A name read off an invoice that is not in the
+ * list yet stays selectable, so old drafts keep working.
+ */
+function SupplierSelect({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const list = suppliers.useList({ orderBy: { column: 'name', ascending: true } });
+  const names = useMemo(() => {
+    const unique = [
+      ...new Set(
+        (list.data ?? []).map((row) => String(row.name ?? '').trim()).filter(Boolean),
+      ),
+    ];
+    if (value && !unique.includes(value)) unique.unshift(value);
+    return unique;
+  }, [list.data, value]);
+
+  return (
+    <Select
+      label="Supplier"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      options={names}
+      placeholder={list.isLoading ? 'Loading…' : '—'}
+      disabled={disabled}
+    />
+  );
+}
 
 function ReceiptDialog({ result, onClose }: { result: ReceiptResult; onClose: () => void }) {
   return (
