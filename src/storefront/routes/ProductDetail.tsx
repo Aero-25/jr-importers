@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   BellRing,
+  CalendarClock,
   Check,
   ChevronLeft,
   Minus,
@@ -20,6 +21,7 @@ import {
   useVariants,
 } from '@/data/products';
 import { useCart } from '@/data/cart';
+import { laybyDeposit, laybySuggestedInstalment } from '@/data/laybys';
 import { supabase } from '@/lib/supabase';
 import { STORE, isServiceCategory } from '@/lib/constants';
 import { money } from '@/lib/format';
@@ -363,6 +365,32 @@ export default function ProductDetail() {
               </Button>
             )}
           </div>
+
+          {product.category === 'Smartphones' && !outOfStock && (
+            <div className="mt-4 rounded-card border border-hairline p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <CalendarClock aria-hidden className="h-4 w-4 text-brand-400" />
+                Lay-buy it over 3 months
+              </p>
+              <p className="mt-1 text-sm text-ink-muted">
+                Pay a {money(laybyDeposit(Number(product.price)))} deposit now and the rest in your
+                own time within 3 months — about{' '}
+                {money(laybySuggestedInstalment(Number(product.price) - laybyDeposit(Number(product.price))))}{' '}
+                a month. The phone is reserved for you and handed over once fully paid.
+              </p>
+              <Button
+                variant="secondary"
+                className="mt-3"
+                onClick={() =>
+                  navigate(
+                    `/laybuy/${product.id}${colour ? `?color=${encodeURIComponent(colour)}` : ''}`,
+                  )
+                }
+              >
+                Buy on laybuy
+              </Button>
+            </div>
+          )}
             </>
           )}
 

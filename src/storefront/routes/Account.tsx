@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
-import { LogOut, Package } from 'lucide-react';
+import { CalendarClock, LogOut, Package } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 import { orderItems, useMyOrders } from '@/data/orders';
-import { formatDate, money } from '@/lib/format';
+import { laybySuggestedInstalment, useMyLaybys } from '@/data/laybys';
+import type { LaybyRow } from '@/lib/database.types';
+import { formatDate, money, toNumber } from '@/lib/format';
 import { Button, Card, EmptyState, Input, LoadingScreen, Notice, StatusBadge, useToast } from '@/ui';
+import { startInstalmentPayment } from './Laybuy';
 import { useSeo } from '../seo';
 
 export default function Account() {
@@ -47,6 +50,8 @@ function Overview() {
           Sign out
         </Button>
       </div>
+
+      <LaybySection />
 
       <section className="mt-8">
         <h2 className="font-display text-xl font-semibold text-ink">Your orders</h2>
@@ -102,6 +107,144 @@ function Overview() {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * The customer's laybuys: progress, balance, and paying an instalment by
+ * card. Any amount is accepted; the suggested figure is simply the balance
+ * spread over what remains of the three months.
+ */
+function LaybySection() {
+  const { user, profile } = useAuth();
+  const toast = useToast();
+  const laybys = useMyLaybys(user?.id);
+
+  if (!laybys.data || laybys.data.length === 0) return null;
+
+  return (
+    <section className="mt-8">
+      <h2 className="flex items-center gap-2 font-display text-xl font-semibold text-ink">
+        <CalendarClock aria-hidden className="h-5 w-5 text-brand-400" />
+        Your laybuys
+      </h2>
+      <ul className="mt-4 space-y-3">
+        {laybys.data.map((layby) => (
+          <li key={layby.id}>
+            <LaybyCard
+              layby={layby}
+              email={profile?.email ?? user?.email ?? ''}
+              name={profile?.full_name ?? ''}
+              onError={(message) => toast.error('Could not start the payment', message)}
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function LaybyCard({
+  layby,
+  email,
+  name,
+  onError,
+}: {
+  layby: LaybyRow;
+  email: string;
+  name: string;
+  onError: (message?: string) => void;
+}) {
+  const balance = Number(layby.balance_amount) || 0;
+  const total = Number(layby.total_amount) || 0;
+  const paidShare = total > 0 ? Math.min(1, (total - balance) / total) : 0;
+  const overdue =
+    layby.status === 'active' && layby.due_date !== null && layby.due_date < new Date().toISOString().slice(0, 10);
+
+  const [amount, setAmount] = useState(() => String(laybySuggestedInstalment(balance) || ''));
+  const [busy, setBusy] = useState(false);
+
+  const itemName = layby.items?.[0]?.name ?? 'Laybuy';
+
+  async function payNow() {
+    const value = Math.min(Math.max(toNumber(amount), 0), balance);
+    if (value <= 0) {
+      onError('Enter an amount to pay.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await startInstalmentPayment({
+        laybyId: layby.id,
+        laybyNumber: layby.layby_number ?? String(layby.id),
+        amount: value,
+        email,
+        name,
+      });
+      // The browser is navigating to DPO; nothing more happens here.
+    } catch (error) {
+      setBusy(false);
+      onError(error instanceof Error ? error.message : undefined);
+    }
+  }
+
+  return (
+    <Card className="p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-ink">
+            {layby.layby_number ?? `#${layby.id}`} · {itemName}
+            {layby.color ? ` · ${layby.color}` : ''}
+          </p>
+          <p className="mt-0.5 text-xs text-ink-muted">
+            Paid {money(total - balance)} of {money(total)}
+            {layby.due_date ? ` · due ${formatDate(layby.due_date)}` : ''}
+          </p>
+        </div>
+        <StatusBadge status={layby.status} />
+      </div>
+
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-raised">
+        <div
+          className="h-full rounded-full bg-brand-400 transition-all"
+          style={{ width: `${Math.round(paidShare * 100)}%` }}
+        />
+      </div>
+
+      {layby.status === 'completed' ? (
+        <p className="mt-3 text-sm text-success">
+          Fully paid — collect your phone at the shop.
+        </p>
+      ) : layby.status === 'cancelled' ? (
+        <p className="mt-3 text-sm text-ink-muted">
+          This laybuy was closed. Speak to the shop about using what was paid toward something
+          else.
+        </p>
+      ) : (
+        <>
+          {overdue && (
+            <Notice tone="warn" className="mt-3" title="Past its due date">
+              Laybuy payments are not refundable. Pay the balance, or speak to the shop about an
+              extension or putting what you have paid toward something else.
+            </Notice>
+          )}
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <Input
+              label={`Pay toward the ${money(balance)} balance`}
+              type="number"
+              inputMode="decimal"
+              min={0}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              containerClassName="w-44"
+            />
+            <Button loading={busy} onClick={() => void payNow()}>
+              Pay by card
+            </Button>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 

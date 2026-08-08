@@ -16,6 +16,15 @@ const Cart = lazy(() => import('./routes/Cart'));
 const Checkout = lazy(() => import('./routes/Checkout'));
 const OrderConfirmation = lazy(() => import('./routes/OrderConfirmation'));
 const Account = lazy(() => import('./routes/Account'));
+const LaybuyStart = lazy(() =>
+  import('./routes/Laybuy').then((m) => ({ default: m.LaybuyStart })),
+);
+const LaybuyConfirm = lazy(() =>
+  import('./routes/Laybuy').then((m) => ({ default: m.LaybuyConfirm })),
+);
+const LaybuyPayConfirm = lazy(() =>
+  import('./routes/Laybuy').then((m) => ({ default: m.LaybuyPayConfirm })),
+);
 const Support = lazy(() => import('./routes/Support'));
 const About = lazy(() => import('./routes/About'));
 const JobCardAccept = lazy(() => import('./routes/JobCardAccept'));
@@ -70,6 +79,9 @@ export function ShopApp() {
             <Route path="/product/:slug" element={<ProductDetail />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/laybuy/pay/:laybyId/confirm" element={<LaybuyPayConfirm />} />
+            <Route path="/laybuy/:id" element={<LaybuyStart />} />
+            <Route path="/laybuy/:id/confirm" element={<LaybuyConfirm />} />
             <Route path="/order/:id" element={<OrderConfirmation />} />
             <Route path="/account/*" element={<Account />} />
             <Route path="/support" element={<Support />} />

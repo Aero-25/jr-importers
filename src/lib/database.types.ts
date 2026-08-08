@@ -409,6 +409,8 @@ export type ServiceChargeRow = {
 
 export type InvoiceRow = {
   id: number;
+  /** Assigned by the database, in creation order. Never sent by the client. */
+  invoice_number: string | null;
   customer_id: string | null;
   customer_name: string | null;
   customer_email: string | null;
@@ -576,6 +578,11 @@ export type LaybyRow = {
   customer_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
+  /** Set when the laybuy was opened on the online shop. */
+  user_id: string | null;
+  product_id: number | null;
+  color: string | null;
+  source: 'store' | 'online' | string;
   items: LineItem[];
   total_amount: number;
   deposit_amount: number;
@@ -725,6 +732,22 @@ export type Database = {
       expire_stale_reservations: {
         Args: Record<PropertyKey, never>;
         Returns: number;
+      };
+      /* Online laybuys; see 20260808010000. Deposit is computed server-side. */
+      open_online_layby: {
+        Args: {
+          p_product_id: number;
+          p_color: string | null;
+          p_customer_name: string;
+          p_customer_phone: string;
+          p_customer_email: string;
+          p_reference: string;
+        };
+        Returns: Json;
+      };
+      pay_online_layby: {
+        Args: { p_layby_id: number; p_amount: number; p_reference: string };
+        Returns: Json;
       };
       /* Guest job-card surface. The table itself is unreadable without a staff
          session; these three take the link token instead. */
