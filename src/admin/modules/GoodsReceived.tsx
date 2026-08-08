@@ -493,26 +493,27 @@ function GrvDialog({
           )}
 
           {readSummary && !posted && (
-            <Notice tone={pending.length > 0 ? 'warn' : 'info'} title="Read from the invoice">
+            <Notice tone={pending.length > 0 ? 'danger' : 'info'} title="Read from the invoice">
               {readSummary}
             </Notice>
           )}
 
           {!posted && pending.length > 0 && (
-            <div className="rounded-xl border border-hairline p-3">
-              <p className="text-sm font-medium text-ink">
-                Lines from the invoice that need a product
+            <div className="rounded-xl border border-danger/40 bg-danger/5 p-3">
+              <p className="text-sm font-semibold text-danger">
+                {pending.length === 1 ? 'This line was' : 'These lines were'} not found in your
+                products
               </p>
-              <p className="mt-0.5 text-xs text-ink-subtle">
+              <p className="mt-0.5 text-xs text-ink-muted">
                 “Place” fills the search box below — pick the right product and the quantity and
-                cost carry over.
+                cost carry over. Nothing here reaches stock until it is placed.
               </p>
               <ul className="mt-2 space-y-2">
                 {pending.map((line, index) => (
                   <li
                     key={`${line.description}-${index}`}
                     className={cn(
-                      'flex flex-wrap items-center gap-2 rounded-lg border border-hairline px-3 py-2',
+                      'flex flex-wrap items-center gap-2 rounded-lg border border-danger/40 bg-surface px-3 py-2',
                       resolving === index && 'border-brand-400',
                     )}
                   >
