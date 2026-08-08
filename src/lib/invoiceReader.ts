@@ -103,7 +103,7 @@ const HEADER_ROW = /\b(description|qty|quantity|unit\s*price|price|amount|code|i
 /** Exported for tests: the parser half, fed with pre-extracted text rows. */
 export function parseInvoiceRows(rows: string[]): ParsedInvoice {
   const parsed: ParsedInvoice = {
-    supplier: firstSupplierRow(rows),
+    supplier: supplierFrom(rows),
     invoiceNumber: findInvoiceNumber(rows),
     invoiceDate: findDate(rows),
     vatAmount: null,
@@ -134,12 +134,19 @@ export function parseInvoiceRows(rows: string[]): ParsedInvoice {
   return parsed;
 }
 
+const DATE_IN_ROW = /\b\d{1,2}[/.-]\d{1,2}[/.-]20\d{2}\b/;
+const PAGE_IN_ROW = /\b\d+\s+of\s+\d+\b/i;
+
 /**
  * A line row is one where quantity × unit price equals one of the trailing
  * amounts. That arithmetic check is what separates real item rows from
- * addresses, phone numbers and VAT registration lines.
+ * addresses, phone numbers and VAT registration lines. Rows carrying a date
+ * or a "1 of 1" are header furniture, never stock — R&R's account strip
+ * (JRI003 29/07/2026 …) taught that one.
  */
 function parseLineRow(row: string): ParsedInvoiceLine | null {
+  if (DATE_IN_ROW.test(row) || PAGE_IN_ROW.test(row)) return null;
+
   const tokens = [...row.matchAll(AMOUNT_TOKEN)]
     .map((m) => ({ raw: m[0], value: parseAmount(m[0]), index: m.index ?? 0 }))
     .filter((t) => Number.isFinite(t.value) && t.value >= 0);
@@ -181,6 +188,29 @@ function parseLineRow(row: string): ParsedInvoiceLine | null {
     }
   }
 
+  // A zero-priced item row — labour, warranty, a freebie. R&R prints
+  // "LAB002 Richard Repair 1.00 0.00 0.00": the unit and total columns are
+  // both zero at the end of the row, and the quantity is the last plain
+  // integer before them (item codes like LAB002 shed digit tokens earlier in
+  // the row, which must not be mistaken for the quantity). Kept, so the
+  // count of lines read matches the paper; the dialog leaves it out of stock.
+  if (tokens.length >= 2 && /[a-z]{3,}/i.test(row)) {
+    const beforeLast = tokens[tokens.length - 2]!;
+    const last = tokens[tokens.length - 1]!;
+    if (beforeLast.value === 0 && last.value === 0) {
+      const qty = tokens
+        .slice(0, -2)
+        .reverse()
+        .find((t) => Number.isInteger(t.value) && t.value >= 1 && t.value <= 9999);
+      return {
+        description: descriptionFrom(row, [beforeLast, last, ...(qty ? [qty] : [])]),
+        quantity: qty?.value ?? 1,
+        unitPrice: 0,
+        lineTotal: 0,
+      };
+    }
+  }
+
   return null;
 }
 
@@ -193,7 +223,12 @@ function descriptionFrom(
   for (const t of [...used].sort((a, b) => b.index - a.index)) {
     text = text.slice(0, t.index) + ' '.repeat(t.raw.length) + text.slice(t.index + t.raw.length);
   }
-  return text.replace(/\s+/g, ' ').trim();
+  // Whatever numeric columns remain to the right of the quantity — discount
+  // percentages, VAT-per-line — are furniture, not description.
+  const cutFrom = Math.min(...used.map((t) => t.index));
+  const head = text.slice(0, cutFrom);
+  const tail = text.slice(cutFrom).replace(AMOUNT_TOKEN, (m) => ' '.repeat(m.length));
+  return (head + tail).replace(/\s+/g, ' ').trim();
 }
 
 function amountsIn(row: string): number[] {
@@ -202,24 +237,53 @@ function amountsIn(row: string): number[] {
     .filter((n) => Number.isFinite(n));
 }
 
-function firstSupplierRow(rows: string[]): string | null {
+/** Contact columns share the row with the name in boxed layouts — cut them. */
+function stripContactNoise(row: string): string {
+  return row
+    .replace(/\s*\b(telephone|tel\b|fax|e[\s-]?mail|vat\s+reg|vat\s+registration|invoice\s+date|p\s?o\s+box|cell)\b.*$/i, '')
+    .replace(/\s*\b(tax\s+invoice|invoice|quotation|statement)\b.*$/i, '')
+    .trim();
+}
+
+function supplierFrom(rows: string[]): string | null {
+  // Boxed layouts label the seller outright — the rows after "Invoice From"
+  // are the company block, interleaved with the contact column beside it.
+  const fromIndex = rows.findIndex((r) => /^invoice\s+from\b/i.test(r.trim()));
+  if (fromIndex >= 0) {
+    for (const row of rows.slice(fromIndex + 1, fromIndex + 4)) {
+      const cleaned = stripContactNoise(row);
+      if (cleaned.length >= 3 && /[a-z]/i.test(cleaned)) return cleaned;
+    }
+  }
+
   for (const row of rows.slice(0, 8)) {
     if (/^(tax\s+)?invoice|^quotation|^statement|^page\b/i.test(row)) continue;
     if (!/[a-z]/i.test(row)) continue;
     if (row.length < 3) continue;
-    // The document title often shares the top row with the company name.
-    const cleaned = row.replace(/\s*\b(tax\s+invoice|invoice|quotation|statement)\b.*$/i, '').trim();
-    return cleaned || row;
+    const cleaned = stripContactNoise(row);
+    if (cleaned) return cleaned;
   }
   return null;
 }
 
 function findInvoiceNumber(rows: string[]): string | null {
+  // The confident form first: INV12345 stands alone anywhere on the page.
+  for (const row of rows) {
+    const m = row.match(/\b(INV[-\s]?\d{3,})\b/i);
+    if (m && m[1]) return m[1].replace(/\s+/g, '');
+  }
+  // Then the labelled form — but an invoice number always carries a digit,
+  // and never looks like a date. Without those two rules, "Invoice From" and
+  // "Invoice Date 29/07/2026" both volunteer their neighbours.
   for (const row of rows) {
     const m = row.match(
       /(?:tax\s+invoice|invoice|inv)\s*(?:no|number|nr|#)?\s*[:#.]?\s+([A-Z0-9][\w\-\/]{2,})/i,
     );
-    if (m && m[1] && !/^date$/i.test(m[1])) return m[1];
+    const candidate = m?.[1];
+    if (!candidate) continue;
+    if (!/\d/.test(candidate)) continue;
+    if (/^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$/.test(candidate)) continue;
+    return candidate;
   }
   return null;
 }
@@ -267,10 +331,26 @@ const tokenize = (s: string): string[] =>
     .filter((t) => t.length > 1);
 
 /**
+ * Words that mean the line is a spare part or a service, not the device
+ * itself. "Ulefone Armor 22 small pcb chargingport" contains the phone's
+ * full name — only the vocabulary tells it apart from the phone.
+ */
+const PART_WORDS = new Set([
+  'pcb', 'board', 'port', 'chargingport', 'charging', 'lcd', 'screen',
+  'digitizer', 'battery', 'housing', 'flex', 'glass', 'lens', 'repair',
+  'labour', 'labor', 'service', 'replacement', 'speaker', 'buzzer', 'mic',
+  'microphone', 'antenna', 'cover', 'backcover', 'frame', 'connector',
+  'button', 'ribbon', 'camera',
+]);
+
+/**
  * SKU or barcode appearing verbatim in the line is decisive. Otherwise the
- * product whose name-tokens are covered best by the description wins, and
- * only when the coverage is convincing — a wrong match posted into stock is
- * worse than a line handed back for a human to place.
+ * product's name-tokens must be covered almost entirely — and every token
+ * that carries a digit (A15, X13, 128GB: the model designators) must appear,
+ * because those are what tell a handset from its spare part. "Ulefone Armor
+ * 22 small pcb chargingport" once matched the Armor X13 handset on brand
+ * words alone; a wrong match posted into stock is worse than a line handed
+ * back for a human to place.
  */
 export function matchInvoiceLines(
   lines: ParsedInvoiceLine[],
@@ -295,9 +375,18 @@ export function matchInvoiceLines(
       }
       const nameTokens = tokenize(product.name);
       if (nameTokens.length === 0) continue;
+
+      const modelTokens = nameTokens.filter((t) => /\d/.test(t));
+      if (!modelTokens.every((t) => words.has(t))) continue;
+
+      // Part-vocabulary in the description that the product's own name does
+      // not carry means this line is ABOUT the product, not the product.
+      const nameSet = new Set(nameTokens);
+      if ([...words].some((w) => PART_WORDS.has(w) && !nameSet.has(w))) continue;
+
       const hit = nameTokens.filter((t) => words.has(t)).length;
       const score = hit / nameTokens.length;
-      if (hit >= 2 && score >= 0.6 && (!best || score > best.score)) {
+      if (hit >= 2 && score >= 0.7 && (!best || score > best.score)) {
         best = { product, score };
       }
     }

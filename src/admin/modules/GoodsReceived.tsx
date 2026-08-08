@@ -295,7 +295,12 @@ function GrvDialog({
     try {
       const parsed = await readInvoicePdf(file);
       const catalog = await fetchIntakeCatalog();
-      const { matched, unmatched } = matchInvoiceLines(parsed.lines, catalog);
+
+      // Zero-priced rows are labour, warranty or freebies — counted so the
+      // line tally matches the paper, but never offered as stock.
+      const priced = parsed.lines.filter((l) => l.lineTotal > 0);
+      const zeroCount = parsed.lines.length - priced.length;
+      const { matched, unmatched } = matchInvoiceLines(priced, catalog);
 
       if (parsed.supplier && !supplier.trim()) setSupplier(parsed.supplier);
       if (parsed.invoiceNumber && !invoiceNo.trim()) setInvoiceNo(parsed.invoiceNumber);
@@ -329,8 +334,12 @@ function GrvDialog({
           parsed.totalAmount !== null
             ? ` The invoice says ${money(parsed.totalAmount)} — compare it with the total below.`
             : '';
+        const zeroNote =
+          zeroCount > 0
+            ? ` ${zeroCount} zero-priced line${zeroCount === 1 ? '' : 's'} (labour or warranty) left out.`
+            : '';
         setReadSummary(
-          `Read ${parsed.lines.length} line${parsed.lines.length === 1 ? '' : 's'}: ${matched.length} matched to products, ${unmatched.length} need placing. Check every quantity and cost against the document before posting.${totalNote}`,
+          `Read ${parsed.lines.length} line${parsed.lines.length === 1 ? '' : 's'}: ${matched.length} matched to products, ${unmatched.length} need placing.${zeroNote} Check every quantity and cost against the document before posting.${totalNote}`,
         );
       }
     } catch (error) {

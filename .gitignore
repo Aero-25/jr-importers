@@ -46,3 +46,6 @@ mobile/www/offline.html
 
 # Capacitor bundle — generated from dist/ by mobile/copy-web.js
 /mobile/www/
+
+# Real supplier invoices used to tune the invoice reader. Not published.
+docs/samples/
