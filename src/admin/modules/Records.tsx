@@ -1,8 +1,19 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import type { createResource } from '@/data/crud';
 import { customers, suppliers } from '@/data/resources';
-import { formatDate, formatDateTime, money, toDateInput, toNumber, truncate } from '@/lib/format';
+import { products } from '@/data/products';
+import type { LineItem } from '@/lib/database.types';
+import {
+  DEFAULT_VAT_RATE,
+  formatDate,
+  formatDateTime,
+  money,
+  round2,
+  toDateInput,
+  toNumber,
+  truncate,
+} from '@/lib/format';
 import {
   Badge,
   Button,
@@ -217,6 +228,19 @@ function RecordDialog({
   const isNew = record === 'new';
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Document lines, for specs that carry them. Prices are VAT-inclusive, so
+  // the money fields are derived here and never typed.
+  const [items, setItems] = useState<LineItem[]>(() =>
+    !isNew && spec.lineItems && Array.isArray((record as AnyRow).items)
+      ? ((record as AnyRow).items as LineItem[])
+      : [],
+  );
+  const itemTotals = useMemo(() => {
+    const total = round2(items.reduce((n, l) => n + (Number(l.line_total) || 0), 0));
+    const vat = round2((total * DEFAULT_VAT_RATE) / (1 + DEFAULT_VAT_RATE));
+    return { total, vat, subtotal: round2(total - vat) };
+  }, [items]);
+
   const [form, setForm] = useState<Record<string, unknown>>(() => {
     const initial: Record<string, unknown> = {};
     for (const field of spec.fields) {
@@ -247,16 +271,28 @@ function RecordDialog({
     }
 
     // Read-only fields are display-only projections of server state; sending
-    // them back would fight triggers like `times_used`.
+    // them back would fight triggers like `times_used`. Computed fields are
+    // the dialog's own arithmetic, written below from the lines.
     const values: Record<string, unknown> = {};
     for (const field of spec.fields) {
-      if (field.type === 'readonly') continue;
+      if (field.type === 'readonly' || field.computed) continue;
       const raw = form[field.key];
 
       if (field.type === 'checkbox') values[field.key] = Boolean(raw);
       else if (field.type === 'money' || field.type === 'number')
         values[field.key] = raw === '' ? null : toNumber(raw as string);
       else values[field.key] = String(raw ?? '').trim() || null;
+    }
+
+    if (spec.lineItems) {
+      if (items.length === 0) {
+        toast.warn('Add at least one line', 'A document with nothing on it says nothing.');
+        return;
+      }
+      values.items = items;
+      values.total_amount = itemTotals.total;
+      values.vat_amount = itemTotals.vat;
+      values.subtotal_amount = itemTotals.subtotal;
     }
 
     try {
@@ -273,7 +309,9 @@ function RecordDialog({
     }
   }
 
-  const editable = spec.fields.filter((field) => !spec.readOnly || field.type === 'readonly');
+  const editable = spec.fields.filter(
+    (field) => (!spec.readOnly || field.type === 'readonly') && !field.computed,
+  );
 
   return (
     <>
@@ -318,6 +356,12 @@ function RecordDialog({
             />
           ))}
         </div>
+
+        {spec.lineItems && !spec.readOnly && (
+          <div className="mt-4">
+            <LineItemsEditor items={items} onChange={setItems} totals={itemTotals} />
+          </div>
+        )}
 
         {/* Staff only. The record says what somebody may do; this says whether
             they can get through the door at all, and the two were separate
@@ -472,6 +516,189 @@ function FieldControl({
         />
       );
   }
+}
+
+/**
+ * Line items on a document: search the catalogue, set quantities and prices,
+ * and watch the totals follow. Custom lines cover what the catalogue does
+ * not — delivery, labour, a discount stated as its own line.
+ */
+function LineItemsEditor({
+  items,
+  onChange,
+  totals,
+}: {
+  items: LineItem[];
+  onChange: (items: LineItem[]) => void;
+  totals: { total: number; vat: number; subtotal: number };
+}) {
+  const [term, setTerm] = useState('');
+  const lookup = products.useList(
+    {
+      search: { term, columns: ['name', 'sku', 'barcode'] },
+      eq: { active: true },
+      limit: 12,
+      orderBy: { column: 'name', ascending: true },
+    },
+    { enabled: term.trim().length > 1 },
+  );
+
+  function patch(index: number, values: Partial<LineItem>) {
+    onChange(
+      items.map((line, i) => {
+        if (i !== index) return line;
+        const next = { ...line, ...values };
+        next.line_total = Math.round(next.quantity * next.price * 100) / 100;
+        return next;
+      }),
+    );
+  }
+
+  function addProduct(p: {
+    id: number;
+    name: string;
+    sku: string | null;
+    color: string | null;
+    price: number;
+    cost_price: number;
+  }) {
+    setTerm('');
+    if (items.some((l) => l.product_id === p.id)) return;
+    onChange([
+      ...items,
+      {
+        product_id: p.id,
+        name: p.name,
+        sku: p.sku,
+        color: p.color,
+        price: Number(p.price) || 0,
+        cost_price: Number(p.cost_price) || 0,
+        quantity: 1,
+        line_total: Number(p.price) || 0,
+      },
+    ]);
+  }
+
+  return (
+    <div className="rounded-xl border border-hairline p-3">
+      <p className="text-sm font-semibold text-ink">Lines</p>
+
+      <div className="mt-2">
+        <Input
+          placeholder="Search the catalogue by name, SKU or barcode…"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          leading={<Search className="h-4 w-4" />}
+        />
+        {(lookup.data ?? []).length > 0 && (
+          <ul className="mt-2 max-h-40 divide-y divide-hairline/70 overflow-y-auto rounded-xl border border-hairline">
+            {(lookup.data ?? []).map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => addProduct(p)}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-raised"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink">{p.name}</span>
+                  <span className="tabular shrink-0 text-xs text-ink-subtle">
+                    {money(Number(p.price) || 0)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {items.length === 0 ? (
+        <p className="mt-3 rounded-lg border border-dashed border-hairline p-4 text-center text-sm text-ink-muted">
+          Nothing on this document yet.
+        </p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {items.map((line, index) => (
+            <li
+              key={`${line.product_id ?? 'custom'}-${index}`}
+              className="flex flex-wrap items-end gap-2 rounded-lg border border-hairline px-3 py-2"
+            >
+              {line.product_id ? (
+                <div className="min-w-[9rem] flex-1">
+                  <p className="truncate text-sm font-medium text-ink">{line.name}</p>
+                  <p className="text-xs text-ink-subtle">{line.sku ?? '—'}</p>
+                </div>
+              ) : (
+                <Input
+                  placeholder="Describe the line…"
+                  value={line.name}
+                  onChange={(e) =>
+                    onChange(items.map((l, i) => (i === index ? { ...l, name: e.target.value } : l)))
+                  }
+                  containerClassName="min-w-[9rem] flex-1"
+                />
+              )}
+              <Input
+                label="Qty"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                className="w-18"
+                containerClassName="w-20"
+                value={line.quantity || ''}
+                onChange={(e) =>
+                  patch(index, { quantity: Math.max(0, Math.floor(toNumber(e.target.value))) })
+                }
+              />
+              <Input
+                label="Price (incl)"
+                type="number"
+                inputMode="decimal"
+                className="w-24"
+                containerClassName="w-28"
+                value={line.price || ''}
+                onChange={(e) => patch(index, { price: toNumber(e.target.value) })}
+              />
+              <span className="tabular pb-2 text-sm font-semibold text-ink">
+                {money(line.line_total ?? 0)}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<Trash2 className="h-4 w-4" />}
+                onClick={() => onChange(items.filter((_, i) => i !== index))}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-3">
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={<Plus className="h-4 w-4" />}
+          onClick={() =>
+            onChange([...items, { name: '', price: 0, quantity: 1, line_total: 0 }])
+          }
+        >
+          Custom line
+        </Button>
+        <dl className="ml-auto space-y-0.5 text-right text-sm">
+          <div className="flex justify-end gap-6">
+            <dt className="text-ink-muted">Subtotal (excl VAT)</dt>
+            <dd className="tabular w-24 text-ink">{money(totals.subtotal)}</dd>
+          </div>
+          <div className="flex justify-end gap-6">
+            <dt className="text-ink-muted">VAT 15%</dt>
+            <dd className="tabular w-24 text-ink">{money(totals.vat)}</dd>
+          </div>
+          <div className="flex justify-end gap-6 font-semibold">
+            <dt className="text-ink">Total (incl)</dt>
+            <dd className="tabular w-24 text-ink">{money(totals.total)}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  );
 }
 
 /**

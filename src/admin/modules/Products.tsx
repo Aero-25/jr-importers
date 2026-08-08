@@ -312,6 +312,34 @@ function ProductDialog({
       featured: form.featured,
     };
 
+    // A SKU or barcode shared by two products splits one item's stock and
+    // history between them — the column is not unique in the database, so
+    // the guard lives here, where the mistake is made.
+    for (const key of ['sku', 'barcode'] as const) {
+      const value = values[key];
+      if (!value) continue;
+      const { data: clash } = await supabase
+        .from('products')
+        .select('id, name')
+        .eq(key, value)
+        .limit(2);
+      const other = (clash ?? []).find((d) => isNew || d.id !== (product as ProductRow).id);
+      if (other) {
+        toast.error(
+          `That ${key === 'sku' ? 'SKU' : 'barcode'} is taken`,
+          `Already on “${other.name}”. Two products sharing one code split its stock history.`,
+        );
+        return;
+      }
+    }
+
+    if (values.cost_price > 0 && values.price > 0 && values.price < values.cost_price) {
+      toast.warn(
+        'Priced below cost',
+        `Selling at ${money(values.price)} against a cost of ${money(values.cost_price)} is a loss on every unit. Saved anyway — check it.`,
+      );
+    }
+
     try {
       if (isNew) {
         await create.mutateAsync(values);

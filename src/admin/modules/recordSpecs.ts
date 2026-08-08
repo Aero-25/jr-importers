@@ -31,6 +31,11 @@ export interface FieldSpec {
    * name is stored as plain text, so existing rows keep working unchanged.
    */
   lookup?: 'suppliers' | 'customers';
+  /**
+   * Derived from the line items, never typed. Shown in the form as a plain
+   * figure and skipped on save — the dialog computes and writes it itself.
+   */
+  computed?: boolean;
   required?: boolean;
   hint?: string;
   /** Show as a table column. Fields without this are edit-only. */
@@ -52,6 +57,13 @@ export interface RecordSpec {
   /** Inbound records the shop writes; staff read and action but do not author. */
   readOnly?: boolean;
   createLabel?: string;
+  /**
+   * The record carries an `items` jsonb column: the dialog gets a line-item
+   * editor (product search, quantities, prices) and computes the money
+   * fields from the lines. Prices are VAT-inclusive throughout, so the VAT
+   * shown is worked backwards out of the total, same as the till.
+   */
+  lineItems?: boolean;
 }
 
 const money = (key: string, label: string, extra: Partial<FieldSpec> = {}): FieldSpec => ({
@@ -173,6 +185,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     table: 'quotes',
     resource: resources.quotes,
     searchColumns: ['quote_number', 'customer_name', 'customer_email'],
+    lineItems: true,
     fields: [
       {
         key: 'quote_number',
@@ -181,12 +194,12 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         inList: true,
         hint: 'Assigned automatically when the quote is created — numbers run in order.',
       },
-      { key: 'customer_name', label: 'Customer', type: 'text', required: true, inList: true },
+      { key: 'customer_name', label: 'Customer', type: 'lookup', lookup: 'customers', required: true, inList: true },
       { key: 'customer_email', label: 'Email', type: 'email' },
       { key: 'customer_phone', label: 'Phone', type: 'tel' },
-      money('subtotal_amount', 'Subtotal', { secondary: true }),
-      money('vat_amount', 'VAT', { secondary: true }),
-      money('total_amount', 'Total', { inList: true }),
+      money('subtotal_amount', 'Subtotal (excl VAT)', { secondary: true, computed: true }),
+      money('vat_amount', 'VAT', { secondary: true, computed: true }),
+      money('total_amount', 'Total', { inList: true, computed: true }),
       { key: 'valid_until', label: 'Valid until', type: 'date', inList: true, secondary: true },
       { key: 'status', label: 'Status', type: 'select', options: QUOTE_STATUSES, inList: true },
       { key: 'notes', label: 'Notes', type: 'textarea', wide: true },
@@ -199,6 +212,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     table: 'invoices',
     resource: resources.invoices,
     searchColumns: ['invoice_number', 'customer_name', 'customer_email'],
+    lineItems: true,
     fields: [
       {
         key: 'invoice_number',
@@ -207,11 +221,11 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         inList: true,
         hint: 'Assigned automatically when the invoice is created — numbers run in order.',
       },
-      { key: 'customer_name', label: 'Customer', type: 'text', required: true, inList: true },
+      { key: 'customer_name', label: 'Customer', type: 'lookup', lookup: 'customers', required: true, inList: true },
       { key: 'customer_email', label: 'Email', type: 'email', inList: true, secondary: true },
-      money('subtotal_amount', 'Subtotal', { secondary: true }),
-      money('vat_amount', 'VAT', { secondary: true }),
-      money('total_amount', 'Total', { inList: true }),
+      money('subtotal_amount', 'Subtotal (excl VAT)', { secondary: true, computed: true }),
+      money('vat_amount', 'VAT', { secondary: true, computed: true }),
+      money('total_amount', 'Total', { inList: true, computed: true }),
       { key: 'due_date', label: 'Due', type: 'date', inList: true },
       { key: 'status', label: 'Status', type: 'select', options: INVOICE_STATUSES, inList: true },
     ],
@@ -224,8 +238,14 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     resource: resources.laybys,
     searchColumns: ['layby_number', 'customer_name', 'customer_phone'],
     fields: [
-      { key: 'layby_number', label: 'Layby no.', type: 'text', inList: true },
-      { key: 'customer_name', label: 'Customer', type: 'text', required: true, inList: true },
+      {
+        key: 'layby_number',
+        label: 'Layby no.',
+        type: 'readonly',
+        inList: true,
+        hint: 'Assigned automatically — numbers run in order.',
+      },
+      { key: 'customer_name', label: 'Customer', type: 'lookup', lookup: 'customers', required: true, inList: true },
       { key: 'customer_phone', label: 'Phone', type: 'tel', secondary: true, inList: true },
       money('total_amount', 'Total', { inList: true }),
       money('deposit_amount', 'Deposit'),
