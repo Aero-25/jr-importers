@@ -108,6 +108,20 @@ export function useGrvFromPurchaseOrder() {
   });
 }
 
+/**
+ * The whole active catalogue in one read, for matching invoice lines locally.
+ * At the shop's size this is a small payload; matching in the browser keeps
+ * the invoice reader free of round trips.
+ */
+export async function fetchIntakeCatalog() {
+  const { data, error } = await supabase
+    .from('products')
+    .select('id, name, sku, barcode, color, cost_price')
+    .eq('active', true);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 /** Product lookup for adding lines to a delivery. */
 export function useProductLookup(term: string) {
   return useQuery({

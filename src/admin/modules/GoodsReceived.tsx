@@ -1,7 +1,16 @@
-import { useMemo, useState } from 'react';
-import { CheckCircle2, PackageCheck, Plus, ScanLine, Trash2, Truck } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import {
+  CheckCircle2,
+  FileSearch,
+  PackageCheck,
+  Plus,
+  ScanLine,
+  Trash2,
+  Truck,
+} from 'lucide-react';
 import type { GrvRow, IntakeLine } from '@/lib/database.types';
 import {
+  fetchIntakeCatalog,
   useGrvFromPurchaseOrder,
   useGrvs,
   useOpenPurchaseOrders,
@@ -10,6 +19,7 @@ import {
   useSaveGrv,
   type ReceiptResult,
 } from '@/data/goodsReceived';
+import { matchInvoiceLines, readInvoicePdf, type ParsedInvoiceLine } from '@/lib/invoiceReader';
 import { formatDate, money, round2, toNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import {
@@ -229,6 +239,14 @@ function GrvDialog({
   const [term, setTerm] = useState('');
   const [scanFor, setScanFor] = useState<number | null>(null);
 
+  // The invoice reader. Parsed lines that matched a product land straight in
+  // `lines`; the rest wait in `pending` until staff place or dismiss them.
+  const pdfRef = useRef<HTMLInputElement>(null);
+  const [reading, setReading] = useState(false);
+  const [pending, setPending] = useState<ParsedInvoiceLine[]>([]);
+  const [resolving, setResolving] = useState<number | null>(null);
+  const [readSummary, setReadSummary] = useState<string | null>(null);
+
   const lookup = useProductLookup(term);
   const total = useMemo(() => round2(lines.reduce((n, l) => n + l.line_total, 0)), [lines]);
   const units = useMemo(() => lines.reduce((n, l) => n + l.quantity, 0), [lines]);
@@ -241,6 +259,17 @@ function GrvDialog({
     color: string | null;
     cost_price: number;
   }) {
+    // Picking a result while placing an unmatched invoice line carries that
+    // line's quantity and cost across, and settles it.
+    const fromInvoice = resolving !== null ? pending[resolving] : undefined;
+    if (resolving !== null) {
+      setPending((current) => current.filter((_, i) => i !== resolving));
+      setResolving(null);
+    }
+
+    const quantity = fromInvoice?.quantity ?? 1;
+    const unitCost = fromInvoice?.unitPrice ?? Number(p.cost_price) ?? 0;
+
     setTerm('');
     setLines((current) =>
       current.some((l) => l.product_id === p.id)
@@ -252,13 +281,67 @@ function GrvDialog({
               name: p.name,
               sku: p.sku,
               color: p.color,
-              quantity: 1,
-              unit_cost: Number(p.cost_price) || 0,
-              line_total: Number(p.cost_price) || 0,
+              quantity,
+              unit_cost: unitCost,
+              line_total: round2(quantity * unitCost),
               imeis: [],
             },
           ],
     );
+  }
+
+  async function readInvoice(file: File) {
+    setReading(true);
+    try {
+      const parsed = await readInvoicePdf(file);
+      const catalog = await fetchIntakeCatalog();
+      const { matched, unmatched } = matchInvoiceLines(parsed.lines, catalog);
+
+      if (parsed.supplier && !supplier.trim()) setSupplier(parsed.supplier);
+      if (parsed.invoiceNumber && !invoiceNo.trim()) setInvoiceNo(parsed.invoiceNumber);
+      if (parsed.invoiceDate) setInvoiceDate(parsed.invoiceDate);
+
+      setLines((current) => {
+        const next = [...current];
+        for (const { product, line } of matched) {
+          if (next.some((l) => l.product_id === product.id)) continue;
+          next.push({
+            product_id: product.id,
+            name: product.name,
+            sku: product.sku,
+            color: product.color,
+            quantity: line.quantity,
+            unit_cost: line.unitPrice,
+            line_total: round2(line.quantity * line.unitPrice),
+            imeis: [],
+          });
+        }
+        return next;
+      });
+      setPending(unmatched);
+
+      if (parsed.lines.length === 0) {
+        setReadSummary(
+          'No line items could be read from that PDF — its layout is unfamiliar. Add the lines by hand, and consider sending this invoice layout to whoever maintains the system.',
+        );
+      } else {
+        const totalNote =
+          parsed.totalAmount !== null
+            ? ` The invoice says ${money(parsed.totalAmount)} — compare it with the total below.`
+            : '';
+        setReadSummary(
+          `Read ${parsed.lines.length} line${parsed.lines.length === 1 ? '' : 's'}: ${matched.length} matched to products, ${unmatched.length} need placing. Check every quantity and cost against the document before posting.${totalNote}`,
+        );
+      }
+    } catch (error) {
+      toast.error(
+        'Could not read that PDF',
+        error instanceof Error ? error.message : undefined,
+      );
+    } finally {
+      setReading(false);
+      if (pdfRef.current) pdfRef.current.value = '';
+    }
   }
 
   function patch(index: number, values: Partial<IntakeLine>) {
@@ -379,6 +462,84 @@ function GrvDialog({
               disabled={posted}
             />
           </div>
+
+          {!posted && (
+            <div className="flex items-end gap-2">
+              <input
+                ref={pdfRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void readInvoice(file);
+                }}
+              />
+              <Button
+                variant="secondary"
+                icon={<FileSearch className="h-4 w-4" />}
+                loading={reading}
+                onClick={() => pdfRef.current?.click()}
+              >
+                Read invoice PDF
+              </Button>
+            </div>
+          )}
+
+          {readSummary && !posted && (
+            <Notice tone={pending.length > 0 ? 'warn' : 'info'} title="Read from the invoice">
+              {readSummary}
+            </Notice>
+          )}
+
+          {!posted && pending.length > 0 && (
+            <div className="rounded-xl border border-hairline p-3">
+              <p className="text-sm font-medium text-ink">
+                Lines from the invoice that need a product
+              </p>
+              <p className="mt-0.5 text-xs text-ink-subtle">
+                “Place” fills the search box below — pick the right product and the quantity and
+                cost carry over.
+              </p>
+              <ul className="mt-2 space-y-2">
+                {pending.map((line, index) => (
+                  <li
+                    key={`${line.description}-${index}`}
+                    className={cn(
+                      'flex flex-wrap items-center gap-2 rounded-lg border border-hairline px-3 py-2',
+                      resolving === index && 'border-brand-400',
+                    )}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                      {line.description || '(no description read)'}
+                    </span>
+                    <span className="tabular shrink-0 text-xs text-ink-subtle">
+                      {line.quantity} × {money(line.unitPrice)}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant={resolving === index ? 'primary' : 'secondary'}
+                      onClick={() => {
+                        setResolving(index);
+                        setTerm(line.description.slice(0, 40));
+                      }}
+                    >
+                      Place
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={<Trash2 className="h-4 w-4" />}
+                      onClick={() => {
+                        setPending((c) => c.filter((_, i) => i !== index));
+                        if (resolving === index) setResolving(null);
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {!posted && (
             <div>
