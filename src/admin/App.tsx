@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Link, Route, Routes, useLocation } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 import { isConfigured } from '@/lib/supabase';
 import { LoadingScreen, Notice } from '@/ui';
@@ -51,6 +52,7 @@ function NotPermitted() {
 
 export function AdminApp() {
   const { ready, isAuthenticated, isStaff, isAdmin, profile } = useAuth();
+  const location = useLocation();
 
   if (!isConfigured) {
     return (
@@ -79,6 +81,30 @@ export function AdminApp() {
     );
   }
 
+  // The till is a full-screen surface of its own, not a panel inside the
+  // console. A cashier lives on this screen all day; the sidebar and header
+  // only cost space and invite mis-taps. One clearly-marked way back.
+  if (location.pathname === '/pos' || location.pathname.startsWith('/pos/')) {
+    return (
+      <div className="min-h-screen">
+        <div className="flex items-center justify-between border-b border-hairline px-4 py-2">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to console
+          </Link>
+          <span className="text-sm font-semibold text-ink">JR Importers · Till</span>
+          <span className="w-28 text-right text-xs text-ink-subtle">{profile?.full_name ?? ''}</span>
+        </div>
+        <Suspense fallback={<LoadingScreen />}>
+          <Pos />
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
     <AdminShell>
       <Suspense fallback={<LoadingScreen />}>
@@ -96,7 +122,6 @@ export function AdminApp() {
           {/* Schema-driven CRUD covers the modules with no bespoke domain rules. */}
           <Route path="/customers" element={<Records resource="customers" />} />
           <Route path="/suppliers" element={<Records resource="suppliers" />} />
-          <Route path="/messages" element={<Records resource="messages" />} />
           <Route path="/requests" element={<Records resource="requests" />} />
           <Route path="/stock-alerts" element={<Records resource="stock_alerts" />} />
           <Route path="/quotes" element={<Records resource="quotes" />} />
