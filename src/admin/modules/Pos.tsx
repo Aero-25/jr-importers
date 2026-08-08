@@ -21,6 +21,9 @@ import {
   useShiftSales,
 } from '@/data/till';
 import { useOfflineSales } from '@/data/offlineSales';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { keys } from '@/data/keys';
 import { cartTotals } from '@/data/cart';
 import { useAuth } from '@/auth/AuthProvider';
 import { PAYMENT_METHODS } from '@/lib/constants';
@@ -137,7 +140,11 @@ export default function Pos() {
     setDiscount('');
   }
 
-  async function finalise(paymentMethod: string, tendered: number) {
+  async function finalise(
+    paymentMethod: string,
+    tendered: number,
+    customer: { id?: string | null; name?: string | null; phone?: string | null } | null,
+  ) {
     setSelling(true);
     try {
       const sold = await till.sell({
@@ -147,6 +154,7 @@ export default function Pos() {
         amountTendered: tendered,
         cashierName: cashier,
         shiftId: shift.data?.id ?? null,
+        customer: customer ?? undefined,
       });
 
       const outcome = sold.outcome;
@@ -686,11 +694,73 @@ function TenderDialog({
   open: boolean;
   onClose: () => void;
   total: number;
-  onConfirm: (method: string, tendered: number) => void;
+  onConfirm: (
+    method: string,
+    tendered: number,
+    customer: { id?: string | null; name?: string | null; phone?: string | null } | null,
+  ) => void;
   busy: boolean;
 }) {
   const [method, setMethod] = useState<string>('Cash');
   const [tendered, setTendered] = useState('');
+
+  // Account sale is the default: the shop knows its customers, and their
+  // cellphone number is their account number. How the money arrives — cash,
+  // card, EFT — is a separate question, asked regardless.
+  const [mode, setMode] = useState<'account' | 'walkin'>('account');
+  const [phone, setPhone] = useState('');
+  const [newName, setNewName] = useState('');
+
+  const digits = phone.replace(/\D/g, '');
+  const account = useQuery({
+    queryKey: keys.list('customers', { account: digits }),
+    enabled: mode === 'account' && digits.length >= 6,
+    queryFn: async () => {
+      const tail = digits.slice(-7);
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, name, email, phone')
+        .ilike('phone', `%${tail}%`)
+        .limit(3);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const matched = (account.data ?? [])[0] ?? null;
+  const accountIncomplete = mode === 'account' && digits.length < 6;
+
+  async function confirm() {
+    if (mode === 'walkin') {
+      onConfirm(method, toNumber(tendered) || total, null);
+      return;
+    }
+
+    if (matched) {
+      onConfirm(method, toNumber(tendered) || total, {
+        id: matched.id,
+        name: matched.name,
+        phone: matched.phone ?? phone.trim(),
+      });
+      return;
+    }
+
+    // A number the book does not know opens an account on the spot when a
+    // name is given — best-effort: offline, the sale still goes through with
+    // the details carried on the order itself.
+    let id: string | null = null;
+    const name = newName.trim() || 'Account customer';
+    try {
+      const { data } = await supabase
+        .from('customers')
+        .insert({ name, phone: phone.trim() })
+        .select('id')
+        .single();
+      id = (data as { id: string } | null)?.id ?? null;
+    } catch {
+      // Offline or refused — the order still records name and number.
+    }
+    onConfirm(method, toNumber(tendered) || total, { id, name, phone: phone.trim() });
+  }
 
   const value = toNumber(tendered);
   const change = round2(value - total);
@@ -723,8 +793,8 @@ function TenderDialog({
           <Button
             variant="success"
             loading={busy}
-            disabled={short}
-            onClick={() => onConfirm(method, value || total)}
+            disabled={short || accountIncomplete}
+            onClick={() => void confirm()}
           >
             Complete sale
           </Button>
@@ -732,6 +802,56 @@ function TenderDialog({
       }
     >
       <div className="space-y-3">
+        <div className="flex gap-1 rounded-xl border border-hairline p-1">
+          {(
+            [
+              ['account', 'Account sale'],
+              ['walkin', 'Walk-in'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setMode(value)}
+              className={cn(
+                'flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                mode === value ? 'bg-brand-600 text-white' : 'text-ink-muted hover:bg-raised',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'account' && (
+          <div>
+            <Input
+              label="Account number (cellphone)"
+              type="tel"
+              inputMode="tel"
+              placeholder="081…"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              data-autofocus
+            />
+            {matched ? (
+              <p className="mt-1 text-sm font-medium text-success">
+                {matched.name} · {matched.phone}
+              </p>
+            ) : digits.length >= 6 && !account.isLoading ? (
+              <div className="mt-2">
+                <p className="text-sm text-danger">No account with this number.</p>
+                <Input
+                  label="Customer name — opens the account"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  containerClassName="mt-1"
+                />
+              </div>
+            ) : null}
+          </div>
+        )}
+
         <Select
           label="Payment method"
           value={method}
