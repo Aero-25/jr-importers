@@ -79,4 +79,13 @@ export const config: RuntimeConfig = {
 /** True once Supabase is reachable. Screens render an explicit setup notice otherwise. */
 export const isConfigured = Boolean(config.SUPABASE_URL && config.SUPABASE_ANON_KEY);
 
+/**
+ * Where staff download the console's Android build.
+ *
+ * CI uploads every APK to the public `apk` storage bucket. A GitHub release
+ * exists too, but the repo is private, so its download URL turns a staff
+ * phone away with a 404 — storage is the copy the buttons must point at.
+ */
+export const ADMIN_APK_URL = `${config.SUPABASE_URL}/storage/v1/object/public/apk/JR-Importers-Admin.apk`;
+
 export const isDev = import.meta.env.DEV;

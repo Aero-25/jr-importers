@@ -216,13 +216,6 @@ export const STORE = {
 /** How long a checkout holds stock before the reservation lapses. */
 export const STOCK_RESERVATION_MINUTES = 30;
 
-/**
- * The console packaged as an Android app. CI republishes this exact URL on
- * every admin build (`android-latest` release), so linking it never goes stale.
- */
-export const ADMIN_APK_URL =
-  'https://github.com/Aero-25/jr-importers/releases/download/android-latest/JR-Importers-Admin.apk';
-
 /* ── Repair job cards ────────────────────────────────────────────────────── */
 
 export const JOB_CARD_STATUSES = [

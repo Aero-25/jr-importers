@@ -81,6 +81,27 @@ jobs:
           mkdir -p out
           cp mobile/android/app/build/outputs/apk/debug/app-debug.apk out/JR-Importers-Admin.apk
 
+      # The repo is private, so the GitHub release below is unreachable from a
+      # staff phone — its download URL answers 404 to anyone not signed in.
+      # The copy staff actually install lives in the public `apk` bucket on
+      # Supabase Storage; the console's download buttons point there.
+      - name: Publish APK to Supabase Storage
+        env:
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SERVICE_KEY" ]; then
+            echo "::error::SUPABASE_SERVICE_ROLE_KEY secret is not set — the download in the console will serve a stale APK"
+            exit 1
+          fi
+          SUPABASE_URL=$(grep -oP "SUPABASE_URL: '\K[^']+" config.js)
+          curl --fail -sS -X POST \
+            "$SUPABASE_URL/storage/v1/object/apk/JR-Importers-Admin.apk" \
+            -H "Authorization: Bearer $SERVICE_KEY" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            -H "x-upsert: true" \
+            --data-binary @out/JR-Importers-Admin.apk
+          echo "published: $SUPABASE_URL/storage/v1/object/public/apk/JR-Importers-Admin.apk"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
