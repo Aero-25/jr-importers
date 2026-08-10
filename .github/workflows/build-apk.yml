@@ -97,7 +97,7 @@ jobs:
             Latest JR Importers POS / Admin Android build.
             Download `JR-Importers-Admin.apk`, enable "Install unknown apps", and install.
 
-            - Loads the live admin at https://jrimporters.com/admin-app/ (always up to date).
+            - Ships its own copy of the admin console — the console only, no storefront.
             - Camera barcode scanning enabled (grant the camera permission on first scan).
             - Sign in with your staff account.
           files: out/JR-Importers-Admin.apk

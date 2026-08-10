@@ -24,12 +24,43 @@ fs.mkdirSync(www, { recursive: true });
 
 // The console's own document becomes the app's entry point. It uses hash
 // routing precisely so it survives being served as a local file.
-fs.copyFileSync(path.join(dist, 'admin', 'index.html'), path.join(www, 'index.html'));
+const adminHtml = path.join(dist, 'admin', 'index.html');
+fs.copyFileSync(adminHtml, path.join(www, 'index.html'));
 
-// Everything the document references. assets/ carries the hashed bundles, and
-// config.js stays outside them so the backend can be repointed without a
-// rebuild — the same reason it is separate on the web.
-for (const entry of ['assets', 'config.js', 'favicon.ico', 'icon-192.png', 'logo-mark.png']) {
+// Only the assets the console reaches. dist/assets holds every entry point's
+// chunks — storefront and job card included — because Vite pools them, but
+// this app is the admin and nothing else: shop code has no business in the
+// APK, reachable or not. Chunk names are content-hashed and appear as literal
+// strings wherever they are imported, so walking the references from the
+// admin document finds the closure exactly.
+const assetsDir = path.join(dist, 'assets');
+const everyAsset = fs.readdirSync(assetsDir);
+const needed = new Set();
+const queue = [];
+const scan = (text) => {
+  for (const name of everyAsset) {
+    if (!needed.has(name) && text.includes(name)) {
+      needed.add(name);
+      queue.push(name);
+    }
+  }
+};
+scan(fs.readFileSync(adminHtml, 'utf8'));
+while (queue.length > 0) {
+  const name = queue.pop();
+  // Only text assets can reference further chunks.
+  if (/\.(js|css)$/.test(name)) scan(fs.readFileSync(path.join(assetsDir, name), 'utf8'));
+}
+
+fs.mkdirSync(path.join(www, 'assets'), { recursive: true });
+for (const name of needed) {
+  fs.copyFileSync(path.join(assetsDir, name), path.join(www, 'assets', name));
+}
+console.log(`bundled assets: ${needed.size} of ${everyAsset.length} (admin closure only)`);
+
+// config.js stays outside the hashed bundles so the backend can be repointed
+// without a rebuild — the same reason it is separate on the web.
+for (const entry of ['config.js', 'favicon.ico', 'icon-192.png', 'logo-mark.png']) {
   const from = path.join(dist, entry);
   if (!fs.existsSync(from)) {
     console.warn('skip (missing):', entry);
