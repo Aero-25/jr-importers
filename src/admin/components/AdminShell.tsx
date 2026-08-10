@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Download, LogOut, Menu, Moon, Smartphone, Sun, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { ADMIN_APK_URL } from '@/lib/env';
+import { ADMIN_APK_URL } from '@/lib/constants';
 import { useAuth } from '@/auth/AuthProvider';
 import { initials } from '@/lib/format';
 import { IconButton } from '@/ui';

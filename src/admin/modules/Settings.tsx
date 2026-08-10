@@ -4,7 +4,7 @@ import { Clock, Download, Image as ImageIcon, Smartphone, Store } from 'lucide-r
 import { supabase } from '@/lib/supabase';
 import { keys } from '@/data/keys';
 import { heroImages } from '@/data/resources';
-import { ADMIN_APK_URL } from '@/lib/env';
+import { ADMIN_APK_URL } from '@/lib/constants';
 import { DEFAULT_VAT_RATE, percent } from '@/lib/format';
 import { Button, Card, Input, Notice, Panel, useToast } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
