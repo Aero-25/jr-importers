@@ -24,7 +24,7 @@ export default function Home() {
     path: '/',
   });
 
-  const phones = useCatalog({ categories: ['Smartphones'], inStockOnly: true, sort: 'price-asc' });
+  const phones = useCatalog({ categories: ['Smartphones'], sort: 'price-asc' });
   const brands = useFacets({ categories: ['Smartphones'] });
 
   const revealRoot = useReveal<HTMLDivElement>([phones.data, brands.data]);

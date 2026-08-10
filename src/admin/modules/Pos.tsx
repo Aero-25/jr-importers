@@ -349,17 +349,17 @@ export default function Pos() {
                           <IconButton
                             label="Decrease"
                             variant="ghost"
-                            size="sm"
+                            size="md"
                             icon={<Minus className="h-3.5 w-3.5" />}
                             onClick={() => setQuantity(line.product_id, line.quantity - 1)}
                           />
-                          <span className="tabular w-7 text-center text-sm font-medium text-ink">
+                          <span className="tabular w-8 text-center text-sm font-medium text-ink">
                             {line.quantity}
                           </span>
                           <IconButton
                             label="Increase"
                             variant="ghost"
-                            size="sm"
+                            size="md"
                             icon={<Plus className="h-3.5 w-3.5" />}
                             onClick={() => setQuantity(line.product_id, line.quantity + 1)}
                           />

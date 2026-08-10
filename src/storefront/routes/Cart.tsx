@@ -74,7 +74,7 @@ export default function Cart() {
                             setQuantity(line.product_id, line.color ?? null, line.quantity - 1)
                           }
                           aria-label={`Decrease quantity of ${line.name}`}
-                          className="p-2 text-ink-muted hover:text-ink"
+                          className="flex h-10 w-10 items-center justify-center text-ink-muted hover:text-ink"
                         >
                           <Minus aria-hidden className="h-3.5 w-3.5" />
                         </button>
@@ -88,7 +88,7 @@ export default function Cart() {
                           }
                           disabled={line.quantity >= line.available_stock}
                           aria-label={`Increase quantity of ${line.name}`}
-                          className="p-2 text-ink-muted hover:text-ink disabled:opacity-40"
+                          className="flex h-10 w-10 items-center justify-center text-ink-muted hover:text-ink disabled:opacity-40"
                         >
                           <Plus aria-hidden className="h-3.5 w-3.5" />
                         </button>

@@ -236,7 +236,7 @@ function LaybyCard({
               min={0}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              containerClassName="w-44"
+              containerClassName="w-full sm:w-44"
             />
             <Button loading={busy} onClick={() => void payNow()}>
               Pay by card

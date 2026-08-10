@@ -585,45 +585,47 @@ function GrvDialog({
             <ul className="space-y-3">
               {lines.map((line, index) => (
                 <li key={line.product_id ?? index} className="rounded-xl border border-hairline p-3">
-                  <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
                     <div className="min-w-[10rem] flex-1">
                       <p className="text-sm font-medium text-ink">{line.name}</p>
                       <p className="text-xs text-ink-subtle">{line.sku ?? '—'}</p>
                     </div>
-                    <Input
-                      label="Qty"
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      className="w-20"
-                      disabled={posted}
-                      value={line.quantity || ''}
-                      onChange={(e) =>
-                        patch(index, { quantity: Math.max(0, Math.floor(toNumber(e.target.value))) })
-                      }
-                    />
-                    <Input
-                      label="Unit cost"
-                      type="number"
-                      inputMode="decimal"
-                      className="w-28"
-                      disabled={posted}
-                      value={line.unit_cost || ''}
-                      onChange={(e) => patch(index, { unit_cost: toNumber(e.target.value) })}
-                    />
-                    <span className="tabular pb-2 text-sm font-semibold text-ink">
-                      {money(line.line_total)}
-                    </span>
-                    {!posted && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        icon={<Trash2 className="h-4 w-4" />}
-                        onClick={() => setLines((c) => c.filter((_, i) => i !== index))}
-                      >
-                        <span className="sr-only">Remove</span>
-                      </Button>
-                    )}
+                    <div className="flex flex-wrap items-end gap-3">
+                      <Input
+                        label="Qty"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        className="w-20"
+                        disabled={posted}
+                        value={line.quantity || ''}
+                        onChange={(e) =>
+                          patch(index, { quantity: Math.max(0, Math.floor(toNumber(e.target.value))) })
+                        }
+                      />
+                      <Input
+                        label="Unit cost"
+                        type="number"
+                        inputMode="decimal"
+                        className="w-28"
+                        disabled={posted}
+                        value={line.unit_cost || ''}
+                        onChange={(e) => patch(index, { unit_cost: toNumber(e.target.value) })}
+                      />
+                      <span className="tabular pb-2 text-sm font-semibold text-ink">
+                        {money(line.line_total)}
+                      </span>
+                      {!posted && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={<Trash2 className="h-4 w-4" />}
+                          onClick={() => setLines((c) => c.filter((_, i) => i !== index))}
+                        >
+                          <span className="sr-only">Remove</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Serials. Optional by design — a delivery is not held up at

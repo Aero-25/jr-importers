@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Clock, Image as ImageIcon, Store } from 'lucide-react';
+import { Clock, Download, Image as ImageIcon, Smartphone, Store } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { keys } from '@/data/keys';
 import { heroImages } from '@/data/resources';
+import { ADMIN_APK_URL } from '@/lib/constants';
 import { DEFAULT_VAT_RATE, percent } from '@/lib/format';
 import { Button, Card, Input, Notice, Panel, useToast } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
@@ -18,9 +19,39 @@ export default function Settings() {
         <MfaPanel />
         <StoreSettings />
         <Housekeeping />
+        <MobileApp />
         <HeroImages />
       </div>
     </>
+  );
+}
+
+function MobileApp() {
+  return (
+    <Panel
+      title="Mobile app"
+      description="This console, packaged as an Android app."
+      actions={<Smartphone aria-hidden className="h-4 w-4 text-ink-muted" />}
+    >
+      <div className="space-y-3">
+        <p className="text-sm text-ink-muted">
+          Installs on a phone or tablet and opens straight to the live console — useful for POS on
+          a handheld or checking stock on the floor. Rebuilt automatically from the latest admin
+          build, so reinstalling picks up whatever has shipped since.
+        </p>
+        <a
+          href={ADMIN_APK_URL}
+          className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-brand-500 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-400 active:bg-brand-600"
+        >
+          <Download aria-hidden className="h-4 w-4" />
+          Download for Android
+        </a>
+        <p className="text-xs text-ink-subtle">
+          Android only. After downloading, allow "Install unknown apps" for your browser, then open
+          the file to install.
+        </p>
+      </div>
+    </Panel>
   );
 }
 

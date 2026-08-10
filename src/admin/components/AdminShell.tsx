@@ -1,13 +1,29 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LogOut, Menu, Moon, Sun, X } from 'lucide-react';
+import { Download, LogOut, Menu, Moon, Smartphone, Sun, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { ADMIN_APK_URL } from '@/lib/constants';
 import { useAuth } from '@/auth/AuthProvider';
 import { initials } from '@/lib/format';
 import { IconButton } from '@/ui';
 import { useSpecular } from '@/ui/effects';
 import { visibleSections } from '../nav';
 import { IdleLock } from './IdleLock';
+
+const APK_NOTICE_KEY = 'jr-apk-notice-dismissed';
+
+/**
+ * True only where downloading the APK makes sense: an Android browser.
+ *
+ * Two exclusions matter. iPhones cannot install an APK, so the notice would
+ * only advertise something unusable. And the packaged app itself runs this
+ * same console in a Capacitor WebView — it must not advertise itself, so both
+ * the injected bridge global and the WebView's "; wv" UA marker opt out.
+ */
+function wantsApkNotice(): boolean {
+  const ua = navigator.userAgent;
+  return /android/i.test(ua) && !/; wv\)/i.test(ua) && !('Capacitor' in window);
+}
 
 /**
  * Console chrome.
@@ -30,6 +46,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<'dark' | 'light'>(
     () => (localStorage.getItem('jr-console-theme') as 'dark' | 'light' | null) ?? 'light',
   );
+  const [apkNotice, setApkNotice] = useState(
+    () => wantsApkNotice() && localStorage.getItem(APK_NOTICE_KEY) !== '1',
+  );
+
+  function dismissApkNotice() {
+    localStorage.setItem(APK_NOTICE_KEY, '1');
+    setApkNotice(false);
+  }
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -45,15 +69,19 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen">
       <div className="field" aria-hidden />
 
-      {navOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-brand-900/40 backdrop-blur-sm lg:hidden"
-          onClick={() => setNavOpen(false)}
-          aria-hidden
-        />
-      )}
-
       <div className="relative z-10 lg:grid lg:grid-cols-[17rem_1fr] lg:gap-0">
+        {/* The scrim must live INSIDE this wrapper: `relative z-10` opens a
+            stacking context, and a sibling placed outside it is compared
+            against the wrapper's z-10 — not the rail's z-40 — so it would
+            paint over the drawer and swallow its taps. */}
+        {navOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-brand-900/40 backdrop-blur-sm lg:hidden"
+            onClick={() => setNavOpen(false)}
+            aria-hidden
+          />
+        )}
+
         {/* ── Rail ───────────────────────────────────────────────────────── */}
         <aside
           className={cn(
@@ -190,6 +218,31 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <span className="font-display text-sm font-bold text-ink">Retail Console</span>
             </div>
           </header>
+
+          {apkNotice && (
+            <div className="px-3 pt-3 lg:hidden">
+              <div className="glass flex items-center gap-3 rounded-2xl py-2.5 pl-4 pr-2">
+                <Smartphone aria-hidden className="h-4 w-4 shrink-0 text-brand-500" />
+                <p className="min-w-0 flex-1 text-sm text-ink">
+                  This console is also an Android app — faster on the counter.
+                </p>
+                <a
+                  href={ADMIN_APK_URL}
+                  className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-lime-500 px-3 text-xs font-semibold text-brand-800 transition-colors hover:bg-lime-400"
+                >
+                  <Download aria-hidden className="h-3.5 w-3.5" />
+                  Download
+                </a>
+                <IconButton
+                  label="Dismiss"
+                  variant="ghost"
+                  size="sm"
+                  icon={<X className="h-4 w-4" />}
+                  onClick={dismissApkNotice}
+                />
+              </div>
+            </div>
+          )}
 
           <main className="min-w-0 flex-1 p-3 lg:p-4">
             <div className="glass min-h-[calc(100vh-1.5rem)] overflow-hidden rounded-3xl lg:min-h-[calc(100vh-2rem)]">

@@ -1,8 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { ProductRow } from '@/lib/database.types';
+import { SERVICE_CATEGORIES } from '@/lib/constants';
 import { createResource } from './crud';
 import { keys } from './keys';
+
+/**
+ * Excludes sold-out stock from the storefront, without hiding services.
+ *
+ * A repair has no shelf count that means anything — it is booked, not picked
+ * off a shelf — so it stays visible on zero stock. Everything else with
+ * `stock <= 0` is unbuyable and would only frustrate someone who clicked in.
+ */
+const SOLD_OUT_FILTER = `stock.gt.0,category.in.(${SERVICE_CATEGORIES.map((c) => `"${c}"`).join(',')})`;
 
 export const products = createResource('products', {
   orderBy: { column: 'created_at', ascending: false },
@@ -16,7 +26,6 @@ export interface CatalogFilters {
   search?: string | null;
   minPrice?: number | null;
   maxPrice?: number | null;
-  inStockOnly?: boolean;
   featuredOnly?: boolean;
   sort?: CatalogSort;
   limit?: number;
@@ -35,13 +44,12 @@ export function useCatalog(filters: CatalogFilters = {}) {
   return useQuery<ProductRow[], Error>({
     queryKey: keys.list('products', { catalog: filters }),
     queryFn: async () => {
-      let query = supabase.from('products').select('*').eq('active', true);
+      let query = supabase.from('products').select('*').eq('active', true).or(SOLD_OUT_FILTER);
 
       if (filters.category) query = query.eq('category', filters.category);
       if (filters.categories?.length) query = query.in('category', filters.categories);
       if (filters.brand) query = query.eq('brand', filters.brand);
       if (filters.featuredOnly) query = query.eq('featured', true);
-      if (filters.inStockOnly) query = query.gt('stock', 0);
       if (typeof filters.minPrice === 'number') query = query.gte('price', filters.minPrice);
       if (typeof filters.maxPrice === 'number') query = query.lte('price', filters.maxPrice);
 
@@ -119,7 +127,11 @@ export function useFacets(scope: { categories?: string[] | null } = {}) {
       // Scoped to whatever the shopper is currently looking at. Offering
       // "Canon" as a brand filter on the Phones tab would only lead to an
       // empty page.
-      let query = supabase.from('products').select('category, brand, price').eq('active', true);
+      let query = supabase
+        .from('products')
+        .select('category, brand, price')
+        .eq('active', true)
+        .or(SOLD_OUT_FILTER);
       if (scoped) query = query.in('category', scoped);
 
       const { data, error } = await query;
@@ -167,6 +179,7 @@ export function useRelatedProducts(product: ProductRow | null | undefined, limit
         .from('products')
         .select('*')
         .eq('active', true)
+        .or(SOLD_OUT_FILTER)
         .eq('category', product!.category!)
         .neq('id', product!.id)
         .order('featured', { ascending: false })

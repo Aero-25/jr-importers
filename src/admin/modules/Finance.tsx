@@ -207,13 +207,13 @@ function StockPanel() {
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-hairline">
-            <table className="w-full min-w-[32rem] text-sm">
+            <table className="w-full min-w-0 text-sm md:min-w-[32rem]">
               <thead>
                 <tr className="border-b border-hairline bg-raised/60 text-2xs uppercase tracking-wider text-ink-muted">
                   <th className="px-4 py-2.5 text-left font-bold">Category</th>
                   <th className="px-4 py-2.5 text-right font-bold">Units</th>
                   <th className="px-4 py-2.5 text-right font-bold">At cost</th>
-                  <th className="px-4 py-2.5 text-right font-bold">At retail</th>
+                  <th className="hidden px-4 py-2.5 text-right font-bold md:table-cell">At retail</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-hairline/70">
@@ -222,7 +222,9 @@ function StockPanel() {
                     <td className="px-4 py-2.5 text-ink">{c.category}</td>
                     <td className="tabular px-4 py-2.5 text-right">{c.units}</td>
                     <td className="tabular px-4 py-2.5 text-right font-medium">{money(c.value)}</td>
-                    <td className="tabular px-4 py-2.5 text-right text-ink-muted">{money(c.retail)}</td>
+                    <td className="tabular hidden px-4 py-2.5 text-right text-ink-muted md:table-cell">
+                      {money(c.retail)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -292,13 +294,13 @@ function DebtorsPanel() {
         <p className="text-sm text-success">Nobody owes you anything.</p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-hairline">
-          <table className="w-full min-w-[40rem] text-sm">
+          <table className="w-full min-w-0 text-sm md:min-w-[40rem]">
             <thead>
               <tr className="border-b border-hairline bg-raised/60 text-2xs uppercase tracking-wider text-ink-muted">
                 <th className="px-4 py-2.5 text-left font-bold">Customer</th>
-                <th className="px-4 py-2.5 text-right font-bold">Current</th>
-                <th className="px-4 py-2.5 text-right font-bold">31–60</th>
-                <th className="px-4 py-2.5 text-right font-bold">61–90</th>
+                <th className="hidden px-4 py-2.5 text-right font-bold md:table-cell">Current</th>
+                <th className="hidden px-4 py-2.5 text-right font-bold md:table-cell">31–60</th>
+                <th className="hidden px-4 py-2.5 text-right font-bold md:table-cell">61–90</th>
                 <th className="px-4 py-2.5 text-right font-bold">90+</th>
                 <th className="px-4 py-2.5 text-right font-bold">Total</th>
               </tr>
@@ -310,9 +312,11 @@ function DebtorsPanel() {
                     <p className="text-ink">{r.customer}</p>
                     <p className="text-xs text-ink-subtle">{r.phone ?? '—'}</p>
                   </td>
-                  <td className="tabular px-4 py-2.5 text-right">{money(r.d30)}</td>
-                  <td className="tabular px-4 py-2.5 text-right">{money(r.d60)}</td>
-                  <td className="tabular px-4 py-2.5 text-right text-warn">{money(r.d90)}</td>
+                  <td className="tabular hidden px-4 py-2.5 text-right md:table-cell">{money(r.d30)}</td>
+                  <td className="tabular hidden px-4 py-2.5 text-right md:table-cell">{money(r.d60)}</td>
+                  <td className="tabular hidden px-4 py-2.5 text-right text-warn md:table-cell">
+                    {money(r.d90)}
+                  </td>
                   <td className="tabular px-4 py-2.5 text-right font-semibold text-danger">
                     {money(r.d90_plus)}
                   </td>
@@ -351,13 +355,13 @@ function SuppliersPanel() {
         </Notice>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-hairline">
-          <table className="w-full min-w-[38rem] text-sm">
+          <table className="w-full min-w-0 text-sm md:min-w-[38rem]">
             <thead>
               <tr className="border-b border-hairline bg-raised/60 text-2xs uppercase tracking-wider text-ink-muted">
                 <th className="px-4 py-2.5 text-left font-bold">Supplier</th>
-                <th className="px-4 py-2.5 text-right font-bold">Deliveries</th>
-                <th className="px-4 py-2.5 text-right font-bold">Received</th>
-                <th className="px-4 py-2.5 text-right font-bold">Paid</th>
+                <th className="hidden px-4 py-2.5 text-right font-bold md:table-cell">Deliveries</th>
+                <th className="hidden px-4 py-2.5 text-right font-bold md:table-cell">Received</th>
+                <th className="hidden px-4 py-2.5 text-right font-bold md:table-cell">Paid</th>
                 <th className="px-4 py-2.5 text-right font-bold">Difference</th>
                 <th className="px-4 py-2.5 text-left font-bold">Needs attention</th>
               </tr>
@@ -368,9 +372,11 @@ function SuppliersPanel() {
                 return (
                   <tr key={r.supplier}>
                     <td className="px-4 py-2.5 text-ink">{r.supplier}</td>
-                    <td className="tabular px-4 py-2.5 text-right">{r.deliveries}</td>
-                    <td className="tabular px-4 py-2.5 text-right">{money(r.received)}</td>
-                    <td className="tabular px-4 py-2.5 text-right text-ink-muted">{money(r.paid)}</td>
+                    <td className="tabular hidden px-4 py-2.5 text-right md:table-cell">{r.deliveries}</td>
+                    <td className="tabular hidden px-4 py-2.5 text-right md:table-cell">{money(r.received)}</td>
+                    <td className="tabular hidden px-4 py-2.5 text-right text-ink-muted md:table-cell">
+                      {money(r.paid)}
+                    </td>
                     <td
                       className={cn(
                         'tabular px-4 py-2.5 text-right font-semibold',

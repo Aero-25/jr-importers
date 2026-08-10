@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { Phone, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, Phone, SlidersHorizontal, X } from 'lucide-react';
 import { useCatalog, useFacets, type CatalogSort } from '@/data/products';
 import {
   CATEGORY_GROUPS,
@@ -27,13 +27,13 @@ const SORTS: Array<{ value: CatalogSort; label: string }> = [
 export default function Catalog() {
   const { group: groupId } = useParams<{ group?: string }>();
   const [params, setParams] = useSearchParams();
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const group = CATEGORY_GROUPS.find((g) => g.id === groupId);
   const search = params.get('q') ?? '';
   const brand = params.get('brand');
   const category = params.get('category');
   const sort = (params.get('sort') as CatalogSort | null) ?? 'popular';
-  const inStockOnly = params.get('stock') === 'in';
   const minPrice = params.get('min') ? Number(params.get('min')) : null;
   const maxPrice = params.get('max') ? Number(params.get('max')) : null;
 
@@ -66,11 +66,10 @@ export default function Catalog() {
       brand,
       search,
       sort,
-      inStockOnly,
       minPrice,
       maxPrice,
     }),
-    [scope, category, brand, search, sort, inStockOnly, minPrice, maxPrice],
+    [scope, category, brand, search, sort, minPrice, maxPrice],
   );
 
   const catalog = useCatalog(filters);
@@ -90,7 +89,6 @@ export default function Catalog() {
   const activeFilters = [
     brand && { key: 'brand', label: brand },
     category && { key: 'category', label: category },
-    inStockOnly && { key: 'stock', label: 'In stock only' },
     search && { key: 'q', label: `“${search}”` },
     minPrice && { key: 'min', label: `From ${money(minPrice)}` },
     maxPrice && { key: 'max', label: `Up to ${money(maxPrice)}` },
@@ -131,96 +129,109 @@ export default function Catalog() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
-        <aside className="space-y-6 lg:sticky lg:top-20 lg:self-start">
-          <div className="flex items-center gap-2 lg:hidden">
+        <aside className="lg:sticky lg:top-20 lg:self-start">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            aria-controls="catalog-filters"
+            className="flex w-full items-center gap-2 rounded-lg py-1 lg:hidden"
+          >
             <SlidersHorizontal aria-hidden className="h-4 w-4 text-ink-muted" />
             <span className="text-sm font-medium text-ink">Filters</span>
+            {activeFilters.length > 0 && (
+              <span className="tabular rounded-full bg-brand-500/12 px-1.5 py-0.5 text-2xs font-semibold text-brand-300">
+                {activeFilters.length}
+              </span>
+            )}
+            <ChevronDown
+              aria-hidden
+              className={cn(
+                'ml-auto h-4 w-4 text-ink-muted transition-transform',
+                filtersOpen && 'rotate-180',
+              )}
+            />
+          </button>
+
+          <div
+            id="catalog-filters"
+            className={cn('space-y-6 pt-4 lg:block lg:pt-0', filtersOpen ? 'block' : 'hidden')}
+          >
+            <Select
+              label="Sort by"
+              value={sort}
+              onChange={(e) => update('sort', e.target.value)}
+              options={SORTS.map((s) => ({ value: s.value, label: s.label }))}
+            />
+
+            <div>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                Budget
+              </h2>
+              <ul className="space-y-0.5">
+                {PRICE_BANDS.map((band) => {
+                  const bandMin = 'min' in band ? (band.min ?? null) : null;
+                  const bandMax = 'max' in band ? (band.max ?? null) : null;
+                  const isActive = minPrice === bandMin && maxPrice === bandMax;
+
+                  return (
+                    <li key={band.id}>
+                      <button
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => {
+                          const next = new URLSearchParams(params);
+                          if (isActive) {
+                            next.delete('min');
+                            next.delete('max');
+                          } else {
+                            if (bandMin) next.set('min', String(bandMin));
+                            else next.delete('min');
+                            if (bandMax) next.set('max', String(bandMax));
+                            else next.delete('max');
+                          }
+                          setParams(next, { replace: true });
+                        }}
+                        className={cn(
+                          'w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors',
+                          isActive
+                            ? 'bg-brand-600 font-medium text-white'
+                            : 'text-ink-muted hover:bg-raised hover:text-ink',
+                        )}
+                      >
+                        {band.label}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            {facets.data && facets.data.brands.length > 0 && (
+              <FacetList
+                title="Brand"
+                options={facets.data.brands}
+                selected={brand}
+                onSelect={(value) => update('brand', value)}
+              />
+            )}
+
+            {!group && facets.data && facets.data.categories.length > 0 && (
+              <FacetList
+                title="Category"
+                options={facets.data.categories}
+                selected={category}
+                onSelect={(value) => update('category', value)}
+              />
+            )}
+
+            {facets.data && facets.data.priceRange.max > 0 && (
+              <p className="text-xs text-ink-subtle">
+                Prices from {money(facets.data.priceRange.min)} to{' '}
+                {money(facets.data.priceRange.max)}
+              </p>
+            )}
           </div>
-
-          <Select
-            label="Sort by"
-            value={sort}
-            onChange={(e) => update('sort', e.target.value)}
-            options={SORTS.map((s) => ({ value: s.value, label: s.label }))}
-          />
-
-          <div>
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Budget
-            </h2>
-            <ul className="space-y-0.5">
-              {PRICE_BANDS.map((band) => {
-                const bandMin = 'min' in band ? (band.min ?? null) : null;
-                const bandMax = 'max' in band ? (band.max ?? null) : null;
-                const isActive = minPrice === bandMin && maxPrice === bandMax;
-
-                return (
-                  <li key={band.id}>
-                    <button
-                      type="button"
-                      aria-pressed={isActive}
-                      onClick={() => {
-                        const next = new URLSearchParams(params);
-                        if (isActive) {
-                          next.delete('min');
-                          next.delete('max');
-                        } else {
-                          if (bandMin) next.set('min', String(bandMin));
-                          else next.delete('min');
-                          if (bandMax) next.set('max', String(bandMax));
-                          else next.delete('max');
-                        }
-                        setParams(next, { replace: true });
-                      }}
-                      className={cn(
-                        'w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors',
-                        isActive
-                          ? 'bg-brand-600 font-medium text-white'
-                          : 'text-ink-muted hover:bg-raised hover:text-ink',
-                      )}
-                    >
-                      {band.label}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-
-          {facets.data && facets.data.brands.length > 0 && (
-            <FacetList
-              title="Brand"
-              options={facets.data.brands}
-              selected={brand}
-              onSelect={(value) => update('brand', value)}
-            />
-          )}
-
-          {!group && facets.data && facets.data.categories.length > 0 && (
-            <FacetList
-              title="Category"
-              options={facets.data.categories}
-              selected={category}
-              onSelect={(value) => update('category', value)}
-            />
-          )}
-
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={inStockOnly}
-              onChange={(e) => update('stock', e.target.checked ? 'in' : null)}
-              className="h-4 w-4 rounded border-hairline bg-surface accent-brand-500"
-            />
-            In stock only
-          </label>
-
-          {facets.data && facets.data.priceRange.max > 0 && (
-            <p className="text-xs text-ink-subtle">
-              Prices from {money(facets.data.priceRange.min)} to{' '}
-              {money(facets.data.priceRange.max)}
-            </p>
-          )}
         </aside>
 
         <div>

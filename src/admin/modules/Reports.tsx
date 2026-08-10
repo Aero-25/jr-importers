@@ -237,11 +237,18 @@ function Table({ head, rows }: { head: string[]; rows: string[][] }) {
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[26rem] text-sm">
+      <table className="w-full min-w-0 text-sm md:min-w-[26rem]">
         <thead>
           <tr className="border-b border-hairline text-2xs uppercase tracking-wider text-ink-muted">
             {head.map((h, i) => (
-              <th key={h} className={cn('py-2 font-bold', i === 0 ? 'text-left' : 'text-right')}>
+              <th
+                key={h}
+                className={cn(
+                  'py-2 font-bold',
+                  i === 0 ? 'text-left' : 'text-right',
+                  i === 1 && 'hidden md:table-cell',
+                )}
+              >
                 {h}
               </th>
             ))}
@@ -257,6 +264,7 @@ function Table({ head, rows }: { head: string[]; rows: string[][] }) {
                     'py-2',
                     i === 0 ? 'max-w-[16rem] truncate text-ink' : 'tabular text-right',
                     i === row.length - 1 && 'font-semibold text-ink',
+                    i === 1 && 'hidden md:table-cell',
                   )}
                 >
                   {cell}

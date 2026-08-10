@@ -149,7 +149,7 @@ export function ProductCard({
             </a>
           ) : (
             <Button
-              size="sm"
+              size="md"
               fullWidth
               variant={outOfStock ? 'secondary' : 'lime'}
               disabled={outOfStock}
