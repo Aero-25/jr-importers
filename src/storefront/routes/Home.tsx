@@ -7,7 +7,7 @@ import { ErrorState } from '@/ui';
 import { useParallax, useReveal } from '@/ui/effects';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
 import { ChipRail } from '../components/ChipRail';
-import { HeroMark } from '../components/HeroMark';
+import { HeroScene } from '../components/HeroScene';
 import { useSeo } from '../seo';
 
 const PROMISES = [
@@ -48,19 +48,36 @@ export default function Home() {
             </span>
 
             <h1
-              className="reveal mt-6 font-display text-[2.6rem] font-bold leading-[1.02] tracking-[-0.035em] text-brand-700 sm:text-6xl"
+              className="reveal mt-6 font-display text-[2.6rem] font-bold leading-[1.04] tracking-[-0.035em] text-brand-700 sm:text-6xl"
               data-reveal-index="1"
             >
               Every handset,
               <br />
               <span className="relative inline-block">
-                {/* Sits low enough to clear the descender on the 'y'. */}
-                <span
+                {/* A marker stroke rather than a solid bar: it underlines only
+                    the claim, and draws itself once the headline is in. It
+                    hangs just below the em box — "checked" has no descenders,
+                    and the line below opens with x-height letters, so the
+                    gutter here is clear in a way the old full-width bar's
+                    position never was. */}
+                <svg
                   aria-hidden
-                  className="absolute inset-x-0 bottom-0.5 h-2.5 bg-lime-400 sm:bottom-1 sm:h-5"
-                />
-                <span className="relative">checked before it’s yours.</span>
-              </span>
+                  className="hero-stroke absolute -bottom-1 left-[-3%] h-2.5 w-[106%] sm:-bottom-2 sm:h-3.5"
+                  viewBox="0 0 120 12"
+                  preserveAspectRatio="none"
+                  fill="none"
+                >
+                  <path
+                    d="M3 9c26-5 61-6 114-3"
+                    pathLength={1}
+                    className="stroke-lime-400"
+                    strokeWidth={7}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <span className="relative">checked</span>
+              </span>{' '}
+              before it’s yours.
             </h1>
 
             <p
@@ -68,18 +85,20 @@ export default function Home() {
               data-reveal-index="2"
             >
               Samsung and Ulefone, imported direct and bench-tested on the counter at{' '}
-              {STORE.address}
-              {cheapest ? ` — from ${money(cheapest)}` : ''}. Delivered anywhere in{' '}
-              {STORE.country}, or collect the same day.
+              {STORE.address}. Delivered anywhere in {STORE.country}, or collect the
+              same day.
             </p>
 
             <div className="reveal mt-9 flex flex-wrap gap-3" data-reveal-index="3">
               <Link
                 to="/shop/phones"
-                className="inline-flex h-12 items-center gap-2 rounded-full bg-lime-500 px-7 text-base font-semibold text-brand-800 shadow-[inset_0_1px_0_rgb(255_255_255/0.5),0_10px_30px_-10px_rgb(163_230_53/0.7)] transition-all duration-200 hover:bg-lime-400 hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.6),0_14px_36px_-10px_rgb(163_230_53/0.85)]"
+                className="group inline-flex h-12 items-center gap-2 rounded-full bg-lime-500 px-7 text-base font-semibold text-brand-800 shadow-[inset_0_1px_0_rgb(255_255_255/0.5),0_10px_30px_-10px_rgb(163_230_53/0.7)] transition-all duration-200 hover:bg-lime-400 hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.6),0_14px_36px_-10px_rgb(163_230_53/0.85)]"
               >
                 Browse all phones
-                <ArrowRight aria-hidden className="h-4 w-4" />
+                <ArrowRight
+                  aria-hidden
+                  className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                />
               </Link>
               <Link
                 to="/support"
@@ -88,6 +107,37 @@ export default function Home() {
                 Book a repair
               </Link>
             </div>
+
+            {/* Live, not boilerplate: the count and the floor price come off
+                the same catalogue query that fills the grid below, so this
+                line is true whenever the grid is. */}
+            {phones.data && phones.data.length > 0 && (
+              <p
+                className="reveal mt-7 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-ink-muted"
+                data-reveal-index="4"
+              >
+                <span className="flex items-center gap-2">
+                  <span aria-hidden className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-lime-500 opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-lime-600" />
+                  </span>
+                  <span>
+                    <span className="tabular font-semibold text-ink">{phones.data.length}</span>{' '}
+                    handsets on the shelf right now
+                  </span>
+                </span>
+                {cheapest != null && (
+                  <>
+                    <span aria-hidden className="text-ink-subtle">
+                      ·
+                    </span>
+                    <span>
+                      from <span className="tabular font-semibold text-ink">{money(cheapest)}</span>
+                    </span>
+                  </>
+                )}
+              </p>
+            )}
           </div>
 
           {/*
@@ -95,7 +145,7 @@ export default function Home() {
             motion. Nothing on the page depends on it.
           */}
           <div className="reveal -mx-4 lg:mx-0" data-reveal-index="2">
-            <HeroMark />
+            <HeroScene />
           </div>
         </div>
       </section>
