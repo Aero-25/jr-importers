@@ -140,7 +140,7 @@ export function useRecentSales(search: string) {
         .select('id, customer_name, customer_phone, total_amount, payment_method, items, created_at')
         .in('status', ['Paid', 'Completed', 'Delivered', 'Dispatched']);
 
-      const term = search.trim();
+      const term = search.trim().replace(/[,()]/g, ' ').trim();
       if (term) {
         query = query.or(
           `customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%,payment_reference.ilike.%${term}%`,

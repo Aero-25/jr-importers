@@ -18,7 +18,9 @@ export function useGrvs(search = '') {
     queryKey: keys.list('grvs', { search }),
     queryFn: async () => {
       let query = supabase.from('grvs').select('*');
-      const term = search.trim();
+      // Commas and parens break out of the PostgREST `or` grammar, and supplier
+      // names here really do contain them — "(Pty) Ltd" is the usual suffix.
+      const term = search.trim().replace(/[,()]/g, ' ').trim();
       if (term) {
         query = query.or(`supplier_name.ilike.%${term}%,supplier_invoice_no.ilike.%${term}%`);
       }
@@ -128,7 +130,8 @@ export function useProductLookup(term: string) {
     queryKey: keys.list('products', { intake: term }),
     enabled: term.trim().length > 1,
     queryFn: async () => {
-      const t = term.trim();
+      const t = term.trim().replace(/[,()]/g, ' ').trim();
+      if (!t) return [];
       const { data, error } = await supabase
         .from('products')
         .select('id, name, sku, barcode, color, cost_price, stock, category')

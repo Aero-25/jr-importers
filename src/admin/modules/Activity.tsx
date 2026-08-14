@@ -35,7 +35,7 @@ function useActivity(filters: { entity?: string; action?: string; search?: strin
       if (filters.entity) query = query.eq('entity', filters.entity);
       if (filters.action) query = query.eq('action', filters.action);
 
-      const term = filters.search?.trim();
+      const term = filters.search?.trim().replace(/[,()]/g, ' ').trim();
       if (term) query = query.or(`actor.ilike.%${term}%,summary.ilike.%${term}%`);
 
       const { data, error } = await query.order('id', { ascending: false }).limit(300);

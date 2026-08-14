@@ -371,7 +371,11 @@ export default function ImportIQ() {
           }
           delete row.sku;
           row.product_id = id;
-          row.status = 'available';
+          // Status only on units this import creates. An update must leave it
+          // alone — re-running an old export against a live system would
+          // otherwise put already-sold handsets back on the shelf, and the
+          // stock trigger would count them.
+          if (!existing.has(key)) row.status = 'available';
         }
         if (orphans > 0) {
           toast.warn(
