@@ -8,7 +8,7 @@ import {
   Trash2,
   Truck,
 } from 'lucide-react';
-import type { GrvRow, IntakeLine } from '@/lib/database.types';
+import type { GrvRow, IntakeLine, IntakeUnit } from '@/lib/database.types';
 import {
   fetchIntakeCatalog,
   useGrvFromPurchaseOrder,
@@ -237,9 +237,22 @@ function GrvDialog({
     grv?.invoice_date ?? new Date().toISOString().slice(0, 10),
   );
   const [notes, setNotes] = useState(grv?.notes ?? '');
-  const [lines, setLines] = useState<IntakeLine[]>(grv?.items ?? []);
+  // Drafts saved before units carried their own colour stored bare IMEI
+  // strings; give those the line colour so nothing loses its identity.
+  const [lines, setLines] = useState<IntakeLine[]>(() =>
+    (grv?.items ?? []).map((line) => ({
+      ...line,
+      imeis: (line.imeis ?? []).map(
+        (unit: IntakeUnit | string): IntakeUnit =>
+          typeof unit === 'string' ? { imei: unit, color: line.color ?? null } : unit,
+      ),
+    })),
+  );
   const [term, setTerm] = useState('');
   const [scanFor, setScanFor] = useState<number | null>(null);
+  // The colour the next captured units take, per line — set it once, scan the
+  // black ones, change it, scan the gold ones.
+  const [unitColor, setUnitColor] = useState<Record<number, string>>({});
 
   // The invoice reader. Parsed lines that matched a product land straight in
   // `lines`; the rest wait in `pending` until staff place or dismiss them.
@@ -370,9 +383,11 @@ function GrvDialog({
     const imei = raw.trim();
     if (!imei) return;
     setLines((current) =>
-      current.map((l, i) =>
-        i !== index || l.imeis.includes(imei) ? l : { ...l, imeis: [...l.imeis, imei] },
-      ),
+      current.map((l, i) => {
+        if (i !== index || l.imeis.some((unit) => unit.imei === imei)) return l;
+        const color = (unitColor[index] ?? l.color ?? '').trim() || null;
+        return { ...l, imeis: [...l.imeis, { imei, color }] };
+      }),
     );
   }
 
@@ -642,6 +657,15 @@ function GrvDialog({
                       </span>
                       {!posted && (
                         <>
+                          <Input
+                            placeholder="Colour of the next units"
+                            className="max-w-[11rem]"
+                            list="grv-colour-suggestions"
+                            value={unitColor[index] ?? line.color ?? ''}
+                            onChange={(e) =>
+                              setUnitColor((c) => ({ ...c, [index]: e.target.value }))
+                            }
+                          />
                           <Button
                             size="sm"
                             variant="secondary"
@@ -666,17 +690,22 @@ function GrvDialog({
 
                     {line.imeis.length > 0 && (
                       <ul className="mt-2 flex flex-wrap gap-1.5">
-                        {line.imeis.map((imei) => (
-                          <li key={imei}>
+                        {line.imeis.map((unit) => (
+                          <li key={unit.imei}>
                             <button
                               type="button"
                               disabled={posted}
                               onClick={() =>
-                                patch(index, { imeis: line.imeis.filter((i) => i !== imei) })
+                                patch(index, {
+                                  imeis: line.imeis.filter((u) => u.imei !== unit.imei),
+                                })
                               }
                               className="tabular rounded-md bg-raised px-2 py-1 text-xs text-ink transition-colors hover:bg-danger/10 hover:text-danger disabled:hover:bg-raised disabled:hover:text-ink"
                             >
-                              {imei}
+                              {unit.imei}
+                              <span className={cn('ml-1.5', unit.color ? 'text-ink-muted' : 'text-warn')}>
+                                · {unit.color ?? 'no colour'}
+                              </span>
                             </button>
                           </li>
                         ))}
@@ -709,6 +738,14 @@ function GrvDialog({
           </div>
         </div>
       </Modal>
+
+      <datalist id="grv-colour-suggestions">
+        {['Black', 'White', 'Grey', 'Silver', 'Gold', 'Blue', 'Green', 'Red', 'Purple', 'Pink'].map(
+          (colour) => (
+            <option key={colour} value={colour} />
+          ),
+        )}
+      </datalist>
 
       {scanFor !== null && (
         <BarcodeScanner

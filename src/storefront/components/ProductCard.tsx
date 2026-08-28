@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Phone, ShoppingBag } from 'lucide-react';
+import { Phone, Scale, ShoppingBag } from 'lucide-react';
 import type { ProductRow } from '@/lib/database.types';
 import { STORE, isServiceCategory } from '@/lib/constants';
 import { money, slugify } from '@/lib/format';
@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn';
 import { Badge, Button, StockBadge } from '@/ui';
 import { useSpecular } from '@/ui/effects';
 import { useCart } from '@/data/cart';
+import { useCompare } from '@/data/compare';
 import { useToast } from '@/ui';
 
 export function productPath(product: Pick<ProductRow, 'id' | 'name'>): string {
@@ -24,10 +25,21 @@ export function ProductCard({
   className?: string;
 }) {
   const { add } = useCart();
+  const compare = useCompare();
   const toast = useToast();
   const { specularProps } = useSpecular<HTMLElement>();
   const service = isServiceCategory(product.category);
   const outOfStock = !service && product.stock <= 0;
+  const compared = compare.has(product.id);
+
+  function toggleCompare() {
+    const result = compare.toggle(product);
+    if (result === 'full') {
+      toast.warn('Three at a time', 'Remove a product on the compare page first.');
+    } else if (result === 'added') {
+      toast.success('Added to compare', product.name);
+    }
+  }
 
   function addToCart() {
     const result = add(product, 1);
@@ -97,6 +109,25 @@ export function ProductCard({
           )}
         </div>
       </Link>
+
+      {/* Above the card-wide link overlay, like the cart button. */}
+      {!service && (
+        <button
+          type="button"
+          onClick={toggleCompare}
+          aria-label={compared ? `Remove ${product.name} from compare` : `Compare ${product.name}`}
+          aria-pressed={compared}
+          title={compared ? 'Remove from compare' : 'Compare'}
+          className={cn(
+            'absolute right-2 top-2 z-10 rounded-full p-2 shadow-card transition-colors',
+            compared
+              ? 'bg-lime-500 text-brand-800'
+              : 'bg-white/85 text-ink-muted hover:bg-white hover:text-ink',
+          )}
+        >
+          <Scale aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      )}
 
       <div className="flex flex-1 flex-col p-3">
         {product.brand && (

@@ -426,6 +426,9 @@ export type InvoiceRow = {
 }
 
 /** A line on a delivery. `imeis` is empty for anything not serial-tracked. */
+/** One captured unit on a delivery line: its own IMEI, its own colour. */
+export type IntakeUnit = { imei: string; color: string | null };
+
 export type IntakeLine = {
   product_id: number | null;
   name: string;
@@ -434,7 +437,12 @@ export type IntakeLine = {
   quantity: number;
   unit_cost: number;
   line_total: number;
-  imeis: string[];
+  /**
+   * Captured units. Older drafts stored bare IMEI strings with one colour on
+   * the line; the GRV editor normalises those on load, and receive_grv()
+   * accepts both shapes.
+   */
+  imeis: IntakeUnit[];
 };
 
 export type PurchaseOrderRow = {

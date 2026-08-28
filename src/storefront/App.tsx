@@ -25,6 +25,7 @@ const LaybuyConfirm = lazy(() =>
 const LaybuyPayConfirm = lazy(() =>
   import('./routes/Laybuy').then((m) => ({ default: m.LaybuyPayConfirm })),
 );
+const Compare = lazy(() => import('./routes/Compare'));
 const Support = lazy(() => import('./routes/Support'));
 const About = lazy(() => import('./routes/About'));
 const JobCardAccept = lazy(() => import('./routes/JobCardAccept'));
@@ -77,6 +78,7 @@ export function ShopApp() {
             <Route path="/shop" element={<Catalog />} />
             <Route path="/shop/:group" element={<Catalog />} />
             <Route path="/product/:slug" element={<ProductDetail />} />
+            <Route path="/compare" element={<Compare />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/laybuy/pay/:laybyId/confirm" element={<LaybuyPayConfirm />} />

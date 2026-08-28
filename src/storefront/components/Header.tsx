@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
-import { Menu, Search, ShoppingBag, User, X } from 'lucide-react';
+import { Menu, Scale, Search, ShoppingBag, User, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { CATEGORY_GROUPS, STORE } from '@/lib/constants';
 import { useCart } from '@/data/cart';
+import { useCompare } from '@/data/compare';
 import { useAuth } from '@/auth/AuthProvider';
 
 /**
@@ -16,6 +17,7 @@ import { useAuth } from '@/auth/AuthProvider';
  */
 export function Header() {
   const { count } = useCart();
+  const { count: compareCount } = useCompare();
   const { isAuthenticated, profile } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -155,6 +157,19 @@ export function Header() {
           </Link>
 
           <Link
+            to="/compare"
+            className="relative rounded-full p-2.5 text-white/85 transition-colors hover:bg-white/10 hover:text-white"
+            aria-label={`Compare, ${compareCount} product${compareCount === 1 ? '' : 's'}`}
+          >
+            <Scale aria-hidden className="h-5 w-5" />
+            {compareCount > 0 && (
+              <span className="tabular absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-500 px-1 text-2xs font-bold text-brand-800">
+                {compareCount}
+              </span>
+            )}
+          </Link>
+
+          <Link
             to="/cart"
             className="relative rounded-full p-2.5 text-white/85 transition-colors hover:bg-white/10 hover:text-white"
             aria-label={`Cart, ${count} item${count === 1 ? '' : 's'}`}
@@ -231,14 +246,24 @@ export function Header() {
             </ul>
           </nav>
 
-          <Link
-            to={isAuthenticated ? '/account' : '/account/sign-in'}
-            onClick={() => setMenuOpen(false)}
-            className="glass mt-2 flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-ink"
-          >
-            <User aria-hidden className="h-4 w-4" />
-            {isAuthenticated ? 'My account' : 'Sign in'}
-          </Link>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Link
+              to="/compare"
+              onClick={() => setMenuOpen(false)}
+              className="glass flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-ink"
+            >
+              <Scale aria-hidden className="h-4 w-4" />
+              Compare{compareCount > 0 ? ` (${compareCount})` : ''}
+            </Link>
+            <Link
+              to={isAuthenticated ? '/account' : '/account/sign-in'}
+              onClick={() => setMenuOpen(false)}
+              className="glass flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-ink"
+            >
+              <User aria-hidden className="h-4 w-4" />
+              {isAuthenticated ? 'My account' : 'Sign in'}
+            </Link>
+          </div>
         </div>
       )}
     </header>

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, Smartphone, Truck, Wrench } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Truck, Wrench } from 'lucide-react';
+import { useMemo } from 'react';
 import { useCatalog, useFacets } from '@/data/products';
 import { STORE } from '@/lib/constants';
 import { money } from '@/lib/format';
@@ -7,7 +8,7 @@ import { ErrorState } from '@/ui';
 import { useParallax, useReveal } from '@/ui/effects';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
 import { ChipRail } from '../components/ChipRail';
-import { HeroScene } from '../components/HeroScene';
+import { HeroShelf, HeroTicker } from '../components/HeroShelf';
 import { useSeo } from '../seo';
 
 const PROMISES = [
@@ -32,6 +33,12 @@ export default function Home() {
 
   const cheapest = phones.data?.[0]?.price;
 
+  // The shelf, dearest first: the flagship fronts the hero, the next two sit
+  // under it, and the ticker cycles the rest. All one query — the same rows
+  // that fill the grid below.
+  const showcase = useMemo(() => [...(phones.data ?? [])].reverse(), [phones.data]);
+  const ticker = useMemo(() => showcase.slice(0, 14), [showcase]);
+
   return (
     <div ref={revealRoot}>
       {/* ── Hero ────────────────────────────────────────────────────────── */}
@@ -43,23 +50,21 @@ export default function Home() {
         >
           <div className="max-w-xl">
             <span className="reveal glass inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold text-ink">
-              <Smartphone aria-hidden className="h-3.5 w-3.5 text-lime-700" />
-              Cellphone specialists · {STORE.city}
+              <span aria-hidden className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-lime-500 opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-lime-600" />
+              </span>
+              Live stock · {STORE.city}
             </span>
 
             <h1
               className="reveal mt-6 font-display text-[2.6rem] font-bold leading-[1.04] tracking-[-0.035em] text-brand-700 sm:text-6xl"
               data-reveal-index="1"
             >
-              Every handset,
-              <br />
+              If it’s on this page, it’s on{' '}
               <span className="relative inline-block">
                 {/* A marker stroke rather than a solid bar: it underlines only
-                    the claim, and draws itself once the headline is in. It
-                    hangs just below the em box — "checked" has no descenders,
-                    and the line below opens with x-height letters, so the
-                    gutter here is clear in a way the old full-width bar's
-                    position never was. */}
+                    the claim, and draws itself once the headline is in. */}
                 <svg
                   aria-hidden
                   className="hero-stroke absolute -bottom-1 left-[-3%] h-2.5 w-[106%] sm:-bottom-2 sm:h-3.5"
@@ -75,18 +80,18 @@ export default function Home() {
                     strokeLinecap="round"
                   />
                 </svg>
-                <span className="relative">checked</span>
-              </span>{' '}
-              before it’s yours.
+                <span className="relative">our shelf</span>
+              </span>
+              .
             </h1>
 
             <p
               className="reveal mt-7 max-w-lg text-base leading-relaxed text-ink-muted sm:text-lg"
               data-reveal-index="2"
             >
-              Samsung and Ulefone, imported direct and bench-tested on the counter at{' '}
-              {STORE.address}. Delivered anywhere in {STORE.country}, or collect the
-              same day.
+              This shop runs on the same stock system as our till: every handset listed
+              is sealed, genuine, warrantied and physically at {STORE.address}. Delivered
+              anywhere in {STORE.country}, or collect the same day.
             </p>
 
             <div className="reveal mt-9 flex flex-wrap gap-3" data-reveal-index="3">
@@ -140,14 +145,19 @@ export default function Home() {
             )}
           </div>
 
-          {/*
-            Decorative, and treated as such: aria-hidden, and still on reduced
-            motion. Nothing on the page depends on it.
-          */}
-          <div className="reveal -mx-4 lg:mx-0" data-reveal-index="2">
-            <HeroScene />
+          {/* The shelf itself: real stock, real prices, straight off the same
+              catalogue query as the grid below. */}
+          <div className="reveal" data-reveal-index="2">
+            <HeroShelf products={showcase} loading={phones.isLoading} />
           </div>
         </div>
+
+        {/* Live-stock ticker — every chip is a product on the shelf. */}
+        {ticker.length > 2 && (
+          <div className="reveal mx-auto max-w-7xl px-4 pb-6">
+            <HeroTicker products={ticker} />
+          </div>
+        )}
       </section>
 
       {/* ── The rail from direction 01, in glass ─────────────────────────── */}
