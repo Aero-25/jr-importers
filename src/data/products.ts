@@ -6,13 +6,14 @@ import { createResource } from './crud';
 import { keys } from './keys';
 
 /**
- * Excludes sold-out stock from the storefront, without hiding services.
- *
- * A repair has no shelf count that means anything — it is booked, not picked
- * off a shelf — so it stays visible on zero stock. Everything else with
- * `stock <= 0` is unbuyable and would only frustrate someone who clicked in.
+ * Service entries (repairs) are out of the catalogue entirely: the workshop
+ * is advertised by the repairs band and booked at the counter, not listed
+ * between the phones. Applied with `stock.gt.0` by every catalogue query, so
+ * a service can never surface in the grid, the facets, the compare picker or
+ * "related products". Anything else with `stock <= 0` is unbuyable and would
+ * only frustrate someone who clicked in.
  */
-const SOLD_OUT_FILTER = `stock.gt.0,category.in.(${SERVICE_CATEGORIES.map((c) => `"${c}"`).join(',')})`;
+const NO_SERVICES = `(${SERVICE_CATEGORIES.map((c) => `"${c}"`).join(',')})`;
 
 export const products = createResource('products', {
   orderBy: { column: 'created_at', ascending: false },
@@ -44,7 +45,12 @@ export function useCatalog(filters: CatalogFilters = {}) {
   return useQuery<ProductRow[], Error>({
     queryKey: keys.list('products', { catalog: filters }),
     queryFn: async () => {
-      let query = supabase.from('products').select('*').eq('active', true).or(SOLD_OUT_FILTER);
+      let query = supabase
+        .from('products')
+        .select('*')
+        .eq('active', true)
+        .gt('stock', 0)
+        .not('category', 'in', NO_SERVICES);
 
       if (filters.category) query = query.eq('category', filters.category);
       if (filters.categories?.length) query = query.in('category', filters.categories);
@@ -131,7 +137,8 @@ export function useFacets(scope: { categories?: string[] | null } = {}) {
         .from('products')
         .select('category, brand, price')
         .eq('active', true)
-        .or(SOLD_OUT_FILTER);
+        .gt('stock', 0)
+        .not('category', 'in', NO_SERVICES);
       if (scoped) query = query.in('category', scoped);
 
       const { data, error } = await query;
@@ -179,7 +186,8 @@ export function useRelatedProducts(product: ProductRow | null | undefined, limit
         .from('products')
         .select('*')
         .eq('active', true)
-        .or(SOLD_OUT_FILTER)
+        .gt('stock', 0)
+        .not('category', 'in', NO_SERVICES)
         .eq('category', product!.category!)
         .neq('id', product!.id)
         .order('featured', { ascending: false })

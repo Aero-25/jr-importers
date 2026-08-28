@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Plus, Scale, Search, Trash2, X } from 'lucide-react';
 import type { ProductRow } from '@/lib/database.types';
 import { SPEC_FIELDS, colourSwatch, useCatalog, useVariants } from '@/data/products';
+import { isServiceCategory } from '@/lib/constants';
 import { COMPARE_LIMIT, useCompare } from '@/data/compare';
 import { money } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -43,8 +44,14 @@ export default function Compare() {
   // The picker searches the same live catalogue the shop sells from.
   const searching = term.trim().length > 1;
   const catalog = useCatalog(searching ? { search: term, limit: 60 } : { limit: 24 });
+  // Repairs are booked, not bought — a service has no specs, price band or
+  // colour pool to line up, so it has no business in a comparison.
   const pickable = useMemo(
-    () => (catalog.data ?? []).filter((p) => !items.some((chosen) => chosen.id === p.id)).slice(0, 8),
+    () =>
+      (catalog.data ?? [])
+        .filter((p) => !isServiceCategory(p.category))
+        .filter((p) => !items.some((chosen) => chosen.id === p.id))
+        .slice(0, 8),
     [catalog.data, items],
   );
 

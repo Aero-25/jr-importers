@@ -5890,6 +5890,7 @@ Check admin: jrimporters.com/admin.html`;
                             ];
                             const query = compareSearch.trim().toLowerCase();
                             const pickable = inStockProducts
+                                .filter(p => p.category !== 'Repairs') // services are booked, not compared
                                 .filter(p => !compareList.some(c => c.id === p.id))
                                 .filter(p => !query || `${p.name} ${p.brand || ''} ${p.category || ''}`.toLowerCase().includes(query))
                                 .slice(0, 8);
