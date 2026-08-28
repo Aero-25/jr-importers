@@ -2287,24 +2287,31 @@
                 }
             };
 
-            const PRODUCT_IMPORT_COLUMNS = ['name', 'brand', 'category', 'sku', 'barcode', 'cost_price', 'price', 'stock', 'reorder_level', 'image', 'description', 'spec_ram', 'spec_storage'];
+            // One spreadsheet row is one unit for phones: the same SKU repeats,
+            // and each row carries that unit's own IMEI and colour. Products
+            // without serials keep the single row with a numeric stock count.
+            const PRODUCT_IMPORT_COLUMNS = ['name', 'brand', 'category', 'sku', 'barcode', 'cost_price', 'price', 'stock', 'reorder_level', 'image', 'description', 'spec_ram', 'spec_storage', 'imei', 'serial_number', 'color'];
             const downloadProductImportTemplate = () => {
                 const XLSX = window.XLSX;
                 const ws = XLSX.utils.json_to_sheet([
                     {
-                        name: 'Samsung Galaxy Example',
-                        brand: 'Samsung',
-                        category: 'phones',
-                        sku: 'SAM-EXAMPLE',
-                        barcode: '',
-                        cost_price: 1000,
-                        price: 1499,
-                        stock: 5,
-                        reorder_level: 3,
-                        image: 'https://example.com/product.jpg',
-                        description: 'Short product description',
-                        spec_ram: '8GB',
-                        spec_storage: '256GB'
+                        name: 'Samsung Galaxy Example', brand: 'Samsung', category: 'phones',
+                        sku: 'SAM-EXAMPLE', barcode: '', cost_price: 1000, price: 1499,
+                        stock: '', reorder_level: 3, image: 'https://example.com/product.jpg',
+                        description: 'Short product description', spec_ram: '8GB', spec_storage: '256GB',
+                        imei: '350000000000001', serial_number: '', color: 'Black'
+                    },
+                    {
+                        name: 'Samsung Galaxy Example', brand: '', category: '',
+                        sku: 'SAM-EXAMPLE', barcode: '', cost_price: '', price: '',
+                        stock: '', reorder_level: '', image: '', description: '', spec_ram: '', spec_storage: '',
+                        imei: '350000000000002', serial_number: '', color: 'Gold'
+                    },
+                    {
+                        name: 'USB-C Car Charger', brand: 'Generic', category: 'accessories',
+                        sku: 'ACC-CARCHG', barcode: '', cost_price: 80, price: 199,
+                        stock: 20, reorder_level: 5, image: '', description: 'No serials: one row, stock as a count',
+                        spec_ram: '', spec_storage: '', imei: '', serial_number: '', color: ''
                     }
                 ], { header: PRODUCT_IMPORT_COLUMNS });
                 const wb = XLSX.utils.book_new();
@@ -2318,27 +2325,74 @@
                     const workbook = window.XLSX.read(buffer, { type: 'array' });
                     const sheet = workbook.Sheets[workbook.SheetNames[0]];
                     const rows = window.XLSX.utils.sheet_to_json(sheet, { defval: '' });
-                    const products = rows.map(row => ({
-                        name: String(row.name || row.Name || '').trim(),
-                        brand: String(row.brand || row.Brand || '').trim(),
-                        category: String(row.category || row.Category || '').trim(),
-                        sku: String(row.sku || row.SKU || '').trim(),
-                        barcode: String(row.barcode || row.Barcode || '').trim(),
-                        cost_price: Number(row.cost_price || row.Cost || 0),
-                        price: Number(row.price || row.Price || 0),
-                        stock: parseInt(row.stock || row.Stock || 0) || 0,
-                        reorder_level: parseInt(row.reorder_level || row['Reorder Level'] || 10) || 10,
-                        image: String(row.image || row.Image || '').trim(),
-                        image1: String(row.image || row.Image || '').trim(),
-                        description: String(row.description || row.Description || '').trim(),
-                        spec_ram: String(row.spec_ram || row.RAM || '').trim(),
-                        spec_storage: String(row.spec_storage || row.Storage || '').trim(),
-                        active: true
-                    })).filter(product => product.name && product.price >= 0);
-
+                    const clean = v => String(v ?? '').trim();
+                    const problems = [];
+                    const seenUnits = new Set();
+                    const groups = new Map();
+                    rows.forEach((row, rowIdx) => {
+                        const line = rowIdx + 2; // 1-based, after the header row
+                        const name = clean(row.name || row.Name);
+                        const sku = clean(row.sku || row.SKU);
+                        const key = (sku || name).toLowerCase();
+                        if (!key) {
+                            if (Object.values(row).some(v => clean(v))) problems.push(`Row ${line}: needs a name or SKU`);
+                            return;
+                        }
+                        let group = groups.get(key);
+                        if (!group) {
+                            group = {
+                                product: {
+                                    name,
+                                    brand: clean(row.brand || row.Brand),
+                                    category: clean(row.category || row.Category),
+                                    sku,
+                                    barcode: clean(row.barcode || row.Barcode),
+                                    cost_price: Number(row.cost_price || row.Cost || 0),
+                                    price: Number(row.price || row.Price || 0),
+                                    stock: parseInt(row.stock || row.Stock || 0) || 0,
+                                    reorder_level: parseInt(row.reorder_level || row['Reorder Level'] || 10) || 10,
+                                    image: clean(row.image || row.Image),
+                                    image1: clean(row.image || row.Image),
+                                    description: clean(row.description || row.Description),
+                                    spec_ram: clean(row.spec_ram || row.RAM),
+                                    spec_storage: clean(row.spec_storage || row.Storage),
+                                    active: true
+                                },
+                                units: []
+                            };
+                            groups.set(key, group);
+                        }
+                        const imei = clean(row.imei || row.IMEI);
+                        const serial = clean(row.serial_number || row.serial || row.Serial || row['Serial Number']);
+                        const color = clean(row.color || row.Color || row.colour || row.Colour);
+                        if (imei || serial || color) {
+                            if (imei && !/^\d{15}$/.test(imei)) problems.push(`Row ${line}: IMEI "${imei}" must be exactly 15 digits`);
+                            if (!imei && !serial) problems.push(`Row ${line}: unit needs an IMEI or serial number`);
+                            if (!color) problems.push(`Row ${line}: unit needs a colour`);
+                            const unitKey = (imei || serial).toLowerCase();
+                            if (unitKey) {
+                                if (seenUnits.has(unitKey)) problems.push(`Row ${line}: duplicate IMEI/serial ${imei || serial}`);
+                                seenUnits.add(unitKey);
+                            }
+                            group.units.push({ imei: imei || null, serial_number: serial || null, color: color || null });
+                        }
+                    });
+                    for (const group of groups.values()) {
+                        if (/phone/i.test(group.product.category) && !group.units.length) {
+                            problems.push(`${group.product.name}: phones import one row per unit, each with its IMEI and colour`);
+                        }
+                    }
+                    if (problems.length) {
+                        showNotification(`Fix the file first — ${problems[0]}${problems.length > 1 ? ` (+${problems.length - 1} more)` : ''}`, 'error');
+                        return;
+                    }
+                    const products = [...groups.values()]
+                        .map(group => ({ ...group.product, stock: group.units.length || group.product.stock, units: group.units }))
+                        .filter(product => product.name && product.price >= 0);
                     setProductImportPreview(products);
                     setModal('product-import');
-                    showNotification(`${products.length} product rows ready to review`, 'success');
+                    const unitCount = products.reduce((sum, p) => sum + p.units.length, 0);
+                    showNotification(`${products.length} products (${unitCount} serialised units) ready to review`, 'success');
                 } catch (error) {
                     showNotification('Import failed: ' + error.message, 'error');
                 }
@@ -2346,9 +2400,68 @@
             const importPreviewProducts = async () => {
                 if (!productImportPreview.length) return;
                 try {
-                    const { error } = await db.from('products').insert(productImportPreview);
-                    if (error) throw error;
-                    showNotification(`${productImportPreview.length} products imported`, 'success');
+                    // Existing SKUs are corrected in place, not duplicated
+                    // (products_sku_key). Serialised units land in
+                    // product_imeis, where the sync trigger takes over the
+                    // stock count.
+                    const skus = productImportPreview.map(p => p.sku).filter(Boolean);
+                    let existing = [];
+                    if (skus.length) {
+                        const { data: found, error: findError } = await db.from('products').select('id, sku').in('sku', skus);
+                        if (findError) throw findError;
+                        existing = found || [];
+                    }
+                    const idBySku = new Map(existing.map(p => [String(p.sku).toLowerCase(), p.id]));
+                    const failures = [];
+                    let productCount = 0;
+                    let unitCount = 0;
+                    for (const item of productImportPreview) {
+                        const { units, ...fields } = item;
+                        const skuKey = String(fields.sku || '').toLowerCase();
+                        let productId = fields.sku ? idBySku.get(skuKey) : undefined;
+                        if (productId) {
+                            const updates = { ...fields };
+                            if (units.length) delete updates.stock; // the unit rows own the count
+                            const { error } = await db.from('products').update(updates).eq('id', productId);
+                            if (error) { failures.push(`${fields.name}: ${error.message}`); continue; }
+                        } else {
+                            const insertFields = { ...fields };
+                            if (units.length) insertFields.stock = 0; // sync trigger recounts as units land
+                            const { data: created, error } = await db.from('products').insert(insertFields).select('id').single();
+                            if (error) { failures.push(`${fields.name}: ${error.message}`); continue; }
+                            productId = created.id;
+                            if (fields.sku) idBySku.set(skuKey, productId);
+                        }
+                        productCount++;
+                        if (!units.length) continue;
+                        const unitRows = units.map(u => ({
+                            product_id: productId,
+                            sku: fields.sku || null,
+                            color: u.color,
+                            imei: u.imei,
+                            serial_number: u.serial_number,
+                            status: 'available'
+                        }));
+                        const { error: unitError } = await db.from('product_imeis').insert(unitRows);
+                        if (unitError && unitError.code === '23505') {
+                            // One duplicate poisons a batch insert; retry singly so
+                            // the clean units still land and the dupes get named.
+                            for (const unitRow of unitRows) {
+                                const { error: rowError } = await db.from('product_imeis').insert(unitRow);
+                                if (rowError) failures.push(`${fields.name}: ${unitRow.imei || unitRow.serial_number} already in system`);
+                                else unitCount++;
+                            }
+                        } else if (unitError) {
+                            failures.push(`${fields.name}: ${unitError.message}`);
+                        } else {
+                            unitCount += unitRows.length;
+                        }
+                    }
+                    if (failures.length) {
+                        showNotification(`Imported ${productCount} products, ${unitCount} units — ${failures.length} problem(s): ${failures.slice(0, 3).join('; ')}${failures.length > 3 ? '…' : ''}`, 'warning');
+                    } else {
+                        showNotification(`${productCount} products and ${unitCount} serialised units imported`, 'success');
+                    }
                     setProductImportPreview([]);
                     setModal(null);
                     loadAllData();
@@ -8402,7 +8515,7 @@ Date: ${new Date().toLocaleDateString()}`
                                         </div>
                                         <div className="glass-panel p-4 rounded-xl">
                                             <div className="text-sm text-slate-400">Pending GRVs</div>
-                                            <div className="text-2xl font-bold text-yellow-400">{(data.grvs || []).filter(g => g.status === 'pending').length}</div>
+                                            <div className="text-2xl font-bold text-yellow-400">{(data.grvs || []).filter(g => !['completed', 'received'].includes(String(g.status || '').toLowerCase())).length}</div>
                                         </div>
                                     </div>
                                     
@@ -8442,7 +8555,7 @@ Date: ${new Date().toLocaleDateString()}`
                                                         <td className="text-slate-400">{grv.items?.length || 0}</td>
                                                         <td className="text-right font-bold mono text-white">{formatCurrency(grv.total_amount)}</td>
                                                         <td>
-                                                            <span className={`badge ${grv.status === 'completed' ? 'badge-success' : 'badge-warning'}`}>
+                                                            <span className={`badge ${['completed', 'received'].includes(String(grv.status || '').toLowerCase()) ? 'badge-success' : 'badge-warning'}`}>
                                                                 {grv.status || 'Pending'}
                                                             </span>
                                                         </td>
@@ -8453,28 +8566,25 @@ Date: ${new Date().toLocaleDateString()}`
                                                             <button onClick={() => generateDocument({ title: 'GOODS RECEIVED', number: 'GRV-' + grv.id, dateLabel: `Date: ${new Date(grv.created_at).toLocaleDateString('en-GB')}`, meta: [{ label: 'Supplier Inv', value: grv.supplier_invoice_no || '—' }, { label: 'Status', value: grv.status }], party: { name: grv.supplier_name }, partyLabel: 'SUPPLIER:', columns: ['Item', 'Qty Recv', 'Unit Cost', 'Line Total'], rows: (grv.items || []).map(i => [i.product_name || i.name, i.qty_received, formatCurrency(i.cost_price), formatCurrency((i.qty_received || 0) * (i.cost_price || 0))]), totals: [{ label: 'TOTAL', value: formatCurrency((grv.items || []).reduce((s, i) => s + (i.qty_received || 0) * (i.cost_price || 0), 0)), bold: true }], footnote: 'Goods received voucher.', filename: `GRV-${grv.id}.pdf` })} className="text-purple-400 hover:text-white mr-2" title="Print / PDF">
                                                                 <i className="fas fa-print"></i>
                                                             </button>
-                                                            {grv.status !== 'completed' && (
+                                                            {!['completed', 'received'].includes(String(grv.status || '').toLowerCase()) && (
                                                                 <button onClick={async () => {
-                                                                    // Add stock for each item
-                                                                    for (const item of (grv.items || [])) {
-                                                                        if (item.product_id) {
-                                                                            const product = data.products.find(p => p.id === item.product_id);
-                                                                            if (product) {
-                                                                                await db.from('products').update({ stock: (product.stock || 0) + (item.qty_received || 0) }).eq('id', item.product_id);
-                                                                                await db.from('stock_movements').insert({
-                                                                                    product_id: item.product_id,
-                                                                                    product_name: product.name,
-                                                                                    movement_type: 'GRV',
-                                                                                    quantity: item.qty_received,
-                                                                                    reference_type: 'GRV',
-                                                                                    reference_id: grv.id,
-                                                                                    user_name: 'Admin',
-                                                                                    created_at: new Date().toISOString()
-                                                                                });
-                                                                            }
-                                                                        }
+                                                                    // One server-side transaction books the stock in: it
+                                                                    // inserts every captured IMEI/serial with its own
+                                                                    // colour, syncs stock, stamps costs and logs the
+                                                                    // movement — and refuses to post the same GRV twice.
+                                                                    const { data: received, error: receiveError } = await db.rpc('receive_grv', { p_id: grv.id });
+                                                                    if (receiveError) {
+                                                                        showNotification('Could not receive stock: ' + receiveError.message, 'error');
+                                                                        return;
                                                                     }
-                                                                    await db.from('grvs').update({ status: 'completed' }).eq('id', grv.id);
+                                                                    if (received && received.ok === false) {
+                                                                        showNotification(received.message || 'Could not receive stock', 'error');
+                                                                        return;
+                                                                    }
+                                                                    const short = received?.short_on_serials || [];
+                                                                    if (short.length) {
+                                                                        showNotification(`Received, but short on serials: ${short.map(s => `${s.name} (${s.serials}/${s.received})`).join(', ')} — capture the missing IMEIs on the product`, 'warning');
+                                                                    }
                                                                     // Post the goods received as a creditor bill (accounts payable)
                                                                     const grvTotal = (grv.items || []).reduce((s, i) => s + ((i.qty_received || 0) * (i.cost_price || 0)), 0);
                                                                     const alreadyPosted = (data.account_transactions || []).some(t => t.account_type === 'creditor' && t.doc_type === 'grv' && String(t.doc_id) === String(grv.id));
@@ -10084,8 +10194,8 @@ Date: ${new Date().toLocaleDateString()}`
                                 <div className="glass-panel p-4 rounded-xl">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <div className="text-lg font-bold text-white">{productImportPreview.length} products ready</div>
-                                            <div className="text-sm text-slate-400">Review the first rows before importing to Supabase.</div>
+                                            <div className="text-lg font-bold text-white">{productImportPreview.length} products · {productImportPreview.reduce((sum, p) => sum + (p.units?.length || 0), 0)} serialised units ready</div>
+                                            <div className="text-sm text-slate-400">Phones arrive one row per unit — each IMEI with its own colour. Existing SKUs are updated, not duplicated.</div>
                                         </div>
                                         <button onClick={downloadProductImportTemplate} className="btn btn-secondary">
                                             <i className="fas fa-file-excel"></i>
@@ -10104,6 +10214,7 @@ Date: ${new Date().toLocaleDateString()}`
                                                 <th className="text-right">Cost</th>
                                                 <th className="text-right">Price</th>
                                                 <th className="text-right">Stock</th>
+                                                <th>Units &amp; colours</th>
                                                 <th>Image</th>
                                             </tr>
                                         </thead>
@@ -10116,6 +10227,7 @@ Date: ${new Date().toLocaleDateString()}`
                                                     <td className="text-right mono">{formatCurrency(product.cost_price || 0)}</td>
                                                     <td className="text-right mono text-white">{formatCurrency(product.price || 0)}</td>
                                                     <td className="text-right">{product.stock || 0}</td>
+                                                    <td className="text-xs text-slate-400">{product.units?.length ? `${product.units.length} × IMEI/serial · ${[...new Set(product.units.map(u => u.color).filter(Boolean))].join(', ')}` : '—'}</td>
                                                     <td className="max-w-[180px] truncate text-xs text-slate-500">{product.image || '-'}</td>
                                                 </tr>
                                             ))}
@@ -10229,7 +10341,7 @@ Date: ${new Date().toLocaleDateString()}`
                                         const imageUrl = e.target.image_url.value.trim();
                                         
                                         // For phones, require 15-digit IMEI
-                                        if (modalData.product.category === 'phones' && imei) {
+                                        if (/phone/i.test(modalData.product.category || '') && imei) {
                                             if (imei.length !== 15 || !/^\d+$/.test(imei)) {
                                                 showNotification('IMEI must be exactly 15 digits', 'error');
                                                 return;
@@ -10299,18 +10411,18 @@ Date: ${new Date().toLocaleDateString()}`
                                             </div>
                                             <div>
                                                 <label className="block text-sm text-slate-300 mb-2">
-                                                    {modalData.product.category === 'phones' ? 'IMEI Number *' : 'IMEI/Serial Number'}
+                                                    {/phone/i.test(modalData.product.category || '') ? 'IMEI Number *' : 'IMEI/Serial Number'}
                                                 </label>
                                                 <input
                                                     name="imei"
                                                     type="text"
-                                                    maxLength={modalData.product.category === 'phones' ? '15' : '50'}
+                                                    maxLength={/phone/i.test(modalData.product.category || '') ? '15' : '50'}
                                                     className="form-input glass-input mono text-lg"
-                                                    placeholder={modalData.product.category === 'phones' ? '123456789012345' : 'Serial/IMEI'}
-                                                    required={modalData.product.category === 'phones'}
+                                                    placeholder={/phone/i.test(modalData.product.category || '') ? '123456789012345' : 'Serial/IMEI'}
+                                                    required={/phone/i.test(modalData.product.category || '')}
                                                 />
                                                 <div className="text-xs text-slate-500 mt-1">
-                                                    {modalData.product.category === 'phones' 
+                                                    {/phone/i.test(modalData.product.category || '') 
                                                         ? 'Must be exactly 15 digits' 
                                                         : 'Any unique identifier'}
                                                 </div>
@@ -11686,7 +11798,7 @@ Date: ${new Date().toLocaleDateString()}`
                                                                     })}
                                                                     <div className="text-xs text-slate-500 mt-2 flex items-center gap-1">
                                                                         <i className="fas fa-info-circle"></i>
-                                                                        Optional: Add IMEI/serial numbers for tracking individual units
+                                                                        Phones: required — one 15-digit IMEI and a colour per unit. Other products: optional serial + colour.
                                                                     </div>
                                                                 </div>
                                                             )}
@@ -11722,6 +11834,26 @@ Date: ${new Date().toLocaleDateString()}`
                                             }
                                             if (!grvInvoiceDate) {
                                                 showNotification('Please enter invoice date', 'error');
+                                                return;
+                                            }
+                                            // Every phone is one unit: its own IMEI, its own colour.
+                                            const unitProblems = [];
+                                            for (const item of grvItems) {
+                                                if (item.type !== 'product' || !item.product_id) continue;
+                                                const product = data.products.find(p => p.id === item.product_id);
+                                                const isPhone = /phone/i.test(String(product?.category || ''));
+                                                const units = (item.imeis || []).filter(u => String(u.imei || '').trim() || String(u.color || '').trim());
+                                                if (isPhone && units.length < item.qty_received) {
+                                                    unitProblems.push(`${item.name}: capture ${item.qty_received} IMEI(s), one per phone`);
+                                                }
+                                                units.forEach((u, unitIdx) => {
+                                                    const imei = String(u.imei || '').trim();
+                                                    if (isPhone && !/^\d{15}$/.test(imei)) unitProblems.push(`${item.name} unit ${unitIdx + 1}: IMEI must be exactly 15 digits`);
+                                                    if (!String(u.color || '').trim()) unitProblems.push(`${item.name} unit ${unitIdx + 1}: colour required`);
+                                                });
+                                            }
+                                            if (unitProblems.length) {
+                                                showNotification(unitProblems[0] + (unitProblems.length > 1 ? ` (+${unitProblems.length - 1} more)` : ''), 'error');
                                                 return;
                                             }
                                             const supplier = data.suppliers.find(s => s.id === parseInt(grvSupplierId));
