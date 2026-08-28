@@ -1236,19 +1236,62 @@
 
         /* ===== Cinematic store intro (scroll-past cover) ===== */
         .store-intro { will-change: opacity, transform; }
-        .marquee-rev { animation: marquee 52s linear infinite reverse; }
-        .intro-img {
-            height: 150px; width: 232px; flex: 0 0 auto; object-fit: cover; border-radius: 1.1rem;
-            border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 24px 50px -28px rgba(0,0,0,0.9);
+
+        /* ===== Live shopfront hero ===== */
+        .hero-grid {
+            background-image: linear-gradient(rgba(163,230,53,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(163,230,53,0.05) 1px, transparent 1px);
+            background-size: 44px 44px;
+            -webkit-mask-image: radial-gradient(80% 75% at 50% 36%, #000 25%, transparent 100%);
+            mask-image: radial-gradient(80% 75% at 50% 36%, #000 25%, transparent 100%);
         }
-        @media (max-width: 640px) { .intro-img { height: 108px; width: 168px; } }
-        .intro-badge {
-            display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.55rem 1rem; border-radius: 999px;
-            font-size: 0.78rem; font-weight: 600; color: #d7e9c6;
-            background: rgba(163,230,53,0.08); border: 1px solid rgba(163,230,53,0.22); backdrop-filter: blur(8px);
+        .hero-eyebrow {
+            display: inline-flex; align-items: center; gap: 0.6rem; padding: 0.5rem 1.05rem; border-radius: 999px;
+            font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+            color: #d7e9c6; background: rgba(163,230,53,0.08); border: 1px solid rgba(163,230,53,0.22); backdrop-filter: blur(8px);
         }
-        .scroll-cue { animation: cue 1.8s ease-in-out infinite; }
-        @keyframes cue { 0%,100% { transform: translateY(0); opacity: .65; } 50% { transform: translateY(8px); opacity: 1; } }
+        .hero-live-dot { position: relative; width: 8px; height: 8px; border-radius: 999px; background: var(--brand); box-shadow: 0 0 12px rgba(163,230,53,0.9); flex: 0 0 auto; }
+        .hero-live-dot::after { content: ''; position: absolute; inset: -4px; border-radius: 999px; border: 1px solid rgba(163,230,53,0.55); animation: hero-ping 1.8s cubic-bezier(0,0,0.2,1) infinite; }
+        @keyframes hero-ping { 0% { transform: scale(0.6); opacity: 1; } 80%, 100% { transform: scale(1.9); opacity: 0; } }
+        .hero-trust { display: inline-flex; align-items: center; gap: 0.55rem; font-size: 0.85rem; font-weight: 600; color: #aebbaf; }
+        .hero-trust i { color: var(--brand); font-size: 0.8rem; }
+        .hero-card {
+            border-radius: 1.6rem; overflow: hidden; cursor: pointer;
+            background: linear-gradient(180deg, rgba(20,29,24,0.85), rgba(8,13,11,0.92));
+            border: 1px solid rgba(163,230,53,0.16); backdrop-filter: blur(14px);
+            box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 40px 90px -40px rgba(0,0,0,0.95), 0 0 80px -30px rgba(163,230,53,0.25);
+            transition: transform 0.35s cubic-bezier(.2,.7,.2,1), border-color 0.35s, box-shadow 0.35s;
+        }
+        .hero-card:hover {
+            transform: translateY(-6px); border-color: rgba(163,230,53,0.4);
+            box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 50px 100px -40px rgba(0,0,0,0.95), 0 0 110px -30px rgba(163,230,53,0.4);
+        }
+        .hero-card-img { width: 100%; height: 230px; object-fit: contain; filter: drop-shadow(0 30px 40px rgba(0,0,0,0.55)); transition: transform 0.5s cubic-bezier(.2,.7,.2,1); }
+        .hero-card:hover .hero-card-img { transform: scale(1.04); }
+        @media (min-width: 1024px) { .hero-card-img { height: 290px; } }
+        .hero-stock {
+            display: inline-flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono);
+            font-size: 0.64rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brand);
+        }
+        .hero-card-cta {
+            display: inline-flex; align-items: center; justify-content: center; width: 2.9rem; height: 2.9rem; flex: 0 0 auto;
+            border-radius: 999px; color: #06120a;
+            background: linear-gradient(135deg, var(--brand-bright), var(--brand) 58%, var(--brand-deep));
+            box-shadow: 0 12px 30px -10px rgba(163,230,53,0.65); transition: transform 0.3s cubic-bezier(.2,.7,.2,1);
+        }
+        .hero-card:hover .hero-card-cta { transform: translateX(4px); }
+        .hero-mini {
+            display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0.8rem; border-radius: 1.1rem;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.25s;
+        }
+        .hero-mini:hover { background: rgba(163,230,53,0.08); border-color: rgba(163,230,53,0.35); transform: translateY(-2px); }
+        .hero-mini-img { width: 44px; height: 44px; flex: 0 0 auto; object-fit: cover; border-radius: 0.7rem; border: 1px solid rgba(255,255,255,0.08); }
+        .hero-tick {
+            display: inline-flex; align-items: center; gap: 0.6rem; max-width: 270px; flex: 0 0 auto;
+            padding: 0.32rem 0.9rem 0.32rem 0.4rem; border-radius: 999px; color: #cbd5cb; font-size: 0.78rem; font-weight: 600;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.25s;
+        }
+        .hero-tick:hover { border-color: rgba(163,230,53,0.4); color: #fff; background: rgba(163,230,53,0.07); }
+        .hero-tick img { width: 30px; height: 30px; border-radius: 999px; object-fit: cover; flex: 0 0 auto; border: 1px solid rgba(255,255,255,0.1); }
 
         /* ===== Shop group tabs + brand sidebar ===== */
         .group-tab{display:inline-flex;align-items:center;gap:.6rem;padding:.8rem 1.5rem;border-radius:999px;font-family:var(--font-display);font-weight:700;font-size:1rem;color:#c9d1c6;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);transition:all .25s cubic-bezier(.2,.7,.2,1);cursor:pointer}
@@ -1340,9 +1383,9 @@
 
         @media (prefers-reduced-motion: reduce) {
             .reveal { opacity: 1 !important; transform: none !important; }
-            .marquee, .marquee-rev { animation: none; }
+            .marquee { animation: none; }
             .tilt-card { transform: none !important; }
-            .scroll-cue { animation: none; }
+            .hero-live-dot::after { animation: none; }
         }
     </style>
 </head>
@@ -4843,63 +4886,104 @@ Check admin: jrimporters.com/admin.html`;
                         {/* SHOP PAGE */}
                         {page === 'shop' && (
                             <div className="page-shell px-4 py-6 md:px-6 md:py-8">
-                                {/* ===== CINEMATIC STORE INTRO — scroll past into the shop ===== */}
+                                {/* ===== LIVE SHOPFRONT HERO — real stock, real prices, straight off the shelf ===== */}
                                 {(() => {
-                                    const pics = [...products]
-                                        .filter(p => p.image || p.image1)
-                                        .sort((a, b) => (a.category === 'Smartphones' ? -1 : 0) - (b.category === 'Smartphones' ? -1 : 0))
-                                        .map(p => p.image || p.image1);
-                                    const wall = pics.length ? pics : [LOGO_URL];
-                                    const ring = [...wall, ...wall, ...wall];
-                                    const rowA = ring.slice(0, 18);
-                                    const rowB = [...ring].reverse().slice(0, 18);
-                                    const rowC = ring.slice(6, 24);
+                                    const live = products.filter(p => Number(p.stock || 0) > 0 && (p.image || p.image1));
+                                    const byPrice = (a, b) => Number(b.price || 0) - Number(a.price || 0);
+                                    const showcase = [
+                                        ...live.filter(p => p.category === 'Smartphones').sort(byPrice),
+                                        ...live.filter(p => p.category !== 'Smartphones').sort(byPrice)
+                                    ];
+                                    const feature = showcase[0];
+                                    const minis = showcase.slice(1, 3);
+                                    const tickerItems = showcase.slice(0, 14);
+                                    const ticker = tickerItems.length ? [...tickerItems, ...tickerItems] : [];
                                     return (
-                                        <section id="store-intro" className="store-intro relative -mx-4 -mt-6 mb-6 overflow-hidden md:-mx-6 md:-mt-8" style={{ minHeight: '92vh' }}>
-                                            {/* full-bleed wall of stock, distributed top→bottom */}
-                                            <div className="absolute inset-0 flex flex-col justify-between py-7 md:py-10">
-                                                <div className="marquee items-center gap-4" style={{ opacity: 0.5, filter: 'blur(0.4px)' }}>
-                                                    {rowA.map((src, i) => <img key={'a'+i} src={src} onError={handleImageError} className="intro-img" alt="" />)}
-                                                </div>
-                                                <div className="marquee-rev items-center gap-4" style={{ opacity: 0.62 }}>
-                                                    {rowB.map((src, i) => <img key={'b'+i} src={src} onError={handleImageError} className="intro-img" alt="" />)}
-                                                </div>
-                                                <div className="marquee items-center gap-4" style={{ opacity: 0.5, filter: 'blur(0.4px)' }}>
-                                                    {rowC.map((src, i) => <img key={'c'+i} src={src} onError={handleImageError} className="intro-img" alt="" />)}
+                                        <section id="store-intro" className="store-intro relative -mx-4 -mt-6 mb-6 overflow-hidden md:-mx-6 md:-mt-8">
+                                            {/* backdrop: engineering grid + lime aurora, dark edge into the grid below */}
+                                            <div className="absolute inset-0 hero-grid"></div>
+                                            <div className="absolute inset-0" style={{ background: 'radial-gradient(900px 480px at 18% 12%, rgba(163,230,53,0.14), transparent 60%), radial-gradient(760px 420px at 88% 78%, rgba(34,211,238,0.10), transparent 62%), radial-gradient(560px 380px at 70% 8%, rgba(192,132,252,0.08), transparent 65%)' }}></div>
+                                            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(4,7,6,0.5) 0%, transparent 30%, transparent 70%, rgba(4,7,6,0.92) 100%)' }}></div>
+
+                                            <div className="relative z-10 mx-auto flex min-h-[88vh] max-w-7xl flex-col justify-center px-5 pb-24 pt-14 md:px-8 md:pt-20">
+                                                <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
+                                                    {/* The pitch */}
+                                                    <div className="text-center lg:text-left">
+                                                        <div className="hero-eyebrow mb-6"><span className="hero-live-dot"></span> Live stock · Walvis Bay, Namibia</div>
+                                                        <h1 className="display text-[2.6rem] font-extrabold leading-[0.98] tracking-tight text-white text-balance sm:text-6xl xl:text-7xl">
+                                                            If it’s on this page, <span className="gradient-text">it’s on our shelf.</span>
+                                                        </h1>
+                                                        <p className="mx-auto mt-6 max-w-xl text-base leading-8 text-slate-300 md:text-lg lg:mx-0">
+                                                            This shop runs on the same stock system as our till — every phone, laptop and gadget listed here is sealed, genuine, warrantied and ready to ship across Namibia today.
+                                                        </p>
+                                                        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                                                            <button onClick={() => { setGroup('phones'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="btn-primary rounded-full px-8 py-4 text-base">
+                                                                <i className="fas fa-mobile-screen-button mr-2"></i> Shop phones
+                                                            </button>
+                                                            <button onClick={() => { setGroup('misc'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="secondary-button rounded-full px-7 py-4 text-base">
+                                                                Browse everything
+                                                            </button>
+                                                        </div>
+                                                        <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 lg:justify-start">
+                                                            <span className="hero-trust"><i className="fas fa-shield-halved"></i> Genuine &amp; warrantied</span>
+                                                            <span className="hero-trust"><i className="fas fa-truck-fast"></i> Nationwide delivery</span>
+                                                            <span className="hero-trust"><i className="fas fa-screwdriver-wrench"></i> Expert repairs</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* The shelf: a real product, priced and in stock */}
+                                                    {feature && (
+                                                        <div className="mx-auto w-full max-w-md lg:max-w-none">
+                                                            <div className="hero-card" onClick={() => openProduct(feature)}>
+                                                                <div className="flex items-center justify-between gap-3 px-6 pt-5">
+                                                                    <span className="kicker">{feature.category || 'Featured'}</span>
+                                                                    <span className="hero-stock"><span className="hero-live-dot"></span> In stock now</span>
+                                                                </div>
+                                                                <div className="px-6 py-4">
+                                                                    <img src={feature.image || feature.image1} onError={handleImageError} alt={feature.name} className="hero-card-img" />
+                                                                </div>
+                                                                <div className="flex items-end justify-between gap-4 px-6 pb-6">
+                                                                    <div className="min-w-0">
+                                                                        <div className="display truncate text-xl font-bold text-white md:text-2xl">{feature.name}</div>
+                                                                        <div className="mono mt-1 text-lg text-lime-300">{formatMoney(feature.price)}</div>
+                                                                    </div>
+                                                                    <span className="hero-card-cta"><i className="fas fa-arrow-right"></i></span>
+                                                                </div>
+                                                            </div>
+                                                            {minis.length > 0 && (
+                                                                <div className="mt-4 grid grid-cols-2 gap-3 md:gap-4">
+                                                                    {minis.map(p => (
+                                                                        <button key={p.id} onClick={() => openProduct(p)} className="hero-mini text-left">
+                                                                            <img src={p.image || p.image1} onError={handleImageError} alt="" className="hero-mini-img" />
+                                                                            <span className="min-w-0">
+                                                                                <span className="block truncate text-sm font-semibold text-white">{p.name}</span>
+                                                                                <span className="mono block text-xs text-lime-300">{formatMoney(p.price)}</span>
+                                                                            </span>
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                            {/* lime aurora behind the headline */}
-                                            <div className="absolute inset-0" style={{ background: 'radial-gradient(680px 360px at 50% 40%, rgba(163,230,53,0.18), transparent 62%)' }}></div>
-                                            {/* vertical legibility scrim (lighter middle so stock shows, dark top/bottom) */}
-                                            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(4,7,6,0.82) 0%, rgba(4,7,6,0.34) 26%, rgba(4,7,6,0.34) 72%, rgba(4,7,6,0.96) 100%)' }}></div>
-                                            {/* focused scrim directly behind the text */}
-                                            <div className="absolute inset-0" style={{ background: 'radial-gradient(closest-side at 50% 47%, rgba(4,7,6,0.72), transparent 78%)' }}></div>
-                                            <div className="relative z-10 mx-auto flex min-h-[92vh] max-w-4xl flex-col items-center justify-center px-6 text-center">
-                                                <div className="intro-badge mb-6"><i className="fas fa-bolt text-lime-400"></i> Namibia’s home of genuine phones</div>
-                                                <h1 className="display text-4xl font-extrabold leading-[0.95] tracking-tight text-white text-balance sm:text-6xl md:text-7xl" style={{ textShadow: '0 2px 50px rgba(0,0,0,0.6), 0 0 90px rgba(163,230,53,0.12)' }}>
-                                                    The latest <span className="gradient-text">phones</span>,<br className="hidden sm:block" /> and everything tech.
-                                                </h1>
-                                                <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 md:text-lg">
-                                                    Smartphones are our specialty — sealed, genuine and warrantied — alongside laptops, audio, cameras, car tech and expert repairs. Shipped fast across Namibia from Walvis Bay.
-                                                </p>
-                                                <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-                                                    <span className="intro-badge"><i className="fas fa-shield-halved text-lime-400"></i> Genuine & warrantied</span>
-                                                    <span className="intro-badge"><i className="fas fa-truck-fast text-lime-400"></i> Nationwide delivery</span>
-                                                    <span className="intro-badge"><i className="fas fa-screwdriver-wrench text-lime-400"></i> Expert repairs</span>
+
+                                            {/* live-stock ticker — every chip is a real product */}
+                                            {ticker.length > 0 && (
+                                                <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/5 bg-black/30 py-3 backdrop-blur-sm">
+                                                    <div className="marquee-mask overflow-hidden">
+                                                        <div className="marquee items-center" style={{ gap: '0.75rem', animationDuration: '46s' }}>
+                                                            {ticker.map((p, i) => (
+                                                                <button key={p.id + '-' + i} onClick={() => openProduct(p)} className="hero-tick">
+                                                                    <img src={p.image || p.image1} onError={handleImageError} alt="" />
+                                                                    <span className="truncate">{p.name}</span>
+                                                                    <span className="mono text-lime-300">{formatMoney(p.price)}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-                                                    <button onClick={() => { setGroup('phones'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="btn-primary rounded-full px-8 py-4 text-base">
-                                                        <i className="fas fa-mobile-screen-button mr-2"></i> Shop phones
-                                                    </button>
-                                                    <button onClick={() => { setGroup('misc'); document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' }); }} className="secondary-button rounded-full px-7 py-4 text-base">
-                                                        Browse everything
-                                                    </button>
-                                                </div>
-                                                <button onClick={() => document.getElementById('store-grid')?.scrollIntoView({ behavior: 'smooth' })} className="scroll-cue mt-14 flex flex-col items-center gap-2 text-xs uppercase tracking-[0.3em] text-slate-400">
-                                                    Scroll to shop
-                                                    <i className="fas fa-chevron-down text-lime-400"></i>
-                                                </button>
-                                            </div>
+                                            )}
                                         </section>
                                     );
                                 })()}
