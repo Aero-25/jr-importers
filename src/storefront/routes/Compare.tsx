@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Plus, Scale, Search, Trash2, X } from 'lucide-react';
 import type { ProductRow } from '@/lib/database.types';
-import { colourSwatch, useCatalog, useVariants } from '@/data/products';
+import { SPEC_FIELDS, colourSwatch, useCatalog, useVariants } from '@/data/products';
 import { COMPARE_LIMIT, useCompare } from '@/data/compare';
 import { money } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -20,19 +20,12 @@ import { useSeo } from '../seo';
  * the row a buyer is here to find.
  */
 
-const SPEC_FIELDS: Array<{ label: string; get: (p: ProductRow) => string | null | undefined }> = [
+// Identity rows first, then the shared spec table (see products.ts), so the
+// compare page always carries exactly the specs the product page shows.
+const COMPARE_ROWS: Array<{ label: string; get: (p: ProductRow) => string | null | undefined }> = [
   { label: 'Brand', get: (p) => p.brand },
   { label: 'Category', get: (p) => p.category },
-  { label: 'Display', get: (p) => p.spec_display },
-  { label: 'Processor', get: (p) => p.spec_processor },
-  { label: 'RAM', get: (p) => p.spec_ram },
-  { label: 'Storage', get: (p) => p.spec_storage },
-  { label: 'Battery', get: (p) => p.spec_battery },
-  { label: 'Rear camera', get: (p) => p.spec_back_camera },
-  { label: 'Front camera', get: (p) => p.spec_front_camera },
-  { label: 'Operating system', get: (p) => p.spec_os },
-  { label: 'Weight', get: (p) => p.spec_weight },
-  { label: 'Also includes', get: (p) => p.spec_extras },
+  ...SPEC_FIELDS,
 ];
 
 export default function Compare() {
@@ -269,7 +262,7 @@ export default function Compare() {
           </div>
 
           {/* Specs, skipping rows nothing fills */}
-          {SPEC_FIELDS.map(({ label, get }) => {
+          {COMPARE_ROWS.map(({ label, get }) => {
             const values = items.map((product) => get(product)?.trim() || '—');
             if (values.every((value) => value === '—')) return null;
             return <CompareRow key={label} label={label} columns={columns} values={values} />;

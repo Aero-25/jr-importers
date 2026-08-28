@@ -434,24 +434,7 @@
 }
 
 @layer components {
-  /* ── The hero bench scene ─────────────────────────────────────────────
-     The headline says every handset is checked before it leaves. The scene
-     says it again without words: the counter's bench card floats in front
-     of the mark, ticks itself off, and lands on PASSED. Decorative and
-     aria-hidden throughout — the promise is also made in the hero's text.
-     ─────────────────────────────────────────────────────────────────── */
-
-  /* A halftone patch behind the mark. Workshop texture, not colour: navy
-     dots at low alpha, faded out radially so the patch has no hard edge. */
-  .hero-dots {
-    pointer-events: none;
-    background-image: radial-gradient(rgb(var(--c-brand-500) / 0.2) 1px, transparent 1.5px);
-    background-size: 14px 14px;
-    -webkit-mask-image: radial-gradient(closest-side, #000 20%, transparent 100%);
-    mask-image: radial-gradient(closest-side, #000 20%, transparent 100%);
-  }
-
-  /* The marker stroke under "checked". pathLength=1 normalises the dash,
+  /* The marker stroke under the headline's claim. pathLength=1 normalises the dash,
      so one keyframe fits whatever the word measures at any breakpoint. It
      draws only once the headline itself has revealed. */
   .hero-stroke path {
@@ -462,29 +445,9 @@
     animation: hero-stroke-draw 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards;
   }
 
-  /* Bench card rows tick in one by one, then the stamp lands. Delays are
-     set inline per row; `both` keeps a row hidden until its turn. */
-  .bench-tick {
-    animation: bench-tick-in 0.3s ease-out both;
-  }
-  .bench-stamp {
-    animation: bench-stamp-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .hero-float {
-      animation: hero-float 7s ease-in-out infinite alternate;
-    }
-    .hero-orbit {
-      animation: hero-orbit 90s linear infinite;
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
     /* The global rule collapses durations but not delays — without this
-       the ticks would still pop in one after another over two seconds. */
-    .bench-tick,
-    .bench-stamp,
+       the stroke would still wait half a second to appear. */
     .reveal.is-in .hero-stroke path {
       animation-delay: 0s !important;
     }
@@ -523,45 +486,14 @@
     width: auto;
     overflow-x: auto;
   }
+  /* The second copy exists only to make the loop seamless; with the loop
+     gone it would just show every product twice. */
+  .ticker > [aria-hidden='true'] {
+    display: none;
+  }
   .ticker-mask {
     -webkit-mask-image: none;
     mask-image: none;
   }
 }
 
-@keyframes bench-tick-in {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes bench-stamp-in {
-  from {
-    opacity: 0;
-    transform: rotate(20deg) scale(1.6);
-  }
-  to {
-    opacity: 1;
-    transform: rotate(8deg) scale(1);
-  }
-}
-
-@keyframes hero-float {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-9px);
-  }
-}
-
-@keyframes hero-orbit {
-  to {
-    transform: rotate(360deg);
-  }
-}

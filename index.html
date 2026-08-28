@@ -1383,7 +1383,10 @@
 
         @media (prefers-reduced-motion: reduce) {
             .reveal { opacity: 1 !important; transform: none !important; }
-            .marquee { animation: none; }
+            .marquee { animation: none; width: auto; overflow-x: auto; }
+            /* The ticker's second copy only exists to make the loop seamless;
+               with the loop off it would show every product twice. */
+            .marquee > [aria-hidden="true"] { display: none; }
             .tilt-card { transform: none !important; }
             .hero-live-dot::after { animation: none; }
         }
@@ -1643,6 +1646,16 @@
                     console.error('Error saving comparison:', e);
                 }
             }, [compareList]);
+
+            // The compare page shows per-colour availability, but colours are
+            // fetched lazily per product — make sure everything on the page
+            // has actually been fetched.
+            useEffect(() => {
+                if (page !== 'compare') return;
+                compareList.forEach(p => {
+                    if (!productColors[p.id]) loadProductColors(p.id);
+                });
+            }, [page, compareList]);
 
             useEffect(() => {
                 setChatMessages([{
@@ -4989,7 +5002,7 @@ Check admin: jrimporters.com/admin.html`;
                                                     <div className="marquee-mask overflow-hidden">
                                                         <div className="marquee items-center" style={{ gap: '0.75rem', animationDuration: '46s' }}>
                                                             {ticker.map((p, i) => (
-                                                                <button key={p.id + '-' + i} onClick={() => openProduct(p)} className="hero-tick">
+                                                                <button key={p.id + '-' + i} onClick={() => openProduct(p)} className="hero-tick" aria-hidden={i >= tickerItems.length || undefined} tabIndex={i >= tickerItems.length ? -1 : undefined}>
                                                                     <img src={p.image || p.image1} onError={handleImageError} alt="" />
                                                                     <span className="truncate">{p.name}</span>
                                                                     <span className="mono text-lime-300">{formatMoney(p.price)}</span>

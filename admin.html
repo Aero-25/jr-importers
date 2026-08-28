@@ -2341,6 +2341,9 @@
                         let group = groups.get(key);
                         if (!group) {
                             group = {
+                                // Whether the sheet actually said a stock figure —
+                                // a blank cell must never zero a live count.
+                                stockProvided: clean(row.stock ?? row.Stock) !== '',
                                 product: {
                                     name,
                                     brand: clean(row.brand || row.Brand),
@@ -2365,16 +2368,17 @@
                         const imei = clean(row.imei || row.IMEI);
                         const serial = clean(row.serial_number || row.serial || row.Serial || row['Serial Number']);
                         const color = clean(row.color || row.Color || row.colour || row.Colour);
-                        if (imei || serial || color) {
+                        if (imei || serial) {
                             if (imei && !/^\d{15}$/.test(imei)) problems.push(`Row ${line}: IMEI "${imei}" must be exactly 15 digits`);
-                            if (!imei && !serial) problems.push(`Row ${line}: unit needs an IMEI or serial number`);
                             if (!color) problems.push(`Row ${line}: unit needs a colour`);
                             const unitKey = (imei || serial).toLowerCase();
-                            if (unitKey) {
-                                if (seenUnits.has(unitKey)) problems.push(`Row ${line}: duplicate IMEI/serial ${imei || serial}`);
-                                seenUnits.add(unitKey);
-                            }
+                            if (seenUnits.has(unitKey)) problems.push(`Row ${line}: duplicate IMEI/serial ${imei || serial}`);
+                            seenUnits.add(unitKey);
                             group.units.push({ imei: imei || null, serial_number: serial || null, color: color || null });
+                        } else if (color && !group.product.color) {
+                            // A colour without an identifier describes the product,
+                            // not a serialised unit.
+                            group.product.color = color;
                         }
                     });
                     for (const group of groups.values()) {
@@ -2387,7 +2391,7 @@
                         return;
                     }
                     const products = [...groups.values()]
-                        .map(group => ({ ...group.product, stock: group.units.length || group.product.stock, units: group.units }))
+                        .map(group => ({ ...group.product, stock: group.units.length || group.product.stock, units: group.units, stockProvided: group.stockProvided }))
                         .filter(product => product.name && product.price >= 0);
                     setProductImportPreview(products);
                     setModal('product-import');
@@ -2412,16 +2416,27 @@
                         existing = found || [];
                     }
                     const idBySku = new Map(existing.map(p => [String(p.sku).toLowerCase(), p.id]));
+                    // Serialised products are counted by their unit rows; a
+                    // spreadsheet number must never overwrite that count.
+                    const serialisedIds = new Set();
+                    if (existing.length) {
+                        const { data: tracked } = await db.from('product_imeis')
+                            .select('product_id')
+                            .in('product_id', existing.map(p => p.id));
+                        (tracked || []).forEach(row => serialisedIds.add(row.product_id));
+                    }
                     const failures = [];
                     let productCount = 0;
                     let unitCount = 0;
                     for (const item of productImportPreview) {
-                        const { units, ...fields } = item;
+                        const { units, stockProvided, ...fields } = item;
                         const skuKey = String(fields.sku || '').toLowerCase();
                         let productId = fields.sku ? idBySku.get(skuKey) : undefined;
                         if (productId) {
                             const updates = { ...fields };
-                            if (units.length) delete updates.stock; // the unit rows own the count
+                            // The unit rows own a serialised count, and a sheet
+                            // that said nothing about stock corrects nothing.
+                            if (units.length || !stockProvided || serialisedIds.has(productId)) delete updates.stock;
                             const { error } = await db.from('products').update(updates).eq('id', productId);
                             if (error) { failures.push(`${fields.name}: ${error.message}`); continue; }
                         } else {

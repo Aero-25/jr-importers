@@ -251,7 +251,8 @@ function GrvDialog({
   const [term, setTerm] = useState('');
   const [scanFor, setScanFor] = useState<number | null>(null);
   // The colour the next captured units take, per line — set it once, scan the
-  // black ones, change it, scan the gold ones.
+  // black ones, change it, scan the gold ones. Keyed by product id, not array
+  // index: deleting a line above must not hand its colour to the line below.
   const [unitColor, setUnitColor] = useState<Record<number, string>>({});
 
   // The invoice reader. Parsed lines that matched a product land straight in
@@ -385,7 +386,7 @@ function GrvDialog({
     setLines((current) =>
       current.map((l, i) => {
         if (i !== index || l.imeis.some((unit) => unit.imei === imei)) return l;
-        const color = (unitColor[index] ?? l.color ?? '').trim() || null;
+        const color = (unitColor[l.product_id ?? -1] ?? l.color ?? '').trim() || null;
         return { ...l, imeis: [...l.imeis, { imei, color }] };
       }),
     );
@@ -661,9 +662,9 @@ function GrvDialog({
                             placeholder="Colour of the next units"
                             className="max-w-[11rem]"
                             list="grv-colour-suggestions"
-                            value={unitColor[index] ?? line.color ?? ''}
+                            value={unitColor[line.product_id ?? -1] ?? line.color ?? ''}
                             onChange={(e) =>
-                              setUnitColor((c) => ({ ...c, [index]: e.target.value }))
+                              setUnitColor((c) => ({ ...c, [line.product_id ?? -1]: e.target.value }))
                             }
                           />
                           <Button

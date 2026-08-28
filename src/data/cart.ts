@@ -104,7 +104,11 @@ export function useCart() {
             sku: product.sku,
             price: Number(product.price) || 0,
             quantity: capped,
-            color: color ?? product.color ?? null,
+            // Only a colour the shopper actually chose. The catalogue's
+            // `color` field is descriptive metadata and may match no unit in
+            // the pool — attaching it here would make the colour-exact
+            // reservation hold the order to a colour nobody picked.
+            color: color ?? null,
             image: product.image,
             available_stock: product.stock,
           } satisfies CartLine,

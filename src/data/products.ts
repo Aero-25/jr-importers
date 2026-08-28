@@ -202,23 +202,29 @@ export function productImages(product: ProductRow): string[] {
   ].filter((url, index, all): url is string => Boolean(url) && all.indexOf(url) === index);
 }
 
+/**
+ * The spec sheet's label/field table — the single source for both the product
+ * page's spec list and the compare page's rows, so a new spec column appears
+ * in both places at once.
+ */
+export const SPEC_FIELDS: Array<{ label: string; get: (p: ProductRow) => string | null }> = [
+  { label: 'Display', get: (p) => p.spec_display },
+  { label: 'Processor', get: (p) => p.spec_processor },
+  { label: 'RAM', get: (p) => p.spec_ram },
+  { label: 'Storage', get: (p) => p.spec_storage },
+  { label: 'Battery', get: (p) => p.spec_battery },
+  { label: 'Rear camera', get: (p) => p.spec_back_camera },
+  { label: 'Front camera', get: (p) => p.spec_front_camera },
+  { label: 'Operating system', get: (p) => p.spec_os },
+  { label: 'Weight', get: (p) => p.spec_weight },
+  { label: 'Also includes', get: (p) => p.spec_extras },
+];
+
 /** Spec sheet rows, skipping blanks so the table has no empty cells. */
 export function productSpecs(product: ProductRow): Array<{ label: string; value: string }> {
-  const map: Array<[string, string | null]> = [
-    ['Display', product.spec_display],
-    ['Processor', product.spec_processor],
-    ['RAM', product.spec_ram],
-    ['Storage', product.spec_storage],
-    ['Battery', product.spec_battery],
-    ['Rear camera', product.spec_back_camera],
-    ['Front camera', product.spec_front_camera],
-    ['Operating system', product.spec_os],
-    ['Weight', product.spec_weight],
-    ['Also includes', product.spec_extras],
-  ];
-  return map
-    .filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()))
-    .map(([label, value]) => ({ label, value }));
+  return SPEC_FIELDS.map(({ label, get }) => ({ label, value: get(product)?.trim() ?? '' })).filter(
+    (row) => row.value,
+  );
 }
 
 /* ── Colour variants, from the IMEI pool ─────────────────────────────────── */
@@ -263,7 +269,17 @@ export function useVariants(product: ProductRow | null | undefined) {
 
       const rows = data ?? [];
       if (rows.length === 0) {
-        return { serialised: false, variants: [], available: product!.stock };
+        // Not serialised — the count lives on the product row. Read it live
+        // rather than trusting the caller's copy: the compare page passes
+        // products snapshotted into localStorage, and stock is the one field
+        // that must never be served stale.
+        const { data: live, error: stockError } = await supabase
+          .from('products')
+          .select('stock')
+          .eq('id', product!.id)
+          .maybeSingle();
+        if (stockError) throw new Error(stockError.message);
+        return { serialised: false, variants: [], available: live?.stock ?? product!.stock };
       }
 
       const counts = new Map<string | null, number>();
