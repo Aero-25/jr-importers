@@ -31,15 +31,20 @@ export type Category = (typeof CATEGORIES)[number];
  * The storefront is a phone shop.
  *
  * Only these categories are merchandised. The rest of the catalogue (laptops,
- * audio, drones, cameras, gaming, smart home, car tech, tablets, wearables)
- * still exists in the database and the console — it is simply not on the shop.
+ * audio, drones, cameras, gaming, smart home, car tech, wearables) still
+ * exists in the database and the console — it is simply not on the shop.
  * Widen the shop by adding groups here; nothing else needs to change.
+ *
+ * Tablets joined the shop with the rugged Armor Pad line: they are stocked as
+ * sellable units with their own IMEIs, so leaving them off meant carrying
+ * stock the storefront could not sell.
  */
-export const SHOP_CATEGORIES: Category[] = ['Smartphones', 'Accessories'];
+export const SHOP_CATEGORIES: Category[] = ['Smartphones', 'Tablets', 'Accessories'];
 
 /** Groups the storefront's top-level tabs. Order is the order shown. */
 export const CATEGORY_GROUPS: Array<{ id: string; label: string; categories: Category[] }> = [
   { id: 'phones', label: 'All phones', categories: ['Smartphones'] },
+  { id: 'tablets', label: 'Tablets', categories: ['Tablets'] },
   { id: 'accessories', label: 'Accessories', categories: ['Accessories'] },
 ];
 
