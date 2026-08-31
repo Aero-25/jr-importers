@@ -24,8 +24,14 @@ interface Target {
   id: string;
   label: string;
   table: 'products' | 'customers' | 'suppliers' | 'product_imeis';
-  /** Rows carry a stock code that has to become a product id before writing. */
+  /** Rows carry a stock code or a name that has to become a product id. */
   resolveProduct?: boolean;
+  /**
+   * At least one of these keys must be present. A serial list identifies its
+   * handset by stock code or by name — suppliers send one or the other, and
+   * demanding both rejects most of the files that actually arrive.
+   */
+  requireAny?: string[];
   hint: string;
   /** The column both sides are matched on, so re-importing updates. */
   matchOn: string;
@@ -98,11 +104,14 @@ const TARGETS: Target[] = [
     label: 'Serial numbers (IMEIs)',
     table: 'product_imeis',
     resolveProduct: true,
-    hint: 'Stock → Serial Number Tracking. One row per handset, with its stock code.',
+    hint: 'Stock → Serial Number Tracking. One row per handset, identified by stock code or by product name.',
     matchOn: 'imei',
+    // Either column identifies the handset, so either is enough on its own.
+    requireAny: ['sku', 'name'],
     fields: [
       { key: 'imei', label: 'Serial / IMEI', candidates: ['serialno', 'serialnumber', 'serial', 'imei'], required: true },
-      { key: 'sku', label: 'Stock code', candidates: ['code', 'stockcode', 'itemcode'], required: true },
+      { key: 'sku', label: 'Stock code', candidates: ['code', 'stockcode', 'itemcode'] },
+      { key: 'name', label: 'Product name', candidates: ['descript', 'description', 'itemdescription', 'productname', 'model', 'name'] },
       { key: 'color', label: 'Colour', candidates: ['colordetailed', 'colourdesc', 'colour', 'color'] },
     ],
   },
@@ -134,6 +143,86 @@ const TARGETS: Target[] = [
     ],
   },
 ];
+
+/* ── Matching a serial to its product ────────────────────────────────────── */
+
+interface ProductIndex {
+  bySku: Map<string, number>;
+  /** null marks a name held by more than one product, which identifies none. */
+  byName: Map<string, number | null>;
+}
+
+const normalise = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+
+/**
+ * Read the catalogue once and index it by stock code and by name.
+ *
+ * Read in full rather than filtered per batch because matching has to be
+ * case- and space-insensitive: PostgREST's `in` filter is exact, so a file
+ * saying "samsung galaxy a17 256gb" would miss the shop's "Samsung Galaxy
+ * A17 256GB" purely on casing.
+ */
+async function loadProductIndex(): Promise<ProductIndex> {
+  const bySku = new Map<string, number>();
+  const byName = new Map<string, number | null>();
+  const PAGE = 1000;
+
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, sku, name')
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+
+    const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+    for (const row of rows) {
+      const id = row.id as number;
+      const sku = normalise(row.sku);
+      const name = normalise(row.name);
+      if (sku) bySku.set(sku, id);
+      if (name) byName.set(name, byName.has(name) ? null : id);
+    }
+    if (rows.length < PAGE) break;
+  }
+
+  return { bySku, byName };
+}
+
+/**
+ * Which product does this handset belong to?
+ *
+ * Stock code first, because it is exact. Product name second, because that is
+ * what a supplier's serial list actually carries.
+ *
+ * Never inferred from the IMEI itself. The leading digits are a TAC, and one
+ * model legitimately ships under several TACs across batches, variants and
+ * dual-SIM builds — so two identical handsets can differ there while two
+ * different models can sit close together. The name is the part that holds.
+ */
+function matchProduct(
+  index: ProductIndex,
+  row: Record<string, unknown>,
+): { id?: number; why: string } {
+  const sku = normalise(row.sku);
+  if (sku) {
+    const id = index.bySku.get(sku);
+    if (id !== undefined) return { id, why: '' };
+  }
+
+  const name = normalise(row.name);
+  if (name) {
+    const hit = index.byName.get(name);
+    // Hanging a handset on the wrong product is worse than leaving it out and
+    // saying so, so an ambiguous name resolves to nothing.
+    if (hit === null) return { why: `more than one product is named "${row.name}"` };
+    if (hit !== undefined) return { id: hit, why: '' };
+  }
+
+  if (!sku && !name) return { why: 'no stock code or product name on the row' };
+  if (!name) return { why: `no product has stock code ${row.sku}` };
+  if (!sku) return { why: `no product is named "${row.name}"` };
+  return { why: `nothing matches stock code ${row.sku} or name "${row.name}"` };
+}
 
 interface Preview {
   create: number;
@@ -199,6 +288,15 @@ export default function ImportIQ() {
     [target, mapping],
   );
 
+  /** A requireAny group is satisfied by any single one of its columns. */
+  const missingAny = useMemo(
+    () =>
+      target.requireAny && !target.requireAny.some((key) => mapping[key])
+        ? target.requireAny.map((key) => target.fields.find((f) => f.key === key)?.label ?? key)
+        : null,
+    [target, mapping],
+  );
+
   /** Turns a CSV row into the shape the table expects. */
   function shape(row: Record<string, string>): Record<string, unknown> {
     const out: Record<string, unknown> = {};
@@ -243,6 +341,10 @@ export default function ImportIQ() {
             return;
           }
         }
+        if (target.requireAny && !target.requireAny.some((key) => row[key])) {
+          skipped.push({ row: index + 2, why: 'no stock code or product name to match on' });
+          return;
+        }
         if (!key) {
           skipped.push({ row: index + 2, why: `no ${target.matchOn} to match on` });
           return;
@@ -252,21 +354,12 @@ export default function ImportIQ() {
       });
 
       if (target.resolveProduct) {
-        const skus = [...new Set([...keyed.values()].map((r) => String(r.sku ?? '')))];
-        const known = new Set<string>();
-        for (let i = 0; i < skus.length; i += 200) {
-          const { data } = await supabase
-            .from('products')
-            .select('sku')
-            .in('sku', skus.slice(i, i + 200));
-          for (const row of (data ?? []) as unknown as Array<Record<string, unknown>>) {
-            known.add(String(row.sku ?? '').toLowerCase());
-          }
-        }
+        const index = await loadProductIndex();
         for (const [key, row] of [...keyed]) {
-          if (!known.has(String(row.sku ?? '').toLowerCase())) {
+          const hit = matchProduct(index, row);
+          if (hit.id === undefined) {
             keyed.delete(key);
-            skipped.push({ row: 0, why: `stock code ${row.sku} is not in the system yet` });
+            skipped.push({ row: 0, why: hit.why });
           }
         }
       }
@@ -315,6 +408,7 @@ export default function ImportIQ() {
         if (!key) continue;
         if (row.__skip) continue;
         if (target.fields.some((f) => f.required && !row[f.key])) continue;
+        if (target.requireAny && !target.requireAny.some((key) => row[key])) continue;
 
         delete row.__skip;
         delete row.__negative;
@@ -348,39 +442,34 @@ export default function ImportIQ() {
         // rather than in the database keeps the unmatched codes visible: a
         // serial attached to a product that was never imported would otherwise
         // fail the whole batch with nothing to say which row caused it.
-        const skus = [...new Set([...keyed.values()].map((r) => String(r.sku ?? '')))];
-        const bySku = new Map<string, number>();
-        for (let i = 0; i < skus.length; i += 200) {
-          const { data, error } = await supabase
-            .from('products')
-            .select('id, sku')
-            .in('sku', skus.slice(i, i + 200));
-          if (error) throw new Error(error.message);
-          for (const row of (data ?? []) as unknown as Array<Record<string, unknown>>) {
-            bySku.set(String(row.sku ?? '').toLowerCase(), row.id as number);
-          }
-        }
+        const index = await loadProductIndex();
 
-        let orphans = 0;
+        // Counted by reason, so the warning says what actually went wrong
+        // rather than only how many rows fell out.
+        const reasons = new Map<string, number>();
         for (const [key, row] of [...keyed]) {
-          const id = bySku.get(String(row.sku ?? '').toLowerCase());
-          if (id === undefined) {
+          const hit = matchProduct(index, row);
+          if (hit.id === undefined) {
             keyed.delete(key);
-            orphans += 1;
+            reasons.set(hit.why, (reasons.get(hit.why) ?? 0) + 1);
             continue;
           }
+          // Neither column exists on product_imeis; they were only ever the
+          // means of finding the product id.
           delete row.sku;
-          row.product_id = id;
+          delete row.name;
+          row.product_id = hit.id;
           // Status only on units this import creates. An update must leave it
           // alone — re-running an old export against a live system would
           // otherwise put already-sold handsets back on the shelf, and the
           // stock trigger would count them.
           if (!existing.has(key)) row.status = 'available';
         }
+        const orphans = [...reasons.values()].reduce((a, b) => a + b, 0);
         if (orphans > 0) {
           toast.warn(
             `${orphans} serial(s) skipped`,
-            'Their stock code is not in the system. Import the stock master first.',
+            [...reasons].map(([why, n]) => `${n} × ${why}`).join('; '),
           );
         }
       }
@@ -545,11 +634,17 @@ export default function ImportIQ() {
               </Notice>
             )}
 
+            {missingAny && (
+              <Notice tone="danger" className="mt-4" title="Map one of these columns">
+                {missingAny.join(' or ')} — either identifies the handset, so one is enough.
+              </Notice>
+            )}
+
             <Button
               className="mt-4"
               variant="secondary"
               icon={<Database className="h-4 w-4" />}
-              disabled={missing.length > 0}
+              disabled={missing.length > 0 || missingAny !== null}
               loading={busy}
               onClick={dryRun}
             >
