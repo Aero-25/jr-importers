@@ -1,38 +1,291 @@
 {
   "artboards": [
-    { "file": "Main.dc.html", "title": "A · Import Desk", "x": 0, "y": 0, "w": 1440, "h": 2760 },
-    { "file": "DirectionB.dc.html", "title": "B · Night Counter", "x": 1600, "y": 0, "w": 1440, "h": 2680 },
-    { "file": "DirectionC.dc.html", "title": "C · Kiosk", "x": 3200, "y": 0, "w": 1440, "h": 2620 }
+    {
+      "file": "Main.dc.html",
+      "title": "A1 · Home",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 3050,
+      "page": "page-a"
+    },
+    {
+      "file": "AShop.dc.html",
+      "title": "A2 · Catalogue",
+      "x": 1620,
+      "y": 0,
+      "w": 1440,
+      "h": 2680,
+      "page": "page-a"
+    },
+    {
+      "file": "AProduct.dc.html",
+      "title": "A3 · Product",
+      "x": 3240,
+      "y": 0,
+      "w": 1440,
+      "h": 3260,
+      "page": "page-a"
+    },
+    {
+      "file": "ACart.dc.html",
+      "title": "A4 · Cart",
+      "x": 0,
+      "y": 3420,
+      "w": 1440,
+      "h": 1560,
+      "page": "page-a"
+    },
+    {
+      "file": "ACheckout.dc.html",
+      "title": "A5 · Checkout",
+      "x": 1620,
+      "y": 3420,
+      "w": 1440,
+      "h": 2320,
+      "page": "page-a"
+    },
+    {
+      "file": "ARepairs.dc.html",
+      "title": "A6 · Repairs",
+      "x": 3240,
+      "y": 3420,
+      "w": 1440,
+      "h": 2320,
+      "page": "page-a"
+    },
+    {
+      "file": "AAccount.dc.html",
+      "title": "A7 · Account",
+      "x": 0,
+      "y": 5940,
+      "w": 1440,
+      "h": 1460,
+      "page": "page-a"
+    },
+    {
+      "file": "AMobile.dc.html",
+      "title": "A8 · Mobile",
+      "x": 1620,
+      "y": 5940,
+      "w": 920,
+      "h": 1010,
+      "page": "page-a"
+    },
+    {
+      "file": "ASheet.dc.html",
+      "title": "A9 · Design system",
+      "x": 3240,
+      "y": 5940,
+      "w": 1440,
+      "h": 1900,
+      "page": "page-a"
+    },
+    {
+      "file": "BHome.dc.html",
+      "title": "B1 · Home",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 3050,
+      "page": "page-b"
+    },
+    {
+      "file": "BShop.dc.html",
+      "title": "B2 · Catalogue",
+      "x": 1620,
+      "y": 0,
+      "w": 1440,
+      "h": 2680,
+      "page": "page-b"
+    },
+    {
+      "file": "BProduct.dc.html",
+      "title": "B3 · Product",
+      "x": 3240,
+      "y": 0,
+      "w": 1440,
+      "h": 3260,
+      "page": "page-b"
+    },
+    {
+      "file": "BCart.dc.html",
+      "title": "B4 · Cart",
+      "x": 0,
+      "y": 3420,
+      "w": 1440,
+      "h": 1560,
+      "page": "page-b"
+    },
+    {
+      "file": "BCheckout.dc.html",
+      "title": "B5 · Checkout",
+      "x": 1620,
+      "y": 3420,
+      "w": 1440,
+      "h": 2320,
+      "page": "page-b"
+    },
+    {
+      "file": "BRepairs.dc.html",
+      "title": "B6 · Repairs",
+      "x": 3240,
+      "y": 3420,
+      "w": 1440,
+      "h": 2320,
+      "page": "page-b"
+    },
+    {
+      "file": "BAccount.dc.html",
+      "title": "B7 · Account",
+      "x": 0,
+      "y": 5940,
+      "w": 1440,
+      "h": 1460,
+      "page": "page-b"
+    },
+    {
+      "file": "BMobile.dc.html",
+      "title": "B8 · Mobile",
+      "x": 1620,
+      "y": 5940,
+      "w": 920,
+      "h": 1010,
+      "page": "page-b"
+    },
+    {
+      "file": "BSheet.dc.html",
+      "title": "B9 · Design system",
+      "x": 3240,
+      "y": 5940,
+      "w": 1440,
+      "h": 1900,
+      "page": "page-b"
+    },
+    {
+      "file": "CHome.dc.html",
+      "title": "C1 · Home",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 3050,
+      "page": "page-c"
+    },
+    {
+      "file": "CShop.dc.html",
+      "title": "C2 · Catalogue",
+      "x": 1620,
+      "y": 0,
+      "w": 1440,
+      "h": 2680,
+      "page": "page-c"
+    },
+    {
+      "file": "CProduct.dc.html",
+      "title": "C3 · Product",
+      "x": 3240,
+      "y": 0,
+      "w": 1440,
+      "h": 3260,
+      "page": "page-c"
+    },
+    {
+      "file": "CCart.dc.html",
+      "title": "C4 · Cart",
+      "x": 0,
+      "y": 3420,
+      "w": 1440,
+      "h": 1560,
+      "page": "page-c"
+    },
+    {
+      "file": "CCheckout.dc.html",
+      "title": "C5 · Checkout",
+      "x": 1620,
+      "y": 3420,
+      "w": 1440,
+      "h": 2320,
+      "page": "page-c"
+    },
+    {
+      "file": "CRepairs.dc.html",
+      "title": "C6 · Repairs",
+      "x": 3240,
+      "y": 3420,
+      "w": 1440,
+      "h": 2320,
+      "page": "page-c"
+    },
+    {
+      "file": "CAccount.dc.html",
+      "title": "C7 · Account",
+      "x": 0,
+      "y": 5940,
+      "w": 1440,
+      "h": 1460,
+      "page": "page-c"
+    },
+    {
+      "file": "CMobile.dc.html",
+      "title": "C8 · Mobile",
+      "x": 1620,
+      "y": 5940,
+      "w": 920,
+      "h": 1010,
+      "page": "page-c"
+    },
+    {
+      "file": "CSheet.dc.html",
+      "title": "C9 · Design system",
+      "x": 3240,
+      "y": 5940,
+      "w": 1440,
+      "h": 1900,
+      "page": "page-c"
+    }
   ],
   "annotations": [
     {
-      "id": "note-brief",
-      "x": 0,
-      "y": -260,
-      "w": 720,
-      "text": "JR Importers — storefront redesign, three directions.\n\nAll three drop the current liquid-glass / floating-pill look entirely. Real catalogue data throughout (Samsung + Ulefone, live prices from the seed data). Device images are drawn placeholders — real product photography drops into those slots."
-    },
-    {
       "id": "note-a",
       "x": 0,
-      "y": 2860,
-      "w": 460,
-      "text": "A · IMPORT DESK — editorial trade catalogue.\nPaper ground, hairline rules, no radii, no shadows. Bricolage Grotesque + IBM Plex Mono; every number (price, SKU, stock, spec) is monospaced so the shop reads like the stock list it actually is.\n\nWhy: the pitch is \"import prices, real shelf\" — this looks like a supplier, not a marketing site, and scales to hundreds of SKUs.\nTradeoff: restrained. It sells trust and accuracy, not desire — flagship launches will feel undersold."
+      "y": -300,
+      "w": 760,
+      "text": "A · IMPORT DESK — editorial trade catalogue.\n\nPaper ground, hairline rules, no radii, no shadows. Bricolage Grotesque with every number — price, SKU, stock, spec — in IBM Plex Mono.\n\nWhy: the pitch is “import prices, real shelf”. This reads like the stock list it actually is, and it scales to hundreds of SKUs without getting louder.\nTradeoff: restrained. It sells trust and accuracy, not desire — a flagship launch will feel undersold.",
+      "page": "page-a"
     },
     {
       "id": "note-b",
-      "x": 1600,
-      "y": 2780,
-      "w": 460,
-      "text": "B · NIGHT COUNTER — dark showroom.\nNear-black ground with a spotlight, Syne display, one lime accent, generous space, one product hero'd at a time.\n\nWhy: makes a N$26 000 handset feel like a N$26 000 handset, and the rugged Ulefone line photographs well against black.\nTradeoff: it lives or dies on photography — placeholder renders and phone-shot stock images will look worse here than anywhere else. Denser pages (catalogue, cart, account) need a lighter companion surface."
+      "x": 0,
+      "y": -300,
+      "w": 760,
+      "text": "B · NIGHT COUNTER — dark showroom.\n\nNear-black ground with a spotlight, Syne display, one lime accent, generous space, one product hero'd at a time.\n\nWhy: makes a N$ 26 499 handset feel like one, and the rugged Ulefone line photographs well against black.\nTradeoff: it lives or dies on photography. Dense screens — catalogue, cart, account — need the most care here.",
+      "page": "page-b"
     },
     {
       "id": "note-c",
-      "x": 3200,
-      "y": 2720,
-      "w": 460,
-      "text": "C · KIOSK — price-led poster commerce.\nArchivo Black, 3px ink borders, hard offset shadows, lime blocks, oversized prices, sticker badges.\n\nWhy: price is the reason people buy from an importer, so price is the loudest thing on the page. Reads well on a cheap phone in bright light, which is most of the traffic.\nTradeoff: loud. Works against the premium Samsung end of the range, and heavy borders need real discipline on long forms — checkout, job cards, account."
+      "x": 0,
+      "y": -300,
+      "w": 760,
+      "text": "C · KIOSK — price-led poster commerce.\n\nArchivo Black, 3px ink borders, hard offset shadows, lime blocks, oversized prices, sticker badges.\n\nWhy: price is why people buy from an importer, so price is the loudest thing on the page. Holds up on a cheap phone in bright daylight, which is most of the traffic.\nTradeoff: loud. It works against the premium Samsung end, and heavy borders need discipline on long forms.",
+      "page": "page-c"
     }
   ],
-  "launch": { "view": "canvas" }
+  "pages": [
+    {
+      "id": "page-a",
+      "name": "A · Import Desk"
+    },
+    {
+      "id": "page-b",
+      "name": "B · Night Counter"
+    },
+    {
+      "id": "page-c",
+      "name": "C · Kiosk"
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-a"
+  }
 }
