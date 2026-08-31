@@ -247,7 +247,7 @@ function RecordDialog({
       const raw = isNew ? undefined : record[field.key];
       initial[field.key] =
         field.type === 'checkbox'
-          ? (raw ?? true)
+          ? (raw ?? field.defaultChecked ?? false)
           : field.type === 'date'
             ? raw
               ? toDateInput(raw as string)

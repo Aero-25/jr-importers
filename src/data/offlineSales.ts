@@ -68,10 +68,16 @@ async function postSale(sale: QueuedSale): Promise<OrderRow | null> {
   if (result && result.ok === false) {
     // The sale happened — a customer walked out with the phone. Stock simply
     // cannot go where the system thought it would, so the order stands and the
-    // discrepancy is flagged rather than the sale being discarded.
+    // discrepancy is flagged rather than the sale being discarded. Appended to
+    // the existing notes: replacing them would erase the cashier attribution.
+    const existing = inserted?.notes ?? [sale.notes, `Sold by ${sale.cashierName}`, 'Rung up offline'].filter(Boolean).join(' · ');
     await supabase
       .from('orders')
-      .update({ notes: `Rung up offline · stock conflict on sync: ${result.message ?? 'unknown'}` })
+      .update({
+        notes: [existing, `Stock conflict on sync: ${result.message ?? 'unknown'}`]
+          .filter(Boolean)
+          .join(' · '),
+      })
       .eq('id', sale.id);
   }
 

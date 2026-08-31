@@ -19,7 +19,7 @@ const debugLog = (...args) => {
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/admin.html',
+    '/admin-legacy.html',
     '/privacy.html',
     '/terms.html',
     '/offline.html',
@@ -87,7 +87,17 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => {
                 debugLog('[SW] Caching core assets');
-                return cache.addAll(STATIC_ASSETS);
+                // Each asset is added individually: cache.addAll() is
+                // all-or-nothing, so one missing file would silently drop the
+                // whole precache — including /offline.html, which the offline
+                // fallback depends on.
+                return Promise.all(
+                    STATIC_ASSETS.map((asset) =>
+                        cache.add(asset).catch((err) => {
+                            debugLog('[SW] Failed to precache:', asset, err);
+                        })
+                    )
+                );
             })
             .catch((err) => {
                 debugLog('[SW] Cache failed, continuing anyway:', err);

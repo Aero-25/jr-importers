@@ -37,6 +37,12 @@ export interface FieldSpec {
    */
   computed?: boolean;
   required?: boolean;
+  /**
+   * For `checkbox` fields: the state a NEW record starts in. Must mirror the
+   * column's database default — a pre-ticked box the user never touches is a
+   * silent claim (a "tax deductible" that inflates the VAT return, say).
+   */
+  defaultChecked?: boolean;
   hint?: string;
   /** Show as a table column. Fields without this are edit-only. */
   inList?: boolean;
@@ -107,7 +113,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         secondary: true,
       },
       money('credit_limit', 'Credit limit', { hint: 'Used by the debtors ledger.' }),
-      { key: 'active', label: 'Active', type: 'checkbox' },
+      { key: 'active', label: 'Active', type: 'checkbox', defaultChecked: true },
     ],
   },
 
@@ -125,7 +131,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
       { key: 'phone', label: 'Phone', type: 'tel' },
       { key: 'payment_terms', label: 'Payment terms', type: 'text', hint: 'e.g. 30 days from invoice' },
       { key: 'address', label: 'Address', type: 'textarea', wide: true },
-      { key: 'active', label: 'Active', type: 'checkbox' },
+      { key: 'active', label: 'Active', type: 'checkbox', defaultChecked: true },
     ],
   },
 
@@ -297,7 +303,12 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         key: 'status',
         label: 'Status',
         type: 'select',
-        options: ['draft', 'sent', 'partially_received', 'received', 'cancelled'],
+        // The values the system actually writes: 'draft'/'sent' from the
+        // console, 'Receiving'/'Received' stamped by the receiving RPCs.
+        // Offering a different vocabulary here left cancelled orders
+        // invisible to the GRV screen's outstanding filter and rendered a
+        // blank status for orders the server had already moved on.
+        options: ['draft', 'sent', 'Receiving', 'Received', 'cancelled'],
         inList: true,
       },
       { key: 'notes', label: 'Notes', type: 'textarea', wide: true },
@@ -383,7 +394,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
       { key: 'max_uses', label: 'Max uses', type: 'number', align: 'right', secondary: true },
       { key: 'times_used', label: 'Used', type: 'readonly', align: 'right', inList: true },
       { key: 'valid_until', label: 'Expires', type: 'date', inList: true },
-      { key: 'active', label: 'Active', type: 'checkbox', inList: true },
+      { key: 'active', label: 'Active', type: 'checkbox', defaultChecked: true, inList: true },
       { key: 'notes', label: 'Notes', type: 'textarea', wide: true },
     ],
   },
@@ -409,7 +420,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         hint: 'sales — the till, orders, job cards and customers. admin — all of that plus the money screens, staff and amending a cash-up. customer has no console access at all.',
       },
       { key: 'phone', label: 'Phone', type: 'tel', secondary: true, inList: true },
-      { key: 'active', label: 'Active', type: 'checkbox', inList: true },
+      { key: 'active', label: 'Active', type: 'checkbox', defaultChecked: true, inList: true },
       { key: 'last_login', label: 'Last seen', type: 'readonly', secondary: true, inList: true },
     ],
   },

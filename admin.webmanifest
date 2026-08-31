@@ -2,7 +2,7 @@
   "name": "JR Importers Admin",
   "short_name": "JR Admin",
   "description": "Installable JR Importers admin command center for sales, stock, orders, till management, and customer requests.",
-  "start_url": "/admin.html",
+  "start_url": "/admin/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0f1419",
@@ -31,17 +31,17 @@
     {
       "name": "Command Center",
       "short_name": "Dashboard",
-      "url": "/admin.html"
+      "url": "/admin/"
     },
     {
       "name": "POS Register",
       "short_name": "POS",
-      "url": "/admin.html#pos"
+      "url": "/admin/#/pos"
     },
     {
-      "name": "Special Orders",
+      "name": "Orders",
       "short_name": "Orders",
-      "url": "/admin.html#special-orders"
+      "url": "/admin/#/orders"
     }
   ]
 }

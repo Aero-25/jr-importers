@@ -27,5 +27,5 @@
     },
     "types": ["node", "vite/client"]
   },
-  "include": ["src", "app/**/*.ts", "app/**/*.tsx", "vite.config.ts", "playwright.config.ts"]
+  "include": ["src", "playwright.config.ts"]
 }

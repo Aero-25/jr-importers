@@ -301,9 +301,10 @@ export function useAmendCashUp() {
       if (!result?.ok) throw new Error(result?.message ?? 'Could not amend the cash-up.');
       return result.shift!;
     },
-    onSuccess: () => {
+    onSuccess: (_shift, { shiftId }) => {
       void qc.invalidateQueries({ queryKey: keys.table('till_shifts') });
-      void qc.invalidateQueries({ queryKey: keys.dashboard('') });
+      void qc.invalidateQueries({ queryKey: ['cash_up', shiftId] });
+      void qc.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -400,6 +401,9 @@ export function useShiftSales(shiftId: number | null | undefined) {
         .from('orders')
         .select('*')
         .eq('till_shift_id', shiftId!)
+        // A failed sale is inserted then cancelled; counting it would make the
+        // on-screen takings disagree with the server-side cash-up.
+        .neq('status', 'Cancelled')
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return data ?? [];

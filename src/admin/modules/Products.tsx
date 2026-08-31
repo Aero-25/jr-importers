@@ -297,7 +297,10 @@ function ProductDialog({
       description: form.description.trim() || null,
       price: toNumber(form.price),
       cost_price: toNumber(form.cost_price),
-      stock: Math.trunc(toNumber(form.stock)),
+      // A serialised product's stock is recounted from its IMEI pool by a
+      // trigger; writing back the figure snapshotted when this dialog opened
+      // would silently undo any unit sold while it was open.
+      ...(!isNew && serialised ? {} : { stock: Math.trunc(toNumber(form.stock)) }),
       reorder_level: Math.trunc(toNumber(form.reorder_level)),
       sku: form.sku.trim() || null,
       barcode: form.barcode.trim() || null,

@@ -38,7 +38,9 @@ export function useOpenPurchaseOrders() {
       const { data, error } = await supabase
         .from('purchase_orders')
         .select('*')
-        .not('status', 'in', '("Received","Cancelled")')
+        // Status casing is mixed across writers (the console writes lowercase,
+        // the receiving RPCs capitalise), so exclude closed orders either way.
+        .not('status', 'in', '("Received","Cancelled","received","cancelled")')
         .order('id', { ascending: false })
         .limit(100);
       if (error) throw new Error(error.message);

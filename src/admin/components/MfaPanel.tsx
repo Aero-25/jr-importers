@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ShieldCheck, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -44,12 +44,15 @@ export function MfaPanel() {
   const verified = (factors.data ?? []).filter((f) => f.status === 'verified');
 
   // An enrolment that is started and abandoned leaves an unverified factor
-  // behind, which then blocks the next attempt with "already enrolled".
+  // behind, which then blocks the next attempt with "already enrolled". The
+  // unmount cleanup reads a ref, not state: an empty-deps effect closes over
+  // the initial (null) factorId forever, so the cleanup would never fire.
+  const pendingFactor = useRef<string | null>(null);
   useEffect(() => {
     return () => {
-      if (factorId && !busy) void supabase.auth.mfa.unenroll({ factorId });
+      const id = pendingFactor.current;
+      if (id) void supabase.auth.mfa.unenroll({ factorId: id });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function begin() {
@@ -65,9 +68,12 @@ export function MfaPanel() {
       if (error) throw new Error(error.message);
 
       setFactorId(data.id);
+      pendingFactor.current = data.id;
       setQr(data.totp.qr_code);
       setSecret(data.totp.secret);
       setEnrolling(true);
+      // Keep the factor list fresh so a later sweep can see this enrolment.
+      void qc.invalidateQueries({ queryKey: ['mfa', 'factors'] });
     } catch (error) {
       toast.error('Could not start enrolment', error instanceof Error ? error.message : undefined);
     } finally {
@@ -95,6 +101,7 @@ export function MfaPanel() {
       setQr(null);
       setSecret(null);
       setFactorId(null);
+      pendingFactor.current = null;
       setCode('');
       void qc.invalidateQueries({ queryKey: ['mfa', 'factors'] });
     } catch {

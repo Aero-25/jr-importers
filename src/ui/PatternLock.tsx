@@ -28,7 +28,24 @@ export function PatternLock({
     (dot: number) => {
       // A pattern cannot reuse a dot, which is also what Android enforces.
       if (dots.includes(dot)) return;
-      onChange([...dots, dot].join('-'));
+      const next = [...dots];
+      const last = next[next.length - 1];
+      // Android auto-selects an unvisited dot that lies directly between the
+      // last dot and this one (1→9 passes through 5, 1→3 through 2). Without
+      // mirroring that, a fast diagonal stroke records a pattern that cannot
+      // be drawn on the handset it is meant to unlock.
+      if (last !== undefined) {
+        const r1 = Math.floor((last - 1) / 3);
+        const c1 = (last - 1) % 3;
+        const r2 = Math.floor((dot - 1) / 3);
+        const c2 = (dot - 1) % 3;
+        if ((r1 + r2) % 2 === 0 && (c1 + c2) % 2 === 0) {
+          const mid = ((r1 + r2) / 2) * 3 + (c1 + c2) / 2 + 1;
+          if (mid !== last && mid !== dot && !next.includes(mid)) next.push(mid);
+        }
+      }
+      next.push(dot);
+      onChange(next.join('-'));
     },
     [dots, onChange],
   );

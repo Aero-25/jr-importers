@@ -231,6 +231,11 @@ function GrvDialog({
 
   const posted = Boolean(grv?.posted_at);
 
+  // The id this dialog is editing. A "New delivery" gets one on its first save
+  // — without remembering it, every Save draft (and Receive after a save)
+  // would insert a fresh GRV instead of updating the one already created.
+  const [savedId, setSavedId] = useState<number | undefined>(grv?.id);
+
   const [supplier, setSupplier] = useState(grv?.supplier_name ?? '');
   const [invoiceNo, setInvoiceNo] = useState(grv?.supplier_invoice_no ?? '');
   const [invoiceDate, setInvoiceDate] = useState(
@@ -394,8 +399,8 @@ function GrvDialog({
 
   async function persist(): Promise<GrvRow | null> {
     try {
-      return await save.mutateAsync({
-        id: grv?.id,
+      const saved = await save.mutateAsync({
+        id: savedId,
         supplier_name: supplier.trim() || null,
         supplier_invoice_no: invoiceNo.trim() || null,
         invoice_date: invoiceDate || null,
@@ -406,6 +411,8 @@ function GrvDialog({
         purchase_order_id: grv?.purchase_order_id ?? null,
         po_number: grv?.po_number ?? null,
       });
+      setSavedId(saved.id);
+      return saved;
     } catch (error) {
       toast.error('Could not save', error instanceof Error ? error.message : undefined);
       return null;

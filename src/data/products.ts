@@ -15,6 +15,13 @@ import { keys } from './keys';
  */
 const NO_SERVICES = `(${SERVICE_CATEGORIES.map((c) => `"${c}"`).join(',')})`;
 
+/**
+ * `category NOT IN (…)` is NULL — not true — for a NULL category, so a bare
+ * `.not('category', 'in', …)` silently drops uncategorised products from the
+ * whole storefront. This or-filter keeps them: no category is not a service.
+ */
+const NOT_A_SERVICE = `category.is.null,category.not.in.${NO_SERVICES}`;
+
 export const products = createResource('products', {
   orderBy: { column: 'created_at', ascending: false },
 });
@@ -50,7 +57,7 @@ export function useCatalog(filters: CatalogFilters = {}) {
         .select('*')
         .eq('active', true)
         .gt('stock', 0)
-        .not('category', 'in', NO_SERVICES);
+        .or(NOT_A_SERVICE);
 
       if (filters.category) query = query.eq('category', filters.category);
       if (filters.categories?.length) query = query.in('category', filters.categories);
@@ -138,7 +145,7 @@ export function useFacets(scope: { categories?: string[] | null } = {}) {
         .select('category, brand, price')
         .eq('active', true)
         .gt('stock', 0)
-        .not('category', 'in', NO_SERVICES);
+        .or(NOT_A_SERVICE);
       if (scoped) query = query.in('category', scoped);
 
       const { data, error } = await query;

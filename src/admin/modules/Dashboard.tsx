@@ -41,7 +41,10 @@ function useDashboard() {
           .from('orders')
           .select('total_amount, created_at')
           .gte('created_at', startOfMonth.toISOString())
-          .in('status', ['Paid', 'Completed', 'Delivered', 'Dispatched']),
+          .in('status', ['Paid', 'Completed', 'Delivered', 'Dispatched'])
+          // Without an explicit limit PostgREST caps at its default (1000)
+          // and a busy month would silently under-report revenue.
+          .limit(10000),
         supabase
           .from('orders')
           .select('id', { count: 'exact', head: true })
@@ -61,6 +64,10 @@ function useDashboard() {
       ]);
 
       if (monthSales.error) throw new Error(monthSales.error.message);
+      // A failed count would otherwise render as "0 open orders" — a
+      // confident lie, where an error state at least says "unknown".
+      if (openOrders.error) throw new Error(openOrders.error.message);
+      if (customerCount.error) throw new Error(customerCount.error.message);
       if (lowStock.error) throw new Error(lowStock.error.message);
       if (recent.error) throw new Error(recent.error.message);
 

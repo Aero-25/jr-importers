@@ -6,7 +6,11 @@ const DEBUG = false;
 const DPO_API_URL = 'https://secure.3gdirectpay.com/API/v6/';
 const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/([a-z0-9-]+\.)?jrimporters\.com$/i,
-  /^https:\/\/[a-z0-9-]+\.workers\.dev$/i,
+  // This is a Cloudflare Pages project, so previews are served from
+  // <deploy>.<project>.pages.dev. Only this project's own slugs are allowed —
+  // a bare *.pages.dev (or the old *.workers.dev) matcher would let any
+  // third-party deployment call the payment endpoints cross-origin.
+  /^https:\/\/([a-z0-9-]+\.)?jr-importers(?:-web)?\.pages\.dev$/i,
   /^http:\/\/localhost(?::\d+)?$/i,
   /^http:\/\/127\.0\.0\.1(?::\d+)?$/i
 ];
@@ -42,11 +46,20 @@ export default {
     }
 
     if (url.pathname === '/api/dpo-create-token' && request.method === 'POST') {
-      return handleCreateToken(request);
+      return handleCreateToken(request, env);
     }
 
     if (url.pathname === '/api/dpo-verify-token' && request.method === 'POST') {
-      return handleVerifyToken(request);
+      return handleVerifyToken(request, env);
+    }
+
+    // The legacy console moved: postbuild parks it at /admin-legacy.html and
+    // the React console owns /admin, so /admin.html no longer exists as a
+    // file. Old bookmarks, the installed legacy PWA, and app-shell's "Open
+    // admin" still ask for it — redirect rather than letting the storefront
+    // fallback below silently serve the shop in its place.
+    if (url.pathname === '/admin.html') {
+      return Response.redirect(new URL('/admin-legacy.html', url).toString(), 308);
     }
 
     return serveAsset(request, env);
@@ -227,8 +240,17 @@ async function callDpoApi(xmlPayload) {
   return dpoResponse.text();
 }
 
+// The DPO CompanyToken is a merchant credential and belongs server-side.
+// Prefer the DPO_COMPANY_TOKEN secret (set via the Pages dashboard or
+// `wrangler pages secret put DPO_COMPANY_TOKEN`); the client-supplied value
+// remains only as a compatibility fallback until every deployed client stops
+// sending it.
+function resolveCompanyToken(env, body) {
+  return sanitizeText(env?.DPO_COMPANY_TOKEN, 120) || sanitizeText(body.companyToken, 120);
+}
+
 // Create Token Handler
-async function handleCreateToken(request) {
+async function handleCreateToken(request, env) {
   try {
     const originError = getOriginErrorResponse(request);
     if (originError) {
@@ -240,7 +262,7 @@ async function handleCreateToken(request) {
       return jsonResponse(request, { error: parseError }, 400);
     }
 
-    const companyToken = sanitizeText(body.companyToken, 120);
+    const companyToken = resolveCompanyToken(env, body);
     const amount = normalizeAmount(body.amount);
     const currency = normalizeCurrency(body.currency);
     const services = normalizeServices(body.services);
@@ -307,7 +329,7 @@ async function handleCreateToken(request) {
 }
 
 // Verify Token Handler
-async function handleVerifyToken(request) {
+async function handleVerifyToken(request, env) {
   try {
     const originError = getOriginErrorResponse(request);
     if (originError) {
@@ -319,7 +341,7 @@ async function handleVerifyToken(request) {
       return jsonResponse(request, { error: parseError }, 400);
     }
 
-    const companyToken = sanitizeText(body.companyToken, 120);
+    const companyToken = resolveCompanyToken(env, body);
     const transactionToken = sanitizeText(body.transactionToken, 160);
 
     if (!companyToken || !transactionToken) {

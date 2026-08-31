@@ -1,7 +1,9 @@
 (() => {
     const APP_NAME = 'JR Importers';
     const STORE_URL = '/index.html';
-    const ADMIN_URL = '/admin.html';
+    // app-shell.js is only loaded by the legacy console, which postbuild now
+    // serves at /admin-legacy.html (/admin.html no longer exists in dist).
+    const ADMIN_URL = '/admin-legacy.html';
     const INSTALL_DISMISS_KEY = 'jr-app-install-dismissed';
     const ONLINE_TOAST_MS = 3500;
 

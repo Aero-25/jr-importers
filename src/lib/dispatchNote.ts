@@ -2,6 +2,7 @@ import type { OrderRow } from './database.types';
 import { orderItems } from '@/data/orders';
 import { STORE } from './constants';
 import { formatDate, formatDateTime, money } from './format';
+import { whatsappNumber } from './phone';
 
 const INK: [number, number, number] = [13, 38, 63];
 const GREY: [number, number, number] = [110, 122, 143];
@@ -223,7 +224,7 @@ export async function downloadDispatchNote(order: OrderRow): Promise<void> {
 
 /** Sends the customer their tracking details on WhatsApp. */
 export function dispatchWhatsAppLink(order: OrderRow): string {
-  const phone = String(order.customer_phone ?? '').replace(/\D/g, '');
+  const phone = whatsappNumber(order.customer_phone);
   const first = String(order.customer_name ?? '').trim().split(/\s+/)[0] ?? '';
 
   const message = [

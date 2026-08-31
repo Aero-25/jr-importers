@@ -97,11 +97,13 @@ async function run() {
   //    /jobcard/<token> link a customer opens from WhatsApp have no matching
   //    file. _worker.js falls through to env.ASSETS, which 404s on those.
   //
-  //    _redirects covers it on Cloudflare Pages; 404.html is the belt-and-
-  //    braces version that also works if this is ever served from GitHub
-  //    Pages. Real files are matched before either applies, so /admin and the
-  //    hashed assets are unaffected. The console uses hash routing and needs
-  //    no rule.
+  //    On Cloudflare Pages neither file does anything: _worker.js puts the
+  //    project in advanced mode, which bypasses _redirects and 404.html, and
+  //    the worker's serveAsset() implements the fallback itself. _redirects
+  //    and the 404.html mirror are written anyway as belt-and-braces for any
+  //    non-worker static host this build might land on. Real files are
+  //    matched before either applies, so /admin and the hashed assets are
+  //    unaffected. The console uses hash routing and needs no rule.
   await fs.writeFile(
     path.join(dist, '_redirects'),
     '/admin/*    /admin/index.html   200\n/*          /index.html         200\n',

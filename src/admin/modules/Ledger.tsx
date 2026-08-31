@@ -60,7 +60,11 @@ export default function Ledger() {
     const map = new Map<string, PartyBalance>();
 
     for (const row of ledger.data ?? []) {
-      const id = String(kind === 'debtor' ? row.customer_id : row.supplier_id) || 'unknown';
+      // Bills posted for a party not in the book carry a null id; group those
+      // by name so two unknown suppliers don't collapse into one balance.
+      const partyId = kind === 'debtor' ? row.customer_id : row.supplier_id;
+      const id =
+        partyId != null ? String(partyId) : `name:${row.party_name ?? 'Unnamed account'}`;
       const existing = map.get(id);
       const amount = Number(row.amount) || 0;
 

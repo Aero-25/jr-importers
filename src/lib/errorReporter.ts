@@ -41,7 +41,9 @@ export function reportError(error: unknown, surface?: string, context?: Record<s
       p_fingerprint: fp,
       p_message: message,
       p_stack: err.stack ?? null,
-      p_surface: surface ?? window.location.hash ?? window.location.pathname,
+      // `location.hash` is '' (never null) outside a hash route, so `||`
+      // — not `??` — is what lets the pathname stand in for it.
+      p_surface: surface || window.location.hash || window.location.pathname,
       p_url: window.location.href,
       p_user_agent: navigator.userAgent,
       p_context: (context ?? null) as never,

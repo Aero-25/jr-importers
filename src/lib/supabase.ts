@@ -19,8 +19,10 @@ export const supabase: Client = createClient<Database>(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      // Shop and console share an origin; distinct keys stop a staff logout
-      // from also signing out the shopper session in another tab.
+      // Shop and console share this one key on one origin, so a sign-out on
+      // either surface signs out the other too. Splitting the key per entry
+      // would isolate them, but would also sign every existing session out
+      // once — a deliberate migration, not a drive-by change.
       storageKey: 'jr-importers-auth',
     },
     global: {

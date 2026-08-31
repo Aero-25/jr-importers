@@ -11,7 +11,13 @@ import {
   Unlock,
   Wallet,
 } from 'lucide-react';
-import type { DenominationCounts, LineItem, OrderRow, ProductRow } from '@/lib/database.types';
+import type {
+  DenominationCounts,
+  LineItem,
+  OrderRow,
+  ProductRow,
+  TillShiftRow,
+} from '@/lib/database.types';
 import {
   useAddPettyCash,
   useOpenShift,
@@ -55,6 +61,10 @@ export default function Pos() {
   const shift = useOpenShift();
   const [openTillOpen, setOpenTillOpen] = useState(false);
   const [closeTillOpen, setCloseTillOpen] = useState(false);
+  // Snapshot of the shift being closed. The dialog must outlive the open-shift
+  // query: closing invalidates it, it refetches null, and the reconciliation
+  // step would unmount before the cashier can read it.
+  const [closingShift, setClosingShift] = useState<TillShiftRow | null>(null);
   const [pettyOpen, setPettyOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [tenderOpen, setTenderOpen] = useState(false);
@@ -64,6 +74,9 @@ export default function Pos() {
   const [discount, setDiscount] = useState('');
 
   const searchRef = useRef<HTMLInputElement>(null);
+  // On-hand stock at the moment each product was added, so the + button can
+  // stop at the same cap addProduct enforces instead of failing at payment.
+  const stockCaps = useRef<Record<number, number>>({});
   const search = usePosSearch(term);
   const sales = useShiftSales(shift.data?.id);
   const petty = usePettyCash(shift.data?.id);
@@ -99,6 +112,7 @@ export default function Pos() {
       toast.warn('Out of stock', product.name);
       return;
     }
+    if (product.id != null) stockCaps.current[product.id] = product.stock;
     setLines((current) => {
       const existing = current.find((l) => l.product_id === product.id);
       if (existing) {
@@ -133,6 +147,15 @@ export default function Pos() {
         ? current.filter((l) => l.product_id !== productId)
         : current.map((l) => (l.product_id === productId ? { ...l, quantity } : l)),
     );
+  }
+
+  function increment(line: LineItem) {
+    const cap = line.product_id != null ? stockCaps.current[line.product_id] : undefined;
+    if (cap !== undefined && line.quantity >= cap) {
+      toast.warn('No more stock', `Only ${cap} of ${line.name} on hand.`);
+      return;
+    }
+    setQuantity(line.product_id, line.quantity + 1);
   }
 
   function clearSale() {
@@ -201,7 +224,10 @@ export default function Pos() {
               <Button
                 variant="secondary"
                 icon={<Lock className="h-4 w-4" />}
-                onClick={() => setCloseTillOpen(true)}
+                onClick={() => {
+                  setClosingShift(shift.data!);
+                  setCloseTillOpen(true);
+                }}
               >
                 Close till
               </Button>
@@ -361,7 +387,7 @@ export default function Pos() {
                             variant="ghost"
                             size="md"
                             icon={<Plus className="h-3.5 w-3.5" />}
-                            onClick={() => setQuantity(line.product_id, line.quantity + 1)}
+                            onClick={() => increment(line)}
                           />
                         </div>
                         <p className="tabular w-20 shrink-0 text-right text-sm font-semibold text-ink">
@@ -433,20 +459,24 @@ export default function Pos() {
       />
 
       {shift.data && (
-        <>
-          <PettyCashDialog
-            open={pettyOpen}
-            onClose={() => setPettyOpen(false)}
-            shiftId={shift.data.id}
-            cashier={cashier}
-          />
-          <CloseTillDialog
-            open={closeTillOpen}
-            onClose={() => setCloseTillOpen(false)}
-            shift={shift.data}
-            closedBy={cashier}
-          />
-        </>
+        <PettyCashDialog
+          open={pettyOpen}
+          onClose={() => setPettyOpen(false)}
+          shiftId={shift.data.id}
+          cashier={cashier}
+        />
+      )}
+
+      {closingShift && (
+        <CloseTillDialog
+          open={closeTillOpen}
+          onClose={() => {
+            setCloseTillOpen(false);
+            setClosingShift(null);
+          }}
+          shift={closingShift}
+          closedBy={cashier}
+        />
       )}
 
       <TenderDialog
@@ -728,6 +758,9 @@ function TenderDialog({
   });
   const matched = (account.data ?? [])[0] ?? null;
   const accountIncomplete = mode === 'account' && digits.length < 6;
+  // Hold "Complete sale" until the lookup lands: confirming against a
+  // half-finished search would open a duplicate account for a known number.
+  const accountLookupPending = mode === 'account' && digits.length >= 6 && account.isLoading;
 
   async function confirm() {
     if (mode === 'walkin') {
@@ -793,7 +826,7 @@ function TenderDialog({
           <Button
             variant="success"
             loading={busy}
-            disabled={short || accountIncomplete}
+            disabled={short || accountIncomplete || accountLookupPending}
             onClick={() => void confirm()}
           >
             Complete sale
