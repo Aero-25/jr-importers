@@ -49,3 +49,6 @@ mobile/www/offline.html
 
 # Real supplier invoices used to tune the invoice reader. Not published.
 docs/samples/
+
+# Seeded design-canvas output — regenerated from the .dc.html artboards.
+docs/design/**/jr-importers-shop-redesign.html

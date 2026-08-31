@@ -1,0 +1,38 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "A · Import Desk", "x": 0, "y": 0, "w": 1440, "h": 2760 },
+    { "file": "DirectionB.dc.html", "title": "B · Night Counter", "x": 1600, "y": 0, "w": 1440, "h": 2680 },
+    { "file": "DirectionC.dc.html", "title": "C · Kiosk", "x": 3200, "y": 0, "w": 1440, "h": 2620 }
+  ],
+  "annotations": [
+    {
+      "id": "note-brief",
+      "x": 0,
+      "y": -260,
+      "w": 720,
+      "text": "JR Importers — storefront redesign, three directions.\n\nAll three drop the current liquid-glass / floating-pill look entirely. Real catalogue data throughout (Samsung + Ulefone, live prices from the seed data). Device images are drawn placeholders — real product photography drops into those slots."
+    },
+    {
+      "id": "note-a",
+      "x": 0,
+      "y": 2860,
+      "w": 460,
+      "text": "A · IMPORT DESK — editorial trade catalogue.\nPaper ground, hairline rules, no radii, no shadows. Bricolage Grotesque + IBM Plex Mono; every number (price, SKU, stock, spec) is monospaced so the shop reads like the stock list it actually is.\n\nWhy: the pitch is \"import prices, real shelf\" — this looks like a supplier, not a marketing site, and scales to hundreds of SKUs.\nTradeoff: restrained. It sells trust and accuracy, not desire — flagship launches will feel undersold."
+    },
+    {
+      "id": "note-b",
+      "x": 1600,
+      "y": 2780,
+      "w": 460,
+      "text": "B · NIGHT COUNTER — dark showroom.\nNear-black ground with a spotlight, Syne display, one lime accent, generous space, one product hero'd at a time.\n\nWhy: makes a N$26 000 handset feel like a N$26 000 handset, and the rugged Ulefone line photographs well against black.\nTradeoff: it lives or dies on photography — placeholder renders and phone-shot stock images will look worse here than anywhere else. Denser pages (catalogue, cart, account) need a lighter companion surface."
+    },
+    {
+      "id": "note-c",
+      "x": 3200,
+      "y": 2720,
+      "w": 460,
+      "text": "C · KIOSK — price-led poster commerce.\nArchivo Black, 3px ink borders, hard offset shadows, lime blocks, oversized prices, sticker badges.\n\nWhy: price is the reason people buy from an importer, so price is the loudest thing on the page. Reads well on a cheap phone in bright light, which is most of the traffic.\nTradeoff: loud. Works against the premium Samsung end of the range, and heavy borders need real discipline on long forms — checkout, job cards, account."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}
