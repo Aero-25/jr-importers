@@ -112,41 +112,64 @@ test('the icon set is served and the head points at it', async ({ page, request 
   expect(ogImage).not.toContain('pages.dev');
 });
 
-// Headless Chromium reports prefers-reduced-motion: reduce, and the mark
-// correctly refuses to animate under it. Opting in is what makes this a test of
-// the tracking rather than a test of the reduced-motion guard.
+// Headless Chromium reports prefers-reduced-motion: reduce, and the hero
+// correctly refuses to animate under it. Opting in is what makes the first of
+// these a test of the motion rather than a test of the reduced-motion guard.
 test.describe('hero', () => {
-  test.use({ reducedMotion: 'no-preference' });
+  test.describe('with motion allowed', () => {
+    test.use({ reducedMotion: 'no-preference' });
 
-  test('the mark turns towards the pointer', async ({ page }) => {
-    await page.goto('/');
+    test('the hero shifts as the page scrolls', async ({ page }) => {
+      await page.goto('/');
 
-    const mark = page.locator('img[data-hero-mark]');
-    await expect(mark).toBeVisible();
+      const hero = page.locator('[data-hero]');
+      await expect(hero).toBeVisible();
 
-    // Park the pointer hard left, let the easing settle, and read the transform.
-    await page.mouse.move(5, 400);
-    await page.waitForTimeout(700);
-    const left = await mark.evaluate((el) => getComputedStyle(el).transform);
+      const read = () =>
+        hero.evaluate((el) => getComputedStyle(el).getPropertyValue('--parallax').trim());
 
-    await page.mouse.move(1200, 400);
-    await page.waitForTimeout(700);
-    const right = await mark.evaluate((el) => getComputedStyle(el).transform);
+      // useParallax writes --parallax on first run, so it starts settled at 0.
+      expect(await read()).toBe('0px');
 
-    // A 3D rotation produces a matrix3d; the two sides must not agree.
-    expect(left).not.toBe('none');
-    expect(left).not.toBe(right);
+      // The page has to be long enough to scroll before any of this means
+      // anything — with an empty catalogue the home page is much shorter, and
+      // a wheel event on an unscrollable page silently does nothing.
+      await expect
+        .poll(() => page.evaluate(() => document.body.scrollHeight - window.innerHeight), {
+          timeout: 10_000,
+        })
+        .toBeGreaterThan(200);
+
+      // scrollTo rather than mouse.wheel: it is synchronous and cannot be
+      // swallowed by a page that is still settling under parallel test load.
+      await page.evaluate(() => window.scrollTo(0, 400));
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+      // The write is coalesced into an animation frame rather than done inline.
+      await expect.poll(read, { timeout: 5_000 }).not.toBe('0px');
+    });
   });
 
-  test('and stays still when reduced motion is asked for', async ({ browser }) => {
+  test('and stays put when reduced motion is asked for', async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: 'reduce' });
     const page = await context.newPage();
     await page.goto('/');
 
-    const mark = page.locator('img[data-hero-mark]');
-    await page.mouse.move(1200, 400);
+    const hero = page.locator('[data-hero]');
+    await page.mouse.wheel(0, 400);
     await page.waitForTimeout(500);
-    expect(await mark.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+
+    // useParallax bails before attaching its scroll listener, so the property
+    // is never written and resolves to empty rather than a pixel value.
+    expect(
+      await hero.evaluate((el) => getComputedStyle(el).getPropertyValue('--parallax').trim()),
+    ).toBe('');
+
+    // But the content must still be on screen. useReveal starts every .reveal
+    // element at opacity 0 and adds is-in to bring it in; if that were skipped
+    // along with the animation, a reduced-motion visitor would get a blank hero.
+    await expect(page.locator('h1.reveal')).toHaveClass(/is-in/);
+    await expect(page.locator('h1.reveal')).toBeVisible();
 
     await context.close();
   });

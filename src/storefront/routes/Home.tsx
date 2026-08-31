@@ -45,6 +45,7 @@ export default function Home() {
       <section className="relative overflow-hidden">
         <div
           ref={heroRef}
+          data-hero
           className="mx-auto grid max-w-7xl items-center gap-6 px-4 py-14 sm:py-20 lg:grid-cols-[1fr_1.05fr] lg:gap-10"
           style={{ transform: 'translateY(calc(var(--parallax, 0px) * -1))' }}
         >
