@@ -747,10 +747,15 @@ function TenderDialog({
     enabled: mode === 'account' && digits.length >= 6,
     queryFn: async () => {
       const tail = digits.slice(-7);
+      // Both columns, because the number can live in either. IQ used the
+      // customer's cellphone AS their account code, so of the 2,492 accounts
+      // carried over only 803 have a `phone` — searching that alone left two
+      // thirds of the shop's customers unreachable at the till, including
+      // anyone who quoted the number printed on their own statement.
       const { data, error } = await supabase
         .from('customers')
-        .select('id, name, email, phone')
-        .ilike('phone', `%${tail}%`)
+        .select('id, name, email, phone, account_code')
+        .or(`phone.ilike.%${tail}%,account_code.ilike.%${tail}%`)
         .limit(3);
       if (error) throw new Error(error.message);
       return data ?? [];
@@ -869,7 +874,12 @@ function TenderDialog({
             />
             {matched ? (
               <p className="mt-1 text-sm font-medium text-success">
-                {matched.name} · {matched.phone}
+                {/* Most accounts carried over from IQ have no phone of their
+                    own — the number IS the account code — so fall back to it
+                    rather than printing a dangling separator. */}
+                {[matched.name, matched.phone ?? matched.account_code]
+                  .filter(Boolean)
+                  .join(' · ')}
               </p>
             ) : digits.length >= 6 && !account.isLoading ? (
               <div className="mt-2">
