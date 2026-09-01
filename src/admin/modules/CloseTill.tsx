@@ -354,6 +354,12 @@ export function CashUpSummary({ report }: { report: CashUp }) {
                 value={money(report.invoice_sales)}
               />
             )}
+            {report.invoice_unpaid > 0 && (
+              <Line
+                label={`— still owed (${report.invoice_unpaid_count})`}
+                value={money(report.invoice_unpaid)}
+              />
+            )}
             {report.refunds > 0 && (
               <Line label="Less refunds" value={`− ${money(report.refunds)}`} />
             )}

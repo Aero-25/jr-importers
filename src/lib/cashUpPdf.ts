@@ -105,6 +105,12 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   if (report.invoice_count > 0) {
     row(`of which invoices  (${report.invoice_count})`, money(report.invoice_sales));
   }
+  // Sold but not settled: it is in the sales figure above and deliberately not
+  // in expected cash, so the cashier is not left hunting for money that was
+  // never taken.
+  if (report.invoice_unpaid > 0) {
+    row(`   still owed  (${report.invoice_unpaid_count})`, money(report.invoice_unpaid));
+  }
   if (report.refunds > 0) {
     row('Less refunds', `− ${money(report.refunds)}`);
     row('Net takings', money(report.total_sales - report.refunds), { bold: true });
