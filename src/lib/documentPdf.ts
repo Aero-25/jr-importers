@@ -69,8 +69,8 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
   doc.setTextColor(...INK);
 
   /* From / To */
-  box(left, 24, mid - left - 3, 32, 'From');
-  box(mid, 24, right - mid, 32, spec.title === 'QUOTATION' ? 'Quotation To' : 'Invoice To');
+  box(left, 24, mid - left - 3, 36, 'From');
+  box(mid, 24, right - mid, 36, spec.title === 'QUOTATION' ? 'Quotation To' : 'Invoice To');
 
   if (logo) {
     try {
@@ -85,42 +85,46 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
   doc.text(company.legalName, left + 4, 33);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.4);
-  doc.text(company.addressLine1, left + 4, 38);
-  doc.text(STORE.city, left + 4, 42.5);
-  doc.text(`Tel ${STORE.phone}`, left + 4, 47);
-  doc.text(`VAT Reg ${company.vatNumber || '—'}`, left + 4, 51.5);
+  doc.text(company.addressLine1, left + 4, 37.8);
+  doc.text(STORE.city, left + 4, 42.2);
+  doc.text(`Tel ${STORE.phone}`, left + 4, 46.6);
+  doc.text(`VAT Reg ${company.vatNumber || '—'}`, left + 4, 51);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.text(spec.customerName || '—', mid + 4, 33);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.4);
-  spec.customerContact.filter(Boolean).forEach((line, i) => {
-    doc.text(line, mid + 4, 38 + i * 4.5);
-  });
+  spec.customerContact
+    .filter(Boolean)
+    .slice(0, 5)
+    .forEach((line, i) => {
+      doc.text(String(line).slice(0, 46), mid + 4, 37.8 + i * 4.4);
+    });
 
   /* Reference strip */
-  let y = 63;
+  let y = 67;
   doc.setFontSize(7.6);
-  const cols: Array<[string, string, number]> = [
-    [spec.title === 'QUOTATION' ? 'Quote Number' : 'Invoice Number', spec.number, left],
-    ['Date', spec.date ? formatDate(spec.date) : '—', left + 52],
-    [spec.validityLine ? spec.validityLine.split(' ')[0]! : '', spec.validityLine?.split(' ').slice(1).join(' ') ?? '', left + 96],
-    ...(spec.poNumber
-      ? ([['Your PO', spec.poNumber, left + 140]] as Array<[string, string, number]>)
+  const cols: Array<[string, string]> = [
+    [spec.title === 'QUOTATION' ? 'Quote Number' : 'Invoice Number', spec.number],
+    ['Date', spec.date ? formatDate(spec.date) : '—'],
+    ...(spec.validityLine
+      ? ([[spec.validityLine.split(' ')[0]!, spec.validityLine.split(' ').slice(1).join(' ')]] as Array<[string, string]>)
       : []),
-    // Paging moved to the page footer, where it can count the real total. It
-    // was hardcoded "1 of 1" here and lied on any document that ran over.
+    ...(spec.poNumber ? ([['Your PO', spec.poNumber]] as Array<[string, string]>) : []),
   ];
-  for (const [label, value, x] of cols) {
-    if (!label) continue;
+  // Paging moved to the page footer, where it can count the real total. It was
+  // hardcoded "1 of 1" here and lied on any document that ran over.
+  const step = (right - left) / Math.max(cols.length, 1);
+  cols.forEach(([label, value], i) => {
+    const x = left + i * step;
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...INK);
     doc.text(label, x, y);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...GREY);
     doc.text(value, x, y + 4.6);
-  }
+  });
   doc.setTextColor(...INK);
   y += 12;
 
@@ -194,7 +198,10 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
   doc.line(left, y, right, y);
 
   /* Banking and totals */
-  const footY = Math.min(Math.max(y + 10, 108), 236);
+  // Anchored to the foot of the page: a reader looking for the amount due or
+  // where to pay it always finds them in the same place, whatever the document
+  // holds. Long documents push them onto their own page rather than colliding.
+  const footY = Math.max(y + 10, 236);
   box(left, footY, 88, 34, 'Banking Details');
   box(left + 114, footY, right - left - 114, 34, 'Totals');
 
@@ -299,13 +306,21 @@ export async function downloadInvoiceRecordPdf(invoice: InvoiceRow): Promise<voi
       .maybeSingle();
     if (data) {
       const c = data as Record<string, string | null>;
+      // Most addresses already end with the town, so appending the city field
+      // printed "Windhoek" twice. Compared case-insensitively, first wins.
+      const seen = new Set<string>();
       contact = [
         c.account_code ? `Account ${c.account_code}` : '',
         ...(c.address ?? '').split('\n').map((l) => l.trim()),
         [c.city, c.region].filter(Boolean).join(', '),
         c.phone ?? '',
         c.email ?? invoice.customer_email ?? '',
-      ].filter(Boolean);
+      ].filter((line) => {
+        const key = line.trim().toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     }
   }
 
