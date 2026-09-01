@@ -30,12 +30,16 @@ import {
   type Column,
   useToast,
 } from '@/ui';
+import { cn } from '@/lib/cn';
 import { ModuleHeader } from '../components/AdminShell';
 import { StaffLogin } from '../components/StaffLogin';
 import { RECORD_SPECS, type FieldSpec, type RecordSpec } from './recordSpecs';
 
 type AnyRow = Record<string, unknown>;
 type Resource = ReturnType<typeof createResource>;
+
+/** One sellable handset: what the IMEI chooser offers per line. */
+type ImeiUnit = { imei: string | null; color: string | null; serial_number: string | null };
 
 /**
  * Renders a whole console module from a `RecordSpec`.
@@ -610,6 +614,87 @@ function FieldControl({
 }
 
 /**
+ * Choose which physical handsets a line covers.
+ *
+ * A serialised product is not interchangeable stock: the customer leaves with
+ * one particular IMEI, and that is what a warranty claim, an insurance policy
+ * and a police report are all matched against. Selling "a Galaxy A26" without
+ * recording which one leaves the shop unable to answer any of those later.
+ *
+ * Only units still marked available are offered, and never more than the line
+ * quantity, so a document cannot promise two customers the same handset.
+ */
+function ImeiChooser({
+  line,
+  units,
+  loading,
+  onChange,
+}: {
+  line: LineItem;
+  units: Array<{ imei: string | null; color: string | null; serial_number: string | null }>;
+  loading: boolean;
+  onChange: (imeis: string[]) => void;
+}) {
+  const chosen = line.imeis ?? (line.imei ? [line.imei] : []);
+  const qty = Math.max(1, Number(line.quantity) || 1);
+
+  if (loading) return <p className="w-full text-xs text-ink-subtle">Loading serial numbers…</p>;
+  if (units.length === 0) {
+    return (
+      <p className="w-full text-xs text-ink-subtle">
+        No serialised units in stock for this product — nothing to pick.
+      </p>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      <p className="text-2xs font-medium uppercase tracking-wide text-ink-muted">
+        Serial numbers
+        <span className="ml-2 font-normal normal-case tracking-normal text-ink-subtle">
+          {chosen.length} of {qty} chosen
+        </span>
+      </p>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {units.map((u) => {
+          const value = u.imei ?? u.serial_number ?? '';
+          if (!value) return null;
+          const on = chosen.includes(value);
+          // Full is only a barrier to adding — a chosen unit can always come off.
+          const full = chosen.length >= qty && !on;
+          return (
+            <button
+              key={value}
+              type="button"
+              disabled={full}
+              onClick={() =>
+                onChange(on ? chosen.filter((i) => i !== value) : [...chosen, value])
+              }
+              className={cn(
+                'rounded-md border px-2 py-1 font-mono text-2xs transition-colors',
+                on
+                  ? 'border-lime-500 bg-lime-50 text-brand-800'
+                  : full
+                    ? 'cursor-not-allowed border-hairline text-ink-subtle opacity-50'
+                    : 'border-hairline text-ink hover:bg-raised',
+              )}
+            >
+              {value}
+              {u.color ? <span className="ml-1 font-sans text-ink-subtle">{u.color}</span> : null}
+            </button>
+          );
+        })}
+      </div>
+      {chosen.length < qty && (
+        <p className="mt-1 text-2xs text-amber-700">
+          {qty - chosen.length} still to choose.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * Line items on a document: search the catalogue, set quantities and prices,
  * and watch the totals follow. Custom lines cover what the catalogue does
  * not — delivery, labour, a discount stated as its own line.
@@ -633,6 +718,41 @@ function LineItemsEditor({
     },
     { enabled: term.trim().length > 1 },
   );
+
+  // One query for the whole document rather than one per line.
+  const productIds = useMemo(
+    () => [...new Set(items.map((l) => l.product_id).filter((id): id is number => Boolean(id)))],
+    [items],
+  );
+  const [units, setUnits] = useState<Record<number, ImeiUnit[]>>({});
+  const [unitsLoading, setUnitsLoading] = useState(false);
+
+  useEffect(() => {
+    if (productIds.length === 0) { setUnits({}); return; }
+    let cancelled = false;
+    setUnitsLoading(true);
+    void supabase
+      .from('product_imeis')
+      .select('product_id, imei, color, serial_number')
+      .in('product_id', productIds)
+      .eq('status', 'available')
+      .order('imei')
+      .then(({ data }) => {
+        if (cancelled) return;
+        const grouped: Record<number, ImeiUnit[]> = {};
+        for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+          const id = Number(row.product_id);
+          (grouped[id] ??= []).push({
+            imei: (row.imei as string) ?? null,
+            color: (row.color as string) ?? null,
+            serial_number: (row.serial_number as string) ?? null,
+          });
+        }
+        setUnits(grouped);
+        setUnitsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [productIds.join(',')]);
 
   function patch(index: number, values: Partial<LineItem>) {
     onChange(
@@ -757,6 +877,18 @@ function LineItemsEditor({
                 icon={<Trash2 className="h-4 w-4" />}
                 onClick={() => onChange(items.filter((_, i) => i !== index))}
               />
+              {line.product_id ? (
+                <ImeiChooser
+                  line={line}
+                  units={units[line.product_id] ?? []}
+                  loading={unitsLoading}
+                  onChange={(imeis) =>
+                    // `imei` mirrors the first so screens reading a single
+                    // serial (dispatch notes) keep working unchanged.
+                    patch(index, { imeis, imei: imeis[0] ?? null })
+                  }
+                />
+              ) : null}
             </li>
           ))}
         </ul>

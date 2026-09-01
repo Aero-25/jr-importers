@@ -74,7 +74,7 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
 
   if (logo) {
     try {
-      doc.addImage(logo, 'PNG', mid - 3 - 24, 27, 18, 18);
+      doc.addImage(logo, 'PNG', mid - 3 - 20, 28.5, 14, 14);
     } catch {
       // A corrupt cache entry must not sink the document.
     }
@@ -109,7 +109,8 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
     ...(spec.poNumber
       ? ([['Your PO', spec.poNumber, left + 140]] as Array<[string, string, number]>)
       : []),
-    ['Page', '1 of 1', right - 14],
+    // Paging moved to the page footer, where it can count the real total. It
+    // was hardcoded "1 of 1" here and lied on any document that ran over.
   ];
   for (const [label, value, x] of cols) {
     if (!label) continue;
@@ -140,13 +141,26 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.6);
   doc.setTextColor(...INK);
+  let striped = false;
   for (const item of spec.items) {
-    if (y > 232) {
+    // The serials belong to the line, so they must not be split from it by a
+    // page break.
+    const serials = item.imeis?.length ? item.imeis : item.imei ? [item.imei] : [];
+    const lineHeight = 5.4 + (serials.length ? 4.2 : 0);
+    if (y + lineHeight > 232) {
       doc.addPage();
       y = 20;
     }
+
+    if (striped) {
+      doc.setFillColor(249, 250, 249);
+      doc.rect(left, y - 3.8, right - left, lineHeight, 'F');
+    }
+    striped = !striped;
+
     const qty = Number(item.quantity ?? 0);
     const price = Number(item.price ?? 0);
+    doc.setTextColor(...INK);
     doc.text(String(item.sku ?? '').slice(0, 12) || '—', left + 2, y);
     doc.text(String(item.name ?? '').slice(0, 56), left + 28, y);
     doc.text(money(price).replace('N$ ', ''), left + 130, y, { align: 'right' });
@@ -158,13 +172,29 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
       { align: 'right' },
     );
     y += 5.4;
+
+    // Which physical handset left the shop. A warranty claim, an insurance
+    // policy and a police report are all matched on this number, so it is
+    // printed on the customer's copy rather than kept only in the system.
+    if (serials.length) {
+      doc.setFontSize(7.4);
+      doc.setTextColor(...GREY);
+      doc.text(
+        `${serials.length > 1 ? 'IMEIs' : 'IMEI'}: ${serials.join('   ')}`,
+        left + 28,
+        y,
+      );
+      doc.setFontSize(8.6);
+      doc.setTextColor(...INK);
+      y += 4.2;
+    }
   }
 
   doc.setDrawColor(...LINE);
   doc.line(left, y, right, y);
 
   /* Banking and totals */
-  const footY = Math.max(y + 8, 236);
+  const footY = Math.min(Math.max(y + 10, 108), 236);
   box(left, footY, 88, 34, 'Banking Details');
   box(left + 114, footY, right - left - 114, 34, 'Totals');
 
@@ -199,15 +229,24 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
     doc.text(doc.splitTextToSize(spec.notes, 96) as string[], left + 4, footY - 6);
   }
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(...GREY);
-  doc.text(
-    `${company.legalName} · VAT ${company.vatNumber || '—'} · All amounts in Namibian Dollar`,
-    (left + right) / 2,
-    286,
-    { align: 'center' },
-  );
+  const pages = doc.getNumberOfPages();
+  for (let page = 1; page <= pages; page++) {
+    doc.setPage(page);
+    doc.setDrawColor(...LINE);
+    doc.setLineWidth(0.3);
+    doc.line(left, 283, right, 283);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...GREY);
+    doc.text(
+      `${company.legalName} · VAT ${company.vatNumber || '—'} · All amounts in Namibian Dollar · E&OE`,
+      (left + right) / 2,
+      287.5,
+      { align: 'center' },
+    );
+    doc.text(`Page ${page} of ${pages}`, right, 287.5, { align: 'right' });
+    doc.setTextColor(...INK);
+  }
 
   return doc.output('blob');
 }

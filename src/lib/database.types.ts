@@ -42,7 +42,14 @@ export type LineItem = {
   cost_price?: number | null;
   quantity: number;
   color?: string | null;
+  /**
+   * The specific handsets on this line, one serial per unit.
+   *
+   * `imei` holds the first of them so older screens that read a single serial
+   * keep working; `imeis` is the full list once a line covers more than one.
+   */
   imei?: string | null;
+  imeis?: string[] | null;
   /** Set for non-stock lines (repairs, delivery, handling). */
   service_code?: string | null;
   line_total?: number;
