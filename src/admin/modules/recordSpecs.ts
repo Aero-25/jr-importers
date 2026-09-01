@@ -55,6 +55,15 @@ export interface FieldSpec {
   secondary?: boolean;
   /** Full width in the two-column edit form. */
   wide?: boolean;
+  /**
+   * Columns this control writes besides its own key.
+   *
+   * The save path builds its payload from `fields`, so a control that sets
+   * anything else — the customer picker writing `customer_id` next to the
+   * name — would have that value silently dropped. Naming the columns here
+   * keeps them.
+   */
+  extraKeys?: string[];
 }
 
 export interface RecordSpec {
@@ -279,6 +288,9 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         required: true,
         inList: true,
         hint: 'Search by name, IQ account code, phone or email.',
+        // The link to the account, which is what lets the printed invoice
+        // carry their address and account code rather than a bare name.
+        extraKeys: ['customer_id'],
       },
       { key: 'customer_email', label: 'Email', type: 'email', inList: true, secondary: true },
       {

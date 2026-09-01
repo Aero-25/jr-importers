@@ -283,6 +283,21 @@ function RecordDialog({
       else if (field.type === 'money' || field.type === 'number')
         values[field.key] = raw === '' ? null : toNumber(raw as string);
       else values[field.key] = String(raw ?? '').trim() || null;
+
+      // A field left blank means two different things, and sending null for
+      // both breaks the first. On a NEW record it means "not specified", so the
+      // key is dropped and the column's own default applies — sending an
+      // explicit null instead overrides that default, and against a NOT NULL
+      // column (invoices.status, orders.status, customers.customer_type and 45
+      // others) the insert is rejected outright. On an EXISTING record a blank
+      // is a deliberate clearing, so null is exactly right and is kept.
+      if (isNew && values[field.key] === null) delete values[field.key];
+
+      // Columns the control writes alongside its own key.
+      for (const extra of field.extraKeys ?? []) {
+        const value = form[extra];
+        if (value !== undefined && value !== '') values[extra] = value;
+      }
     }
 
     if (spec.lineItems) {
