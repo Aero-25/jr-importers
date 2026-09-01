@@ -31,6 +31,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { keys } from '@/data/keys';
 import { cartTotals } from '@/data/cart';
+import {
+  ImeiChooser,
+  linesNeedingImeis,
+  useAvailableUnits,
+} from '../components/ImeiChooser';
 import { useAuth } from '@/auth/AuthProvider';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { formatTime, money, round2, toNumber } from '@/lib/format';
@@ -87,6 +92,11 @@ export default function Pos() {
   const [invoiceFor, setInvoiceFor] = useState<OrderRow | null>(null);
 
   const totals = useMemo(() => cartTotals(lines, toNumber(discount)), [lines, discount]);
+
+  // Which serials are on the shelf for what is in the cart, and which lines
+  // still have not said which handset is leaving.
+  const { units: unitPools, loading: unitsLoading } = useAvailableUnits(lines);
+  const needsImeis = useMemo(() => linesNeedingImeis(lines, unitPools), [lines, unitPools]);
   const takings = useMemo(
     () => round2((sales.data ?? []).reduce((n, o) => n + Number(o.total_amount || 0), 0)),
     [sales.data],
@@ -364,7 +374,7 @@ export default function Pos() {
                 ) : (
                   <ul className="max-h-[22rem] divide-y divide-hairline/70 overflow-y-auto">
                     {lines.map((line) => (
-                      <li key={line.product_id} className="flex items-center gap-2 px-4 py-2.5">
+                      <li key={line.product_id} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm text-ink">{line.name}</p>
                           <p className="tabular text-xs text-ink-subtle">
@@ -393,6 +403,25 @@ export default function Pos() {
                         <p className="tabular w-20 shrink-0 text-right text-sm font-semibold text-ink">
                           {money(line.price * line.quantity)}
                         </p>
+                        {line.product_id != null && (
+                          <ImeiChooser
+                            compact
+                            line={line}
+                            units={unitPools[line.product_id] ?? []}
+                            loading={unitsLoading}
+                            onChange={(imeis) =>
+                              setLines((current) =>
+                                current.map((l) =>
+                                  l.product_id === line.product_id
+                                    ? // `imei` mirrors the first so the dispatch
+                                      // note and older screens keep working.
+                                      { ...l, imeis, imei: imeis[0] ?? null }
+                                    : l,
+                                ),
+                              )
+                            }
+                          />
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -429,11 +458,21 @@ export default function Pos() {
                     </div>
                   </dl>
 
+                  {/* Held, not merely prompted. Offering the choice is not
+                      enough: the busiest moment of the day is exactly when it
+                      gets skipped, and a phone sold without its IMEI cannot be
+                      matched to a warranty claim afterwards. */}
+                  {needsImeis.length > 0 && (
+                    <p className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      Choose the handset going out for{' '}
+                      {needsImeis.map((l) => l.name).join(', ')} before taking payment.
+                    </p>
+                  )}
                   <Button
                     size="xl"
                     fullWidth
                     variant="lime"
-                    disabled={lines.length === 0}
+                    disabled={lines.length === 0 || needsImeis.length > 0}
                     onClick={() => setTenderOpen(true)}
                     icon={<Receipt className="h-5 w-5" />}
                   >
