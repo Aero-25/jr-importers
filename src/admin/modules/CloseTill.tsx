@@ -348,6 +348,12 @@ export function CashUpSummary({ report }: { report: CashUp }) {
               value={money(report.total_sales)}
               bold
             />
+            {report.invoice_count > 0 && (
+              <Line
+                label={`of which invoices (${report.invoice_count})`}
+                value={money(report.invoice_sales)}
+              />
+            )}
             {report.refunds > 0 && (
               <Line label="Less refunds" value={`− ${money(report.refunds)}`} />
             )}

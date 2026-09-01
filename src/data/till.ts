@@ -28,6 +28,9 @@ export interface CashUp {
   other_sales: number;
   total_sales: number;
   transaction_count: number;
+  /** Of the totals above, the part that came from invoices settled in the shift. */
+  invoice_sales: number;
+  invoice_count: number;
   petty_cash: number;
   /** Approved refunds in this shift. Only the cash ones come out of the drawer. */
   refunds: number;

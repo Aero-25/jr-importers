@@ -2,6 +2,7 @@ import type { TableName } from '@/lib/database.types';
 import {
   INVOICE_STATUSES,
   LAYBY_STATUSES,
+  PAYMENT_METHODS,
   QUOTE_STATUSES,
   STOCK_TAKE_STATUSES,
 } from '@/lib/constants';
@@ -306,6 +307,13 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
       money('total_amount', 'Total', { inList: true, computed: true }),
       { key: 'due_date', label: 'Due', type: 'date', inList: true },
       { key: 'status', label: 'Status', type: 'select', options: INVOICE_STATUSES, inList: true },
+      {
+        key: 'payment_method',
+        label: 'Paid by',
+        type: 'select',
+        options: PAYMENT_METHODS,
+        hint: 'How it was settled. Marking an invoice paid puts it on the open shift cash-up; Cash is what the drawer is counted against.',
+      },
       {
         key: 'notes',
         label: 'Comment',

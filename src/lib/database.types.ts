@@ -451,6 +451,9 @@ export type InvoiceRow = {
   doc_type: string | null;
   /** 'iq-import' marks history brought across from IQ Retail. */
   source: string | null;
+  /** The shift this invoice was settled in. Stamped when status becomes paid. */
+  till_shift_id: number | null;
+  payment_method: string | null;
   /** The complete IQ document header this row was imported from. */
   iq_data: Record<string, string> | null;
   created_at: string;

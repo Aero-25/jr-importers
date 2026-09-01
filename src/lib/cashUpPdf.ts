@@ -101,6 +101,10 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   line(y - 2);
   y += 2;
   row(`Total sales  (${report.transaction_count} transactions)`, money(report.total_sales), { bold: true });
+  // A breakdown of the line above, not an addition to it.
+  if (report.invoice_count > 0) {
+    row(`of which invoices  (${report.invoice_count})`, money(report.invoice_sales));
+  }
   if (report.refunds > 0) {
     row('Less refunds', `− ${money(report.refunds)}`);
     row('Net takings', money(report.total_sales - report.refunds), { bold: true });

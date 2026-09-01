@@ -212,10 +212,13 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
     doc.setFont('helvetica', 'normal');
     doc.text(value, left + 26, py);
   };
-  pair('Bank', company.bankName || '—', footY + 12);
-  pair('Account', company.bankAccountNumber || '—', footY + 17.5);
-  pair('Branch', company.bankBranchCode || '—', footY + 23);
-  pair('Name', company.bankAccountName || company.legalName, footY + 28.5);
+  // Account name is deliberately not printed: the stored value named the shop
+  // as a CC, which it is not, and a payment instruction carrying the wrong
+  // entity is worse than one carrying none. Bank, number and branch are enough
+  // to pay against. Restore it here once settings hold the registered name.
+  pair('Bank', company.bankName || '—', footY + 13);
+  pair('Account', company.bankAccountNumber || '—', footY + 20);
+  pair('Branch', company.bankBranchCode || '—', footY + 27);
 
   const totalRow = (label: string, value: string, ty: number, bold = false) => {
     doc.setFont('helvetica', bold ? 'bold' : 'normal');
