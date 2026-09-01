@@ -108,6 +108,15 @@ export type CustomerRow = {
   customer_type: string;
   credit_limit: number;
   active: boolean;
+  /** Account code carried over from IQ Retail, unique where present. */
+  account_code: string | null;
+  opened_date: string | null;
+  last_invoice_date: string | null;
+  last_invoice_amount: number | null;
+  last_payment_date: string | null;
+  last_payment_amount: number | null;
+  /** The complete IQ record this row was imported from, IQ's own field names. */
+  iq_data: Record<string, string> | null;
   created_at: string;
   updated_at: string;
 }
@@ -122,6 +131,12 @@ export type SupplierRow = {
   address: string | null;
   payment_terms: string | null;
   active: boolean;
+  /** Account code carried over from IQ Retail, unique where present. */
+  account_code: string | null;
+  last_invoice_date: string | null;
+  last_invoice_amount: number | null;
+  /** The complete IQ record this row was imported from, IQ's own field names. */
+  iq_data: Record<string, string> | null;
   created_at: string;
   updated_at: string;
 }
@@ -421,6 +436,16 @@ export type InvoiceRow = {
   due_date: string | null;
   status: string;
   paid_at: string | null;
+  /** The customer's own purchase order number, printed on the invoice. */
+  po_number: string | null;
+  /** Free text printed under the totals. */
+  notes: string | null;
+  /** 'invoice' for a sales document; set on rows carried over from IQ. */
+  doc_type: string | null;
+  /** 'iq-import' marks history brought across from IQ Retail. */
+  source: string | null;
+  /** The complete IQ document header this row was imported from. */
+  iq_data: Record<string, string> | null;
   created_at: string;
   updated_at: string;
 }

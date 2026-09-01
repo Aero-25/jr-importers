@@ -1,4 +1,5 @@
 import type { InvoiceRow, LineItem, QuoteRow } from './database.types';
+import { supabase } from './supabase';
 import {
   BRAND_GREEN,
   BRAND_GREEN_SOFT,
@@ -32,6 +33,8 @@ interface DocumentSpec {
   /** e.g. "Valid until 30/08/2026" on a quote, "Due 30/08/2026" on an invoice. */
   validityLine?: string | null;
   notes?: string | null;
+  /** The customer's own purchase order number, if they gave one. */
+  poNumber?: string | null;
 }
 
 async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Promise<Blob> {
@@ -103,6 +106,9 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
     [spec.title === 'QUOTATION' ? 'Quote Number' : 'Invoice Number', spec.number, left],
     ['Date', spec.date ? formatDate(spec.date) : '—', left + 52],
     [spec.validityLine ? spec.validityLine.split(' ')[0]! : '', spec.validityLine?.split(' ').slice(1).join(' ') ?? '', left + 96],
+    ...(spec.poNumber
+      ? ([['Your PO', spec.poNumber, left + 140]] as Array<[string, string, number]>)
+      : []),
     ['Page', '1 of 1', right - 14],
   ];
   for (const [label, value, x] of cols) {
@@ -240,18 +246,44 @@ export async function downloadQuotePdf(quote: QuoteRow): Promise<void> {
 
 export async function downloadInvoiceRecordPdf(invoice: InvoiceRow): Promise<void> {
   const company = await loadInvoiceCompany();
+
+  // The invoice stores the customer's name and email, but a proper tax invoice
+  // needs the address and a reference the customer recognises. Both live on the
+  // customer record, so fetch it where the invoice is linked to one. A failure
+  // here must not stop the document printing — it only makes it less complete.
+  let contact: string[] = [invoice.customer_email ?? ''];
+  if (invoice.customer_id) {
+    const { data } = await supabase
+      .from('customers')
+      .select('phone, email, address, account_code, city, region')
+      .eq('id', invoice.customer_id)
+      .maybeSingle();
+    if (data) {
+      const c = data as Record<string, string | null>;
+      contact = [
+        c.account_code ? `Account ${c.account_code}` : '',
+        ...(c.address ?? '').split('\n').map((l) => l.trim()),
+        [c.city, c.region].filter(Boolean).join(', '),
+        c.phone ?? '',
+        c.email ?? invoice.customer_email ?? '',
+      ].filter(Boolean);
+    }
+  }
+
   const blob = await buildDocumentPdf(
     {
       title: 'TAX INVOICE',
       number: invoice.invoice_number ?? `INV-${invoice.id}`,
       date: invoice.created_at,
       customerName: invoice.customer_name ?? '—',
-      customerContact: [invoice.customer_email ?? ''],
+      customerContact: contact,
       items: invoice.items ?? [],
       subtotal: Number(invoice.subtotal_amount ?? 0),
       vat: Number(invoice.vat_amount ?? 0),
       total: Number(invoice.total_amount ?? 0),
       validityLine: invoice.due_date ? `Due ${formatDate(invoice.due_date)}` : null,
+      poNumber: invoice.po_number ?? null,
+      notes: invoice.notes ?? null,
     },
     company,
   );

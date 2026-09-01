@@ -19,7 +19,11 @@ export type FieldType =
   | 'lookup'
   | 'textarea'
   | 'checkbox'
-  | 'readonly';
+  | 'readonly'
+  /** An imported record shown as a read-only key/value table. */
+  | 'record'
+  /** Search-as-you-type customer picker. Fills name, email and customer_id. */
+  | 'customer';
 
 export interface FieldSpec {
   key: string;
@@ -96,7 +100,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     description: 'Everyone who has bought from you or holds an account.',
     table: 'customers',
     resource: resources.customers,
-    searchColumns: ['name', 'email', 'phone', 'city'],
+    searchColumns: ['name', 'email', 'phone', 'city', 'account_code'],
     fields: [
       { key: 'name', label: 'Name', type: 'text', required: true, inList: true },
       { key: 'email', label: 'Email', type: 'email', inList: true },
@@ -114,6 +118,26 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
       },
       money('credit_limit', 'Credit limit', { hint: 'Used by the debtors ledger.' }),
       { key: 'active', label: 'Active', type: 'checkbox', defaultChecked: true },
+      {
+        key: 'account_code',
+        label: 'IQ account',
+        type: 'text',
+        inList: true,
+        secondary: true,
+        hint: 'The account code this customer had in IQ. What they will quote off an old statement.',
+      },
+      { key: 'opened_date', label: 'Account opened', type: 'date' },
+      { key: 'last_invoice_date', label: 'Last invoiced', type: 'date' },
+      money('last_invoice_amount', 'Last invoice amount'),
+      { key: 'last_payment_date', label: 'Last paid', type: 'date' },
+      money('last_payment_amount', 'Last payment amount'),
+      {
+        key: 'iq_data',
+        label: 'IQ record',
+        type: 'record',
+        wide: true,
+        hint: 'Everything IQ held for this account, under IQ own field names. History, not live values — the fields above are what the shop uses.',
+      },
     ],
   },
 
@@ -122,7 +146,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     description: 'Who you buy from.',
     table: 'suppliers',
     resource: resources.suppliers,
-    searchColumns: ['name', 'company', 'contact_person', 'email'],
+    searchColumns: ['name', 'company', 'contact_person', 'email', 'account_code'],
     fields: [
       { key: 'name', label: 'Name', type: 'text', required: true, inList: true },
       { key: 'company', label: 'Company', type: 'text', inList: true },
@@ -132,6 +156,23 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
       { key: 'payment_terms', label: 'Payment terms', type: 'text', hint: 'e.g. 30 days from invoice' },
       { key: 'address', label: 'Address', type: 'textarea', wide: true },
       { key: 'active', label: 'Active', type: 'checkbox', defaultChecked: true },
+      {
+        key: 'account_code',
+        label: 'IQ account',
+        type: 'text',
+        inList: true,
+        secondary: true,
+        hint: 'The account code this supplier had in IQ.',
+      },
+      { key: 'last_invoice_date', label: 'Last invoiced', type: 'date' },
+      money('last_invoice_amount', 'Last invoice amount'),
+      {
+        key: 'iq_data',
+        label: 'IQ record',
+        type: 'record',
+        wide: true,
+        hint: 'Everything IQ held for this account, under IQ own field names.',
+      },
     ],
   },
 
@@ -220,7 +261,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     description: 'Issued invoices and their payment state.',
     table: 'invoices',
     resource: resources.invoices,
-    searchColumns: ['invoice_number', 'customer_name', 'customer_email'],
+    searchColumns: ['invoice_number', 'customer_name', 'customer_email', 'po_number'],
     lineItems: true,
     pdf: 'invoice',
     fields: [
@@ -231,13 +272,35 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         inList: true,
         hint: 'Assigned automatically when the invoice is created — numbers run in order.',
       },
-      { key: 'customer_name', label: 'Customer', type: 'lookup', lookup: 'customers', required: true, inList: true },
+      {
+        key: 'customer_name',
+        label: 'Customer',
+        type: 'customer',
+        required: true,
+        inList: true,
+        hint: 'Search by name, IQ account code, phone or email.',
+      },
       { key: 'customer_email', label: 'Email', type: 'email', inList: true, secondary: true },
+      {
+        key: 'po_number',
+        label: 'Customer PO number',
+        type: 'text',
+        inList: true,
+        secondary: true,
+        hint: 'Their purchase order. Printed on the invoice so their accounts department can match it.',
+      },
       money('subtotal_amount', 'Subtotal (excl VAT)', { secondary: true, computed: true }),
       money('vat_amount', 'VAT', { secondary: true, computed: true }),
       money('total_amount', 'Total', { inList: true, computed: true }),
       { key: 'due_date', label: 'Due', type: 'date', inList: true },
       { key: 'status', label: 'Status', type: 'select', options: INVOICE_STATUSES, inList: true },
+      {
+        key: 'notes',
+        label: 'Comment',
+        type: 'textarea',
+        wide: true,
+        hint: 'Prints on the invoice, under the totals.',
+      },
     ],
   },
 

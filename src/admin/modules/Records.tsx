@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { Plus, Search, Trash2 } from 'lucide-react';
 import type { createResource } from '@/data/crud';
+import { supabase } from '@/lib/supabase';
 import { customers, suppliers } from '@/data/resources';
 import { products } from '@/data/products';
 import type { LineItem } from '@/lib/database.types';
@@ -275,7 +276,7 @@ function RecordDialog({
     // the dialog's own arithmetic, written below from the lines.
     const values: Record<string, unknown> = {};
     for (const field of spec.fields) {
-      if (field.type === 'readonly' || field.computed) continue;
+      if (field.type === 'readonly' || field.type === 'record' || field.computed) continue;
       const raw = form[field.key];
 
       if (field.type === 'checkbox') values[field.key] = Boolean(raw);
@@ -310,7 +311,8 @@ function RecordDialog({
   }
 
   const editable = spec.fields.filter(
-    (field) => (!spec.readOnly || field.type === 'readonly') && !field.computed,
+    (field) =>
+      (!spec.readOnly || field.type === 'readonly' || field.type === 'record') && !field.computed,
   );
 
   return (
@@ -375,6 +377,7 @@ function RecordDialog({
               field={field}
               value={form[field.key]}
               onChange={(value) => set(field.key, value)}
+              onPatch={(patch) => setForm((current) => ({ ...current, ...patch }))}
               disabled={spec.readOnly}
               autoFocus={index === 0 && !spec.readOnly}
             />
@@ -424,6 +427,7 @@ function FieldControl({
   field,
   value,
   onChange,
+  onPatch,
   disabled,
   autoFocus,
 }: {
@@ -432,6 +436,8 @@ function FieldControl({
   onChange: (value: unknown) => void;
   disabled?: boolean;
   autoFocus?: boolean;
+  /** Writes several columns at once — a picked customer fills name, email and id. */
+  onPatch?: (patch: Record<string, unknown>) => void;
 }) {
   const wide = field.wide ? 'sm:col-span-2' : undefined;
   const common = { label: field.label, hint: field.hint, required: field.required, disabled };
@@ -454,6 +460,52 @@ function FieldControl({
             <p className="mt-0.5 text-xs text-ink-subtle">{field.hint}</p>
           )}
         </div>
+      );
+
+    case 'record': {
+      // An imported record kept verbatim — every field the old system held,
+      // under its own field names. Read-only by nature: these are history, not
+      // the shop's live values, and editing one would only make the copy lie.
+      const entries =
+        value && typeof value === 'object' && !Array.isArray(value)
+          ? Object.entries(value as Record<string, unknown>)
+          : [];
+      return (
+        <div className="sm:col-span-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+            {field.label}
+            {entries.length > 0 && (
+              <span className="ml-2 font-normal normal-case tracking-normal text-ink-subtle">
+                {entries.length} fields
+              </span>
+            )}
+          </p>
+          {field.hint && <p className="mt-0.5 text-xs text-ink-subtle">{field.hint}</p>}
+          {entries.length === 0 ? (
+            <p className="mt-1 text-sm text-ink-muted">—</p>
+          ) : (
+            <dl className="mt-2 max-h-72 overflow-y-auto rounded-lg border border-line bg-surface-sunken p-3 text-xs">
+              {entries.map(([key, val]) => (
+                <div key={key} className="flex gap-3 border-b border-line/50 py-1 last:border-0">
+                  <dt className="w-2/5 shrink-0 font-medium text-ink-muted">{key}</dt>
+                  <dd className="min-w-0 flex-1 break-words text-ink">{String(val)}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+      );
+    }
+
+    case 'customer':
+      return (
+        <CustomerPicker
+          field={field}
+          value={String(value ?? '')}
+          disabled={disabled}
+          containerClassName={wide}
+          onPick={(picked) => onPatch?.(picked)}
+        />
       );
 
     case 'lookup':
@@ -734,6 +786,112 @@ function LineItemsEditor({
  * saved on a record that predates the list, or whose supplier was deleted,
  * still has to be shown and re-savable, so it is folded into the options.
  */
+/**
+ * Pick a customer by searching for them.
+ *
+ * A plain dropdown cannot carry 2,492 debtors, and the old one stored only the
+ * name — so two customers called J Titus were indistinguishable and the invoice
+ * had no way back to the account it belonged to.
+ *
+ * Searches name, IQ account code, phone and email, because the counter is told
+ * whichever of those the customer happens to quote. Writes the customer's id
+ * alongside the name so the document can reach their address and account.
+ */
+function CustomerPicker({
+  field,
+  value,
+  disabled,
+  containerClassName,
+  onPick,
+}: {
+  field: FieldSpec;
+  value: string;
+  disabled?: boolean;
+  containerClassName?: string;
+  onPick: (patch: Record<string, unknown>) => void;
+}) {
+  const [term, setTerm] = useState('');
+  const [results, setResults] = useState<Array<Record<string, unknown>>>([]);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const q = term.trim();
+    if (q.length < 2) { setResults([]); return; }
+    let cancelled = false;
+    // Debounced: a search per keystroke against 2,492 rows is wasted work and
+    // the results only matter once the typing pauses.
+    const timer = window.setTimeout(() => {
+      setBusy(true);
+      const like = `%${q.replace(/[%,]/g, '')}%`;
+      void supabase
+        .from('customers')
+        .select('id, name, email, phone, account_code, address')
+        .or(
+          `name.ilike.${like},account_code.ilike.${like},phone.ilike.${like},email.ilike.${like}`,
+        )
+        .order('name')
+        .limit(20)
+        .then(({ data }) => {
+          if (cancelled) return;
+          setResults((data ?? []) as Array<Record<string, unknown>>);
+          setBusy(false);
+        });
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [term]);
+
+  return (
+    <div className={containerClassName}>
+      <Input
+        label={field.label}
+        hint={field.hint}
+        required={field.required}
+        disabled={disabled}
+        value={term || value}
+        placeholder="Search name, account, phone or email"
+        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+          setTerm(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && term.trim().length >= 2 && (
+        <div className="relative">
+          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-line bg-surface shadow-lg">
+            {busy && <li className="px-3 py-2 text-sm text-ink-muted">Searching…</li>}
+            {!busy && results.length === 0 && (
+              <li className="px-3 py-2 text-sm text-ink-muted">No customer matches that.</li>
+            )}
+            {results.map((c) => (
+              <li key={String(c.id)}>
+                <button
+                  type="button"
+                  className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-surface-sunken"
+                  onClick={() => {
+                    onPick({
+                      customer_id: c.id,
+                      customer_name: c.name ?? '',
+                      customer_email: c.email ?? '',
+                    });
+                    setTerm(String(c.name ?? ''));
+                    setOpen(false);
+                  }}
+                >
+                  <span className="text-sm font-medium text-ink">{String(c.name ?? '—')}</span>
+                  <span className="text-xs text-ink-muted">
+                    {[c.account_code, c.phone, c.email].filter(Boolean).join('  ·  ') || 'no contact details'}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LookupSelect({
   field,
   value,
