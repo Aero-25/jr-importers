@@ -1,0 +1,219 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "01.1 · Shelf",
+      "x": 0,
+      "y": 0,
+      "w": 1520,
+      "h": 1180,
+      "page": "page-t"
+    },
+    {
+      "file": "TUnit.dc.html",
+      "title": "01.2 · Unit record",
+      "x": 1660,
+      "y": 0,
+      "w": 1520,
+      "h": 1720,
+      "page": "page-t"
+    },
+    {
+      "file": "TBuy.dc.html",
+      "title": "01.3 · Buy",
+      "x": 3320,
+      "y": 0,
+      "w": 1520,
+      "h": 1180,
+      "page": "page-t"
+    },
+    {
+      "file": "TWorkshop.dc.html",
+      "title": "01.4 · Workshop",
+      "x": 0,
+      "y": 1960,
+      "w": 1520,
+      "h": 1180,
+      "page": "page-t"
+    },
+    {
+      "file": "TMobile.dc.html",
+      "title": "01.5 · Mobile",
+      "x": 1660,
+      "y": 1960,
+      "w": 912,
+      "h": 1000,
+      "page": "page-t"
+    },
+    {
+      "file": "TSystem.dc.html",
+      "title": "01.6 · System",
+      "x": 3320,
+      "y": 1960,
+      "w": 1520,
+      "h": 1900,
+      "page": "page-t"
+    },
+    {
+      "file": "CCover.dc.html",
+      "title": "02.1 · Cover",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 3450,
+      "page": "page-c"
+    },
+    {
+      "file": "CIndex.dc.html",
+      "title": "02.2 · The index",
+      "x": 1660,
+      "y": 0,
+      "w": 1440,
+      "h": 2600,
+      "page": "page-c"
+    },
+    {
+      "file": "CFeature.dc.html",
+      "title": "02.3 · Feature",
+      "x": 3320,
+      "y": 0,
+      "w": 1440,
+      "h": 2700,
+      "page": "page-c"
+    },
+    {
+      "file": "COrder.dc.html",
+      "title": "02.4 · Order form",
+      "x": 0,
+      "y": 3690,
+      "w": 1440,
+      "h": 2100,
+      "page": "page-c"
+    },
+    {
+      "file": "CMobile.dc.html",
+      "title": "02.5 · Mobile",
+      "x": 1660,
+      "y": 3690,
+      "w": 920,
+      "h": 1000,
+      "page": "page-c"
+    },
+    {
+      "file": "CSystem.dc.html",
+      "title": "02.6 · System",
+      "x": 3320,
+      "y": 3690,
+      "w": 1440,
+      "h": 2600,
+      "page": "page-c"
+    },
+    {
+      "file": "AAsk.dc.html",
+      "title": "03.1 · Ask",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 2100,
+      "page": "page-a"
+    },
+    {
+      "file": "AShortlist.dc.html",
+      "title": "03.2 · Shortlist",
+      "x": 1660,
+      "y": 0,
+      "w": 1440,
+      "h": 2200,
+      "page": "page-a"
+    },
+    {
+      "file": "ACompare.dc.html",
+      "title": "03.3 · Compare",
+      "x": 3320,
+      "y": 0,
+      "w": 1440,
+      "h": 1900,
+      "page": "page-a"
+    },
+    {
+      "file": "AProduct.dc.html",
+      "title": "03.4 · Product",
+      "x": 0,
+      "y": 2440,
+      "w": 1440,
+      "h": 2100,
+      "page": "page-a"
+    },
+    {
+      "file": "ACheckout.dc.html",
+      "title": "03.5 · Checkout",
+      "x": 1660,
+      "y": 2440,
+      "w": 1440,
+      "h": 1700,
+      "page": "page-a"
+    },
+    {
+      "file": "AMobile.dc.html",
+      "title": "03.6 · Mobile",
+      "x": 3320,
+      "y": 2440,
+      "w": 920,
+      "h": 1000,
+      "page": "page-a"
+    },
+    {
+      "file": "ASystem.dc.html",
+      "title": "03.7 · System",
+      "x": 0,
+      "y": 4780,
+      "w": 1440,
+      "h": 2400,
+      "page": "page-a"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-t",
+      "x": 0,
+      "y": -340,
+      "w": 820,
+      "page": "page-t",
+      "text": "01 · STOCK TERMINAL — The shop as the live inventory it actually is\n\nWHY: No shop in Namibia can say what this one can: every unit is on the till, with an IMEI, right now. So the storefront is the stock list — sortable, filterable, honest about counts, with the till feed running live underneath. It is faster to buy from than any card grid.\n\nTRADEOFF: It asks the customer to read a table. Non-technical buyers and anyone shopping on feel will bounce; there is no browsing pleasure and no photography to sell an upgrade."
+    },
+    {
+      "id": "note-c",
+      "x": 0,
+      "y": -340,
+      "w": 820,
+      "page": "page-c",
+      "text": "02 · COAST — A magazine that happens to sell phones\n\nWHY: Nobody remembers a card grid. A masthead, a real edit and an article about the bench give the shop a voice that a template cannot, and it suits a business whose actual pitch is local knowledge — which handset survives salt, sand and a power cut.\n\nTRADEOFF: It is slow to shop. An index with dotted leaders is lovely and is not how someone compares four phones at 22:00 on a phone screen. It also needs real photography and someone to write the copy every season."
+    },
+    {
+      "id": "note-a",
+      "x": 0,
+      "y": -340,
+      "w": 820,
+      "page": "page-a",
+      "text": "03 · ASK — One question instead of a catalogue\n\nWHY: Most people walking into the shop cannot name the phone they want — they describe a job. This turns the counter conversation into the interface, and it lets the shop say the useful thing a catalogue never can: which handset comes back to our own bench, and which one we would not sell you.\n\nTRADEOFF: It needs the shop to have an opinion and keep it current — the scores and the verdicts are written by someone, not generated. And a customer who already knows exactly what they want has to get past a question first."
+    }
+  ],
+  "pages": [
+    {
+      "id": "page-t",
+      "name": "01 · Stock Terminal"
+    },
+    {
+      "id": "page-c",
+      "name": "02 · Coast"
+    },
+    {
+      "id": "page-a",
+      "name": "03 · Ask"
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-t"
+  }
+}

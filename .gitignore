@@ -56,3 +56,6 @@ docs/design/**/jr-importers-shop-redesign-viewer.html
 
 # Python bytecode from the design generators.
 __pycache__/
+
+docs/design/**/jr-importers-shop-overhaul.html
+docs/design/**/jr-importers-shop-overhaul-viewer.html
