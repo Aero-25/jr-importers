@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Trash2 } from 'lucide-react';
 import type { createResource } from '@/data/crud';
 import { supabase } from '@/lib/supabase';
+import { keys } from '@/data/keys';
+import { PAYMENT_METHODS } from '@/lib/constants';
 import { customers, suppliers } from '@/data/resources';
 import { products } from '@/data/products';
 import type { LineItem } from '@/lib/database.types';
@@ -280,7 +283,16 @@ function RecordDialog({
     // the dialog's own arithmetic, written below from the lines.
     const values: Record<string, unknown> = {};
     for (const field of spec.fields) {
-      if (field.type === 'readonly' || field.type === 'record' || field.computed) continue;
+      // Instalments are written by take_layby_payment, never by this form:
+      // sending the array back would overwrite a payment taken at the counter
+      // while the record sat open on someone else's screen.
+      if (
+        field.type === 'readonly' ||
+        field.type === 'record' ||
+        field.type === 'payments' ||
+        field.computed
+      )
+        continue;
       const raw = form[field.key];
 
       if (field.type === 'checkbox') values[field.key] = Boolean(raw);
@@ -397,6 +409,7 @@ function RecordDialog({
               value={form[field.key]}
               onChange={(value) => set(field.key, value)}
               onPatch={(patch) => setForm((current) => ({ ...current, ...patch }))}
+              recordId={isNew ? null : ((record as AnyRow).id as number)}
               disabled={spec.readOnly}
               autoFocus={index === 0 && !spec.readOnly}
             />
@@ -447,6 +460,7 @@ function FieldControl({
   value,
   onChange,
   onPatch,
+  recordId,
   disabled,
   autoFocus,
 }: {
@@ -457,6 +471,8 @@ function FieldControl({
   autoFocus?: boolean;
   /** Writes several columns at once — a picked customer fills name, email and id. */
   onPatch?: (patch: Record<string, unknown>) => void;
+  /** The saved row's id, or null while the record is still being created. */
+  recordId?: number | null;
 }) {
   const wide = field.wide ? 'sm:col-span-2' : undefined;
   const common = { label: field.label, hint: field.hint, required: field.required, disabled };
@@ -515,6 +531,9 @@ function FieldControl({
         </div>
       );
     }
+
+    case 'payments':
+      return <LaybyPayments laybyId={recordId ?? null} payments={value} disabled={disabled} />;
 
     case 'customer':
       return (
@@ -611,6 +630,119 @@ function FieldControl({
         />
       );
   }
+}
+
+/**
+ * A layby's instalments, and a way to take the next one.
+ *
+ * Payments go through `take_layby_payment` rather than being edited into the
+ * row: it recalculates the balance, closes the layby once it is settled,
+ * refuses an overpayment, and stamps the shift so the money reaches that day's
+ * cash-up. Editing the array by hand would do none of that, and the drawer
+ * would be over by whatever was taken.
+ */
+function LaybyPayments({
+  laybyId,
+  payments,
+  disabled,
+}: {
+  laybyId: number | null;
+  payments: unknown;
+  disabled?: boolean;
+}) {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState<string>('Cash');
+  const [busy, setBusy] = useState(false);
+
+  const history = Array.isArray(payments) ? (payments as Array<Record<string, unknown>>) : [];
+  const taken = history.reduce((n, p) => n + (Number(p.amount) || 0), 0);
+
+  async function record() {
+    const value = toNumber(amount);
+    if (!laybyId) {
+      toast.warn('Save the layby first', 'A payment needs a layby to belong to.');
+      return;
+    }
+    if (value <= 0) {
+      toast.warn('Enter an amount');
+      return;
+    }
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('take_layby_payment', {
+        p_layby_id: laybyId,
+        p_amount: value,
+        p_method: method,
+      });
+      if (error) throw new Error(error.message);
+      const result = data as { ok?: boolean; message?: string; balance_amount?: number };
+      if (!result?.ok) throw new Error(result?.message ?? 'The payment was not accepted.');
+      toast.success('Payment recorded', `Balance now ${money(Number(result.balance_amount ?? 0))}.`);
+      setAmount('');
+      void qc.invalidateQueries({ queryKey: keys.table('laybys') });
+    } catch (error) {
+      toast.error('Could not record the payment', error instanceof Error ? error.message : undefined);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="sm:col-span-2">
+      <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+        Instalments
+        {history.length > 0 && (
+          <span className="ml-2 font-normal normal-case tracking-normal text-ink-subtle">
+            {history.length} taken · {money(taken)}
+          </span>
+        )}
+      </p>
+
+      {history.length > 0 && (
+        <ul className="mt-2 divide-y divide-hairline rounded-lg border border-hairline text-sm">
+          {history.map((payment, index) => (
+            <li key={index} className="flex items-center gap-3 px-3 py-1.5">
+              <span className="tabular w-24 font-medium text-ink">
+                {money(Number(payment.amount) || 0)}
+              </span>
+              <span className="text-xs text-ink-muted">{String(payment.method ?? '—')}</span>
+              <span className="ml-auto text-xs text-ink-subtle">
+                {payment.date ? formatDateTime(String(payment.date)) : '—'}
+                {payment.by ? ` · ${String(payment.by)}` : ''}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {!disabled && (
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <Input
+            label="Amount"
+            type="number"
+            inputMode="decimal"
+            className="w-28"
+            containerClassName="w-32"
+            value={amount}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
+          />
+          <Select
+            label="Method"
+            value={method}
+            onChange={(e) => setMethod(e.target.value)}
+            options={[...PAYMENT_METHODS]}
+            containerClassName="w-40"
+          />
+          <Button size="sm" variant="secondary" loading={busy} onClick={() => void record()}>
+            Record payment
+          </Button>
+          {!laybyId && <span className="pb-2 text-xs text-ink-subtle">Save the layby first.</span>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**

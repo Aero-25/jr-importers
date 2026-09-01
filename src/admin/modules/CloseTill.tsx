@@ -360,6 +360,12 @@ export function CashUpSummary({ report }: { report: CashUp }) {
                 value={money(report.invoice_unpaid)}
               />
             )}
+            {report.layby_payment_count > 0 && (
+              <Line
+                label={`of which layby instalments (${report.layby_payment_count})`}
+                value={money(report.layby_payments)}
+              />
+            )}
             {report.refunds > 0 && (
               <Line label="Less refunds" value={`− ${money(report.refunds)}`} />
             )}

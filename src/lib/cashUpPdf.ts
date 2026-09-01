@@ -111,6 +111,11 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   if (report.invoice_unpaid > 0) {
     row(`   still owed  (${report.invoice_unpaid_count})`, money(report.invoice_unpaid));
   }
+  // Instalments are already inside the tender lines above; shown separately so
+  // the cashier can see how much of the day came off laybys rather than sales.
+  if (report.layby_payment_count > 0) {
+    row(`of which layby instalments  (${report.layby_payment_count})`, money(report.layby_payments));
+  }
   if (report.refunds > 0) {
     row('Less refunds', `− ${money(report.refunds)}`);
     row('Net takings', money(report.total_sales - report.refunds), { bold: true });

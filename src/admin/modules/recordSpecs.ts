@@ -24,7 +24,9 @@ export type FieldType =
   /** An imported record shown as a read-only key/value table. */
   | 'record'
   /** Search-as-you-type customer picker. Fills name, email and customer_id. */
-  | 'customer';
+  | 'customer'
+  /** Layby instalment history, with a control to take the next payment. */
+  | 'payments';
 
 export interface FieldSpec {
   key: string;
@@ -347,6 +349,13 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
       { key: 'due_date', label: 'Due', type: 'date', secondary: true, inList: true },
       { key: 'status', label: 'Status', type: 'select', options: LAYBY_STATUSES, inList: true },
       { key: 'notes', label: 'Notes', type: 'textarea', wide: true },
+      {
+        key: 'payments',
+        label: 'Instalments',
+        type: 'payments',
+        wide: true,
+        hint: 'Money taken against this layby. Each payment lands on the open shift cash-up as it is recorded.',
+      },
     ],
   },
 

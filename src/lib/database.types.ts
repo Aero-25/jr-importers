@@ -879,6 +879,15 @@ export type Database = {
         Args: { p_shift_id: number; p_counts: Json; p_reason: string; p_notes?: string | null };
         Returns: Json;
       };
+      /**
+       * Takes an instalment against a layby: appends it to `payments`,
+       * recalculates the balance, closes the layby once settled, and stamps the
+       * open shift so the money reaches that day's cash-up.
+       */
+      take_layby_payment: {
+        Args: { p_layby_id: number; p_amount: number; p_method: string };
+        Returns: Json;
+      };
       staff_has_login: { Args: { p_email: string }; Returns: boolean };
       is_staff: {
         Args: Record<PropertyKey, never>;

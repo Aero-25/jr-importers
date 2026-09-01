@@ -34,6 +34,9 @@ export interface CashUp {
   /** The part of that still owed — sold, but no money taken for it yet. */
   invoice_unpaid: number;
   invoice_unpaid_count: number;
+  /** Layby instalments taken in this shift. Already inside the tender totals. */
+  layby_payments: number;
+  layby_payment_count: number;
   petty_cash: number;
   /** Approved refunds in this shift. Only the cash ones come out of the drawer. */
   refunds: number;
