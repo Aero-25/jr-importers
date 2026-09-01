@@ -11,6 +11,8 @@ from kit import P, BY, STORE, money, money_plain, svg, phone
 SAND, PAPER, CARD = "#e6dbc9", "#f3ece0", "#faf6ee"
 INK, DUST, FAINT = "#1a1510", "#7d7264", "#a89c8b"
 RUST, ATL, OCHRE = "#b4472a", "#1e4d5c", "#c98f2e"
+# Lime is a surface here, never type: on sand it reads at about 1.5:1.
+LIME, LIME_DEEP = "#a3e635", "#4d7c0f"
 DISP = "'Bodoni Moda', 'Times New Roman', serif"
 BODY = "'Karla', system-ui, sans-serif"
 FONTS = ["Bodoni+Moda:opsz,wght@6..96,400;6..96,700;6..96,900", "Karla:wght@400;500;700"]
@@ -54,7 +56,7 @@ def link(text, color=INK, size=14):
             % (BODY, size, color, color, text, svg("arrow", 15, "currentColor", 2)))
 
 
-def solid(text, bg=RUST, fg="#fbf7f0", h=54, wide=False, fs=13):
+def solid(text, bg=LIME, fg=INK, h=54, wide=False, fs=13):
     return ('<a href="#" style="display: %s; align-items: center; justify-content: center; gap: 10px; height: %dpx; '
             '%spadding: 0 30px; background: %s; color: %s; font-family: %s; font-size: %spx; font-weight: 700; '
             'letter-spacing: 0.16em; text-transform: uppercase; text-decoration: none;">%s</a>'
@@ -111,13 +113,13 @@ def masthead(section="THE SHELF"):
                '<span style="font-family: %s; font-size: 12px; font-weight: 700; letter-spacing: 0.2em; color: %s;">SEARCH</span>' % (BODY, DUST),
                '<span style="display: inline-flex; align-items: center; gap: 9px; font-family: %s; font-size: 12px; '
                'font-weight: 700; letter-spacing: 0.2em; color: %s;">%s BAG (2)</span>' % (BODY, INK, svg("bag", 15, "currentColor", 1.7)),
-               rule(weight=3, bottom=0)))
+               '<div style="height: 5px; background: %s;"></div>' % LIME))
 
 
 def colophon():
     def col(title, items):
         return ('<div>%s<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">%s</div></div>'
-                % (label(title, "#e6dbc9"),
+                % (label(title, LIME),
                    "".join('<span style="font-family: %s; font-size: 14px; color: rgba(243,236,224,0.72);">%s</span>' % (BODY, i)
                            for i in items)))
     return ('<footer style="margin-top: 90px; padding: 62px 56px 34px; background: %s; color: #f3ece0;">'
@@ -140,7 +142,7 @@ def cover():
         '<section style="position: relative; padding: 54px 56px 0;">'
         '<div style="display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 0;">'
         '<div style="position: relative; z-index: 2; margin-right: -130px;">%s%s%s%s'
-        '<div style="margin-top: 34px;">%s</div></div>'
+        '<div style="display: flex; align-items: center; gap: 22px; margin-top: 34px;">%s%s</div></div>'
         '<div style="position: relative;">%s</div></div>'
         '<div style="position: absolute; left: 18px; top: 130px; height: 300px;">%s</div></section>'
         % (label("The coast edition · No. 14"),
@@ -149,7 +151,8 @@ def cover():
              "shelf you can walk up to, not in a warehouse three borders away.", 16.5, DUST, 1.75, 430, top=26),
            b("Sealed · IMEI-checked · warrantied on our own bench", 12.5, RUST, maxw=430, weight=700,
              extra=" letter-spacing: 0.14em; text-transform: uppercase;", top=22),
-           link("Read the edit"),
+           solid("Shop the edit", LIME, INK, 56),
+           link("Book a repair"),
            plate(760, 640, "olive", RUST, cap="Ulefone Armor 26 Ultra — thermal camera, IP69K, %s" % money(11999)),
            vertical("Walvis Bay · 22°57′S 14°30′E")))
 
@@ -174,7 +177,7 @@ def cover():
                  15, DUST, maxw=420),
                rule(top=26),
                edit_item("s24u", 520, 560, ATL, "graphite", "01", 0, "The flagship. 200MP, titanium, S Pen."),
-               edit_item("a15", 340, 380, OCHRE, "violet", "02", 110, "The one everybody actually buys."),
+               edit_item("a15", 340, 380, LIME, "violet", "02", 110, "The one everybody actually buys."),
                edit_item("x13", 400, 460, "#6d6152", "sand", "03", 40, "Drop it. Then drop it again.")))
 
     quote = ('<section style="margin-top: 100px; padding: 76px 56px; background: %s; color: #f3ece0;">'
@@ -230,10 +233,11 @@ def index():
             '<span style="font-family: %s; font-size: 25px; font-weight: 700; color: %s; letter-spacing: -0.015em;">%s</span>'
             '<span style="font-family: %s; font-size: 12px; color: %s; letter-spacing: 0.1em; text-transform: uppercase;">%s</span>'
             '<span style="flex-grow: 1; border-bottom: 1px dotted %s; transform: translateY(-4px);"></span>'
-            '<span style="font-family: %s; font-size: 12.5px; color: %s;">%s</span>'
+            '<span style="display: inline-flex; align-items: center; gap: 7px; font-family: %s; font-size: 12.5px; color: %s;">'
+            '<span style="width: 8px; height: 8px; border-radius: 50%%; background: %s;"></span>%s</span>'
             '<span style="font-family: %s; font-size: 22px; font-style: italic; color: %s; width: 150px; text-align: right;">%s</span></a>'
             % (BODY, RUST, i + 1, DISP, INK, p["name"], BODY, DUST, p["brand"], FAINT,
-               BODY, DUST if p["stock"] > 8 else RUST, "%d on the shelf" % p["stock"], DISP, INK, money(p["price"]))
+               BODY, DUST, LIME if p["stock"] > 8 else RUST, "%d on the shelf" % p["stock"], DISP, INK, money(p["price"]))
             for i, p in enumerate(items))
         return ('<div style="margin-top: 54px;"><div style="display: flex; align-items: baseline; gap: 20px;">%s%s</div>%s%s</div>'
                 % (folio(n), d(title, 34, 900, INK, "-0.025em", 1), rule(top=16), rows))
@@ -296,7 +300,7 @@ def feature():
                % (label("On the shelf"),
                   d("12 units", 34, 700, INK, "-0.02em", 1.05, extra=" margin-top: 12px;"),
                   b("Held at %s. Reserve one and it is yours for thirty minutes." % STORE["address"], 14, DUST, 1.7),
-                  solid("Add to bag · " + money(p["price"]), RUST, "#fbf7f0", 56, wide=True),
+                  solid("Add to bag · " + money(p["price"]), LIME, INK, 56, wide=True),
                   solid("Reserve for collection", "transparent", INK, 52, wide=True, fs=12),
                   label("Lay-by", DUST),
                   d(money(2399.8) + " down", 26, 400, INK, "-0.01em", 1.1, italic=True, extra=" margin-top: 10px;"),
@@ -424,7 +428,7 @@ def order():
              % (label("Your basket"),
                 d("Three units", 34, 900, INK, "-0.025em", 1, extra=" margin-top: 12px;"),
                 '<div style="margin-top: 20px;">%s</div>' % totals,
-                solid("Pay " + money(15647), RUST, "#fbf7f0", 60, wide=True),
+                solid("Pay " + money(15647), LIME, INK, 60, wide=True),
                 b("Your IMEIs are printed on the invoice the moment the payment clears.", 13.5, DUST, 1.7),
                 label("Any trouble?", DUST),
                 b("Call the counter on %s, or WhatsApp us. We answer between %s."
@@ -466,7 +470,7 @@ def mobile():
                   plate(390, 300, "olive", RUST),
                   '<figcaption style="font-family: %s; font-size: 11px; font-style: italic; color: %s;">'
                   'Ulefone Armor 26 Ultra — %s</figcaption>' % (DISP, DUST, money(11999)),
-                  solid("Read the edit", RUST, "#fbf7f0", 50, wide=True, fs=12),
+                  solid("Read the edit", LIME, INK, 50, wide=True, fs=12),
                   "".join('<a href="#" style="display: flex; align-items: baseline; gap: 10px; padding: 13px 0; '
                           'text-decoration: none; border-bottom: 1px solid rgba(26,21,16,0.14);">'
                           '<span style="font-family: %s; font-size: 10px; font-weight: 700; color: %s; width: 22px;">%02d</span>'
@@ -504,7 +508,7 @@ def mobile():
                     CARD,
                     label("Cash price", DUST, 9.5),
                     d(money(11999), 26, 400, INK, "-0.02em", 1, italic=True, extra=" margin-top: 4px;"),
-                    solid("Add to bag", RUST, "#fbf7f0", 50, fs=12)))
+                    solid("Add to bag", LIME, INK, 50, fs=12)))
 
     return page('<div style="display: flex; gap: 48px; padding: 46px;">%s%s</div>'
                 % (frame(cover_m, "Cover"), frame(feature_m, "Feature")), width=920, bg=PAPER)
@@ -518,7 +522,7 @@ def system():
                  '<div style="margin-top: 3px; font-family: %s; font-size: 11px; color: %s;">%s</div></div>'
                  % (val, BODY, INK, name, BODY, DUST, val)
                  for name, val in [("Sand", SAND), ("Paper", PAPER), ("Card", CARD), ("Ink", INK),
-                                   ("Dust", DUST), ("Rust", RUST), ("Atlantic", ATL), ("Ochre", OCHRE)])
+                                   ("Dust", DUST), ("Lime", LIME), ("Rust", RUST), ("Atlantic", ATL), ("Ochre", OCHRE)])
 
     specimen = ('<div style="display: flex; align-items: flex-end; gap: 34px; padding: 10px 0;">'
                 '<div style="font-family: %s; font-size: 168px; font-weight: 900; line-height: 0.8; letter-spacing: -0.04em; color: %s;">Aa</div>'
@@ -548,6 +552,7 @@ def system():
                     for k, v in [("Page width", "1440 · 56px margin"), ("Column", "no fixed grid — the spread decides"),
                                  ("Rule", "1px, 3px under the masthead"), ("Radius", "none, anywhere"),
                                  ("Plate", "a flat colour field, never a white cut-out"),
+                                 ("Lime", "action surfaces only — never type on sand"),
                                  ("Leaders", "dotted, price flush right"), ("Hit target", "44px minimum")])
 
     return page(masthead("THE SHELF") +
@@ -567,9 +572,9 @@ def system():
                    d("Type", 34, 900, INK, "-0.025em", 1), specimen + ramp,
                    d("Plates", 34, 900, INK, "-0.025em", 1),
                    '<div style="display: flex; gap: 20px;">%s%s%s</div>'
-                   % (plate(300, 220, "graphite", ATL), plate(300, 220, "olive", RUST), plate(300, 220, "violet", OCHRE)),
+                   % (plate(300, 220, "graphite", ATL), plate(300, 220, "olive", RUST), plate(300, 220, "violet", LIME)),
                    d("Rules", 34, 900, INK, "-0.025em", 1), rules,
-                   solid("Primary action", RUST, "#fbf7f0", 54),
+                   solid("Primary action", LIME, INK, 54),
                    solid("Secondary", "transparent", INK, 54),
                    '<div>%s</div>' % link("Tertiary, underlined")) + colophon())
 

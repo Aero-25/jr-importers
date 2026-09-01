@@ -10,7 +10,7 @@ from kit import P, BY, STORE, money, money_plain, svg, phone
 WHITE, MIST, CHALK = "#ffffff", "#f5f5f7", "#ebebef"
 INK, MID, SOFT = "#0d0d10", "#66666f", "#a3a3ad"
 LINE = "#e3e3e9"
-VOLT, VOLT_SOFT, VOLT_DEEP = "#3b2bff", "#eeecff", "#2418c9"
+LIME, LIME_SOFT, LIME_DEEP = "#a3e635", "#f2fbe0", "#4d7c0f"
 GOOD = "#0f9d58"
 FONT = "'Schibsted Grotesk', system-ui, -apple-system, sans-serif"
 FONTS = ["Schibsted+Grotesk:wght@400;500;600;700;800"]
@@ -41,7 +41,7 @@ def h(s, size=44, color=INK, weight=700, lh=1.06, ls="-0.03em", tag="div", extra
     return txt(s, size, color, weight, lh, ls, tag, extra, top)
 
 
-def eyebrow(s, color=VOLT):
+def eyebrow(s, color=LIME_DEEP):
     return txt(s, 12.5, color, 700, 1.4, "0.1em", "div", " text-transform: uppercase;")
 
 
@@ -49,12 +49,12 @@ def pill(s, on=False, h_=44, fs=14.5):
     return ('<span style="display: inline-flex; align-items: center; gap: 8px; height: %dpx; padding: 0 18px; '
             'border-radius: 999px; border: 1px solid %s; background: %s; color: %s; font-family: %s; font-size: %spx; '
             'font-weight: 500; white-space: nowrap;">%s</span>'
-            % (h_, VOLT if on else LINE, VOLT_SOFT if on else WHITE, VOLT if on else INK, FONT, fs, s))
+            % (h_, LIME_DEEP if on else LINE, LIME_SOFT if on else WHITE, INK, FONT, fs, s))
 
 
 def button(s, kind="primary", h_=54, wide=False, fs=16, arrow=False):
-    styles = {"primary": (VOLT, WHITE, VOLT), "quiet": (WHITE, INK, LINE), "dark": (INK, WHITE, INK),
-              "soft": (VOLT_SOFT, VOLT, VOLT_SOFT)}
+    styles = {"primary": (LIME, INK, LIME), "quiet": (WHITE, INK, LINE), "dark": (INK, WHITE, INK),
+              "soft": (LIME_SOFT, LIME_DEEP, LIME_SOFT)}
     bg, fg, bd = styles[kind]
     return ('<a href="#" style="display: %s; align-items: center; justify-content: center; gap: 10px; height: %dpx; '
             '%spadding: 0 26px; border-radius: 14px; background: %s; color: %s; border: 1px solid %s; font-family: %s; '
@@ -66,14 +66,14 @@ def button(s, kind="primary", h_=54, wide=False, fs=16, arrow=False):
 def meter(score, w=104, color=None):
     seg_w = max(9, int((w - 12) / 5.0))
     segs = "".join('<span style="display: inline-block; width: %dpx; height: 7px; border-radius: 4px; background: %s;"></span>'
-                   % (seg_w, (color or VOLT) if i < score else CHALK) for i in range(5))
+                   % (seg_w, (color or INK) if i < score else CHALK) for i in range(5))
     return '<span style="display: inline-flex; gap: 3px; flex-shrink: 0;">%s</span>' % segs
 
 
-def attr_row(key, label_, score, w=104):
-    return ('<div style="display: flex; align-items: center; gap: 14px;">'
-            '<span style="width: 84px; flex-shrink: 0; font-size: 13px; color: %s;">%s</span>%s</div>'
-            % (MID, label_, meter(score, w)))
+def attr_row(key, label_, score, w=104, lw=78):
+    return ('<div style="display: flex; align-items: center; gap: 12px; min-width: 0;">'
+            '<span style="width: %dpx; flex-shrink: 0; font-size: 13px; color: %s; white-space: nowrap;">%s</span>%s</div>'
+            % (lw, MID, label_, meter(score, w)))
 
 
 def device_chip(p, size=54):
@@ -126,12 +126,12 @@ def ask():
                               "For my mother", "Something that lasts 3 years"])
 
     field = ('<div style="display: flex; align-items: center; gap: 14px; height: 84px; padding: 0 12px 0 26px; '
-             'border: 2px solid %s; border-radius: 22px; background: %s; box-shadow: 0 20px 50px -30px rgba(59,43,255,0.5);">'
+             'border: 2px solid %s; border-radius: 22px; background: %s; box-shadow: 0 20px 50px -30px rgba(101,163,13,0.55);">'
              '<span style="flex-shrink: 0;">%s</span>'
              '<span style="flex-grow: 1; font-size: 21px; color: %s;">A tough phone under N$ 5 000 that lasts two days'
              '<span style="display: inline-block; width: 2px; height: 22px; background: %s; margin-left: 3px; '
              'transform: translateY(4px);"></span></span>%s</div>'
-             % (VOLT, WHITE, svg("sparkle", 22, VOLT, 2), INK, VOLT,
+             % (LIME_DEEP, WHITE, svg("sparkle", 22, LIME_DEEP, 2), INK, LIME,
                 button("Ask", "primary", 60, fs=16, arrow=True)))
 
     scales = "".join(
@@ -142,7 +142,7 @@ def ask():
         '<div style="position: absolute; left: %d%%; top: -7px; width: 20px; height: 20px; margin-left: -10px; '
         'border-radius: 50%%; background: %s; border: 3px solid %s; box-shadow: 0 2px 8px rgba(13,13,16,0.2);"></div></div>'
         '<div style="display: flex; justify-content: space-between; margin-top: 12px;">%s%s</div></div>'
-        % (LINE, WHITE, txt(title, 17, INK, 600), txt(val, 15, VOLT, 700), CHALK, pct, VOLT, pct, WHITE, VOLT,
+        % (LINE, WHITE, txt(title, 17, INK, 600), txt(val, 15, LIME_DEEP, 700), CHALK, pct, LIME, pct, WHITE, LIME_DEEP,
            txt(lo, 12.5, SOFT), txt(hi, 12.5, SOFT))
         for title, val, pct, lo, hi in [("Budget", "N$ 5 000", 34, "N$ 2 799", "N$ 26 499"),
                                         ("Battery life", "2 days", 70, "A day", "3 days +"),
@@ -154,7 +154,7 @@ def ask():
         '<span style="display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; '
         'flex-shrink: 0; border-radius: 12px; background: %s; color: %s;">%s</span>'
         '<div>%s%s</div></div>'
-        % (LINE, VOLT_SOFT, VOLT, svg(ic, 19, "currentColor", 2), txt(t_, 16, INK, 600, tag="div"),
+        % (LINE, LIME_SOFT, LIME_DEEP, svg(ic, 19, "currentColor", 2), txt(t_, 16, INK, 600, tag="div"),
            txt(d_, 14.5, MID, lh=1.65, tag="div", top=6))
         for ic, t_, d_ in [
             ("shield", "We only answer for stock we hold",
@@ -199,17 +199,18 @@ def result_row(pid, rank, picked=False):
     return ('<div style="display: flex; align-items: center; gap: 26px; padding: 24px 26px; border: 1px solid %s; '
             'border-radius: 20px; background: %s; margin-bottom: 14px;">'
             '<div style="width: 34px; flex-shrink: 0;">%s</div>%s'
-            '<div style="width: 300px; flex-shrink: 0;">%s%s%s</div>'
-            '<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 26px; flex-grow: 1;">%s</div>'
-            '<div style="width: 190px; flex-shrink: 0; text-align: right;">%s%s</div>'
+            '<div style="flex: 1 1 0; min-width: 200px;">%s%s%s</div>'
+            '<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 22px; '
+            'width: 360px; flex-shrink: 0;">%s</div>'
+            '<div style="width: 170px; flex-shrink: 0; text-align: right;">%s%s</div>'
             '<div style="width: 132px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px;">%s%s</div></div>'
-            % (VOLT if picked else LINE, VOLT_SOFT if picked else WHITE,
-               txt("%02d" % rank, 15, VOLT if picked else SOFT, 700),
+            % (LIME_DEEP if picked else LINE, LIME_SOFT if picked else WHITE,
+               txt("%02d" % rank, 15, LIME_DEEP if picked else SOFT, 700),
                device_chip(p),
                txt(p["brand"], 12.5, SOFT, 600, ls="0.08em", tag="div", extra=" text-transform: uppercase;"),
                txt(p["name"], 20, INK, 700, 1.2, "-0.02em", "div", top=4),
                txt(s["blurb"], 14, MID, lh=1.55, tag="div", top=8),
-               "".join(attr_row(k, lab, s[k], 92) for k, lab in ATTRS),
+               "".join(attr_row(k, lab, s[k], 76) for k, lab in ATTRS),
                txt(money(p["price"]), 25, INK, 700, 1, "-0.02em", "div"),
                txt("%d on the shelf" % p["stock"], 13, GOOD, 600, tag="div", top=6),
                button("Add to bag", "primary" if picked else "quiet", 44, wide=True, fs=14),
@@ -217,8 +218,8 @@ def result_row(pid, rank, picked=False):
                'border-radius: 12px; border: 1px solid %s; color: %s; font-size: 13.5px; font-weight: 600;">'
                '<span style="display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; '
                'border-radius: 5px; border: 1px solid %s; background: %s;">%s</span>Compare</span>'
-               % (LINE, MID, VOLT if picked else LINE, VOLT if picked else WHITE,
-                  svg("check", 11, WHITE, 3.4) if picked else "")))
+               % (LINE, MID, LIME_DEEP if picked else LINE, LIME if picked else WHITE,
+                  svg("check", 11, INK, 3.4) if picked else "")))
 
 
 def shortlist():
@@ -228,7 +229,7 @@ def shortlist():
               'flex-shrink: 0; border-radius: 12px; background: %s; color: %s;">%s</span>'
               '<div style="flex-grow: 1;">%s%s'
               '<div style="display: flex; gap: 10px; margin-top: 20px;">%s%s</div></div></div></div>'
-              % (VOLT_SOFT, VOLT_SOFT, VOLT, WHITE, svg("sparkle", 20, "currentColor", 2.2),
+              % (LIME_SOFT, LIME_SOFT, LIME, INK, svg("sparkle", 20, "currentColor", 2.2),
                  h("Two of ours will do it. One of them we would not sell you.", 27, INK, 700, 1.25, "-0.02em"),
                  txt("Under N$ 5 000, only three handsets on the shelf are rated for site work. The Armor X13 is the "
                      "one we would hand you — it is the cheapest way to stop breaking phones, and we see the fewest "
@@ -241,7 +242,7 @@ def shortlist():
     query = ('<div style="display: flex; align-items: center; gap: 14px; height: 66px; padding: 0 12px 0 24px; '
              'border: 1px solid %s; border-radius: 18px; background: %s;">%s'
              '<span style="flex-grow: 1; font-size: 17px; color: %s;">A tough phone under N$ 5 000 that lasts two days</span>'
-             '%s</div>' % (LINE, MIST, svg("sparkle", 19, VOLT, 2), INK, button("Edit", "quiet", 44, fs=14)))
+             '%s</div>' % (LINE, MIST, svg("sparkle", 19, LIME_DEEP, 2), INK, button("Edit", "quiet", 44, fs=14)))
 
     filters = ('<div style="display: flex; align-items: center; gap: 10px; margin-top: 24px; flex-wrap: wrap;">%s</div>'
                % "".join(pill(c, on, 40, 14) for c, on in
@@ -284,11 +285,11 @@ def compare():
                 '<div style="display: flex; align-items: center; justify-content: space-between;">%s%s</div>'
                 '<div style="display: flex; justify-content: center; padding: 18px 0 14px;">%s</div>'
                 '%s%s<div style="margin-top: 18px;">%s</div></div>'
-                % (VOLT if best else LINE, VOLT_SOFT if best else WHITE,
+                % (LIME_DEEP if best else LINE, LIME_SOFT if best else WHITE,
                    txt(p["brand"], 12.5, SOFT, 600, ls="0.08em", tag="div", extra=" text-transform: uppercase;"),
                    ('<span style="display: inline-flex; align-items: center; height: 24px; padding: 0 10px; '
                     'border-radius: 999px; background: %s; color: %s; font-size: 11.5px; font-weight: 700;">OUR PICK</span>'
-                    % (VOLT, WHITE)) if best else "",
+                    % (LIME, INK)) if best else "",
                    phone(74, 144, p["tone"]),
                    txt(p["name"], 22, INK, 700, 1.2, "-0.02em", "div"),
                    txt(money(p["price"]), 26, INK, 700, 1.2, "-0.02em", "div", top=10),
@@ -349,7 +350,7 @@ def compare():
 def product():
     p, s = BY["x13"], SCORES["x13"]
     verdict = ('<div style="padding: 30px 34px; border-radius: 22px; background: %s;">%s%s</div>'
-               % (VOLT_SOFT,
+               % (LIME_SOFT,
                   h("Why we would hand you this one", 22, INK, 700, 1.3, "-0.02em"),
                   txt("It is the cheapest handset on our shelf that genuinely survives a site — IP68 and IP69K, a "
                       "6320mAh cell that gets through two days, and a body that has come back to our bench twice in "
@@ -407,11 +408,11 @@ def checkout():
                 '<div style="display: flex; align-items: center; gap: 14px;">'
                 '<span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; '
                 'border-radius: 9px; background: %s; color: %s; font-size: 13.5px; font-weight: 700;">%s</span>%s%s</div>%s</div>'
-                % (VOLT if open_ else LINE, WHITE,
-                   GOOD if done else (VOLT if open_ else CHALK), WHITE if (done or open_) else MID,
+                % (LIME_DEEP if open_ else LINE, WHITE,
+                   GOOD if done else (LIME if open_ else CHALK), WHITE if done else (INK if open_ else MID),
                    svg("check", 15, "currentColor", 3) if done else str(n),
                    txt(title, 19, INK, 700, 1.2, "-0.02em"),
-                   '<span style="margin-left: auto;">%s</span>' % txt("Change", 14, VOLT, 600) if done else "",
+                   '<span style="margin-left: auto;">%s</span>' % txt("Change", 14, LIME_DEEP, 600) if done else "",
                    '<div style="margin-top: 22px;">%s</div>' % inner if open_ else ""))
 
     def field(lab, val, w=None):
@@ -426,9 +427,9 @@ def checkout():
                 '<span style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; '
                 'flex-shrink: 0; border-radius: 50%%; border: 1.5px solid %s; background: %s;">%s</span>'
                 '<div style="flex-grow: 1;">%s%s</div>%s</label>'
-                % (VOLT if on else LINE, VOLT_SOFT if on else WHITE, VOLT if on else LINE,
-                   VOLT if on else WHITE,
-                   '<span style="width: 7px; height: 7px; border-radius: 50%%; background: %s;"></span>' % WHITE if on else "",
+                % (LIME_DEEP if on else LINE, LIME_SOFT if on else WHITE, LIME_DEEP if on else LINE,
+                   LIME if on else WHITE,
+                   '<span style="width: 7px; height: 7px; border-radius: 50%%; background: %s;"></span>' % INK if on else "",
                    txt(title, 16, INK, 600, tag="div"), txt(detail, 13.5, MID, tag="div", top=4),
                    txt(price, 15.5, INK, 600)))
 
@@ -508,7 +509,7 @@ def mobile():
              '<div style="margin-top: 28px;">%s</div></div>'
              % (eyebrow("Tell us what it is for"),
                 h("What do you<br>need it to do?", 36, INK, 800, 1.05, "-0.035em", extra=" margin-top: 12px;"),
-                VOLT,
+                LIME_DEEP,
                 txt("A tough phone under N$ 5 000 that lasts two days", 16.5, INK, 400, lh=1.5, tag="div"),
                 button("Ask", "primary", 50, wide=True, fs=15.5, arrow=True),
                 "".join(pill(c, False, 38, 13) for c in ["Rugged", "Big battery", "Under N$ 4 000", "Best camera"]),
@@ -516,7 +517,7 @@ def mobile():
                         '<span style="display: inline-flex; align-items: center; justify-content: center; width: 34px; '
                         'height: 34px; flex-shrink: 0; border-radius: 10px; background: %s; color: %s;">%s</span>'
                         '<div>%s%s</div></div>'
-                        % (LINE, VOLT_SOFT, VOLT, svg(ic, 16, "currentColor", 2),
+                        % (LINE, LIME_SOFT, LIME_DEEP, svg(ic, 16, "currentColor", 2),
                            txt(t_, 14.5, INK, 600, tag="div"), txt(d_, 13, MID, lh=1.55, tag="div", top=3))
                         for ic, t_, d_ in [("shield", "Only stock we hold", "108 units in the building right now"),
                                            ("wrench", "The people who fix them answer", "Which ones come back shapes the answer"),
@@ -532,7 +533,7 @@ def mobile():
                 '<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px;">%s%s</div>'
                 '%s<div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">%s%s</div></div></div>'
                 '<div style="display: flex; align-items: center; gap: 10px; margin-top: 14px;">%s%s</div></div>'
-                % (VOLT if on else LINE, VOLT_SOFT if on else WHITE, MIST, phone(30, 58, p["tone"]),
+                % (LIME_DEEP if on else LINE, LIME_SOFT if on else WHITE, MIST, phone(30, 58, p["tone"]),
                    txt(p["name"], 16.5, INK, 700, 1.25, "-0.01em"),
                    txt(money_plain(p["price"]), 16.5, INK, 700),
                    txt(sc["blurb"], 13, MID, lh=1.5, tag="div", top=6),
@@ -549,8 +550,8 @@ def mobile():
               '<div style="margin-top: 16px; padding: 18px; border-radius: 18px; background: %s;">%s%s</div>'
               '<div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 22px;">%s%s</div>'
               '<div style="margin-top: 14px;">%s%s%s</div></div>'
-              % (MIST, svg("sparkle", 16, VOLT, 2), INK, txt("Edit", 13.5, VOLT, 600),
-                 VOLT_SOFT,
+              % (MIST, svg("sparkle", 16, LIME_DEEP, 2), INK, txt("Edit", 13.5, LIME_DEEP, 600),
+                 LIME_SOFT,
                  txt("Two of ours will do it.", 19, INK, 700, 1.3, "-0.02em", tag="div"),
                  txt("The Armor X13 is the one we would hand you — cheapest way to stop breaking phones, and we see "
                      "the fewest of them back on the bench.", 14, MID, lh=1.6, tag="p", top=8),
@@ -566,7 +567,8 @@ def system():
                  '%s%s</div>'
                  % (val, LINE, txt(nm, 13.5, INK, 600, tag="div", top=10), txt(val, 12, SOFT, tag="div", top=2))
                  for nm, val in [("White", WHITE), ("Mist", MIST), ("Chalk", CHALK), ("Line", LINE),
-                                 ("Ink", INK), ("Mid", MID), ("Volt", VOLT), ("Volt soft", VOLT_SOFT), ("Good", GOOD)])
+                                 ("Ink", INK), ("Mid", MID), ("Lime", LIME), ("Lime soft", LIME_SOFT),
+                                 ("Lime deep", LIME_DEEP), ("Good", GOOD)])
 
     ramp = "".join('<div style="display: flex; align-items: baseline; gap: 26px; padding: 14px 0; border-top: 1px solid %s;">'
                    '<span style="width: 200px; flex-shrink: 0; font-size: 12.5px; font-weight: 600; color: %s; '

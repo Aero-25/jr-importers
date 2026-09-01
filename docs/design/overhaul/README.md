@@ -8,6 +8,24 @@ separately.
 
 - **Viewer** — <https://claude.ai/code/artifact/870d0230-05c6-41f4-82df-b51d1dde862a>
 
+## The lime
+
+`#a3e635` is the brand and it carries through all three, used the way each
+system can take it:
+
+- **Terminal** — lime is the cursor, the active tab, every action and healthy
+  stock. On the near-black ground it clears 13:1, so it carries type too. Amber
+  steps back to mean low stock only; red is critical.
+- **Coast** — a 5px lime rule closes the masthead, the one action per page is a
+  lime button with deep ink on it, one plate in the edit is a lime field, and
+  the colophon labels are lime on the Atlantic ground.
+- **Ask** — lime is the primary button, the answer panel's tint, the selected
+  chip and the "our pick" badge. Scores stay ink so they read.
+
+Never lime type on a light ground — `src/styles/theme.css` puts it at about
+1.5:1 there, so on sand and white it is a surface with ink on it, and a deep
+lime (`#4d7c0f`) does any small accent type.
+
 ## The three
 
 **01 · Stock Terminal** (`d1_terminal.py`) — the shop as the live inventory it

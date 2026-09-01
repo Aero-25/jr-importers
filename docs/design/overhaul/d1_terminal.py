@@ -11,7 +11,8 @@ from kit import P, BY, STORE, money, money_plain, svg
 BG, SURF, SURF2 = "#08090a", "#0d0f11", "#121518"
 LINE, LINE2 = "#1c2126", "#2b333a"
 INK, DIM, FAINT = "#e6e4df", "#7d868e", "#525a61"
-AMBER, GREEN, RED, CYAN = "#ffb000", "#35d07f", "#ff5f56", "#5ec6d9"
+LIME, AMBER, RED, CYAN = "#a3e635", "#ffb000", "#ff5f56", "#5ec6d9"
+GREEN = LIME  # available / healthy stock reads as the brand colour
 MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace"
 FONTS = ["JetBrains+Mono:wght@400;500;700"]
 
@@ -47,7 +48,7 @@ def spark(vals, h=18, color=CYAN):
 
 def btn(label, kind="amber", w=None, h=34, fs=12):
     styles = {
-        "amber": (AMBER, "#0a0b0c", AMBER),
+        "amber": (LIME, "#0a0b0c", LIME),
         "ghost": ("transparent", INK, LINE2),
         "green": (GREEN, "#06120c", GREEN),
         "dim": ("transparent", DIM, LINE),
@@ -60,7 +61,7 @@ def btn(label, kind="amber", w=None, h=34, fs=12):
                bg, fg, bd, MONO, fs, label))
 
 
-def check(label, count=None, on=False, color=AMBER):
+def check(label, count=None, on=False, color=LIME):
     box = ('<span style="color: %s;">[%s]</span>' % (color if on else FAINT, "x" if on else " "))
     tail = ('<span style="margin-left: auto; color: %s;">%s</span>' % (FAINT, count)) if count is not None else ""
     return ('<div style="display: flex; align-items: center; gap: 9px; min-height: 30px; font-family: %s; '
@@ -92,7 +93,7 @@ def statusline(right_extra=""):
             '<div style="display: flex; align-items: center; gap: 18px;">%s%s%s</div></div>'
             % (SURF2, LINE,
                t("JR IMPORTERS", 12.5, INK, 700, "0.22em"),
-               t("// STOCK TERMINAL", 12.5, AMBER, 500, "0.16em"),
+               t("// STOCK TERMINAL", 12.5, LIME, 500, "0.16em"),
                t("WALVIS BAY", 11.5, DIM, 400, "0.14em"),
                t("21:14 SAST", 11.5, DIM, 400, "0.14em"),
                t("SYNC 12s AGO", 11.5, GREEN, 400, "0.14em") + right_extra))
@@ -105,8 +106,8 @@ def navline(active="SHELF"):
         tabs.append('<a href="#" style="display: inline-flex; align-items: center; gap: 8px; height: 46px; '
                     'padding: 0 18px; text-decoration: none; background: %s; border-right: 1px solid %s; '
                     'border-bottom: 2px solid %s;">%s%s</a>'
-                    % (SURF if on else "transparent", LINE, AMBER if on else "transparent",
-                       t("F%d" % i, 11, AMBER if on else FAINT, 700, "0.1em"),
+                    % (SURF if on else "transparent", LINE, LIME if on else "transparent",
+                       t("F%d" % i, 11, LIME if on else FAINT, 700, "0.1em"),
                        t(name, 12.5, INK if on else DIM, 700 if on else 400, "0.16em")))
     return ('<div style="display: flex; align-items: stretch; justify-content: space-between; height: 46px; '
             'border-bottom: 1px solid %s;"><div style="display: flex; border-left: 1px solid %s;">%s</div>'
@@ -127,7 +128,7 @@ def commandbar(query="brand:samsung price:<10000 stock:>0"):
             '%s<div style="display: flex; align-items: center; gap: 8px;">%s</div>'
             '<span style="display: inline-block; width: 9px; height: 17px; background: %s;"></span>'
             '<div style="margin-left: auto; display: flex; align-items: center; gap: 16px;">%s%s</div></div>'
-            % (LINE, BG, t(">", 15, AMBER, 700), tokens, AMBER,
+            % (LINE, BG, t(">", 15, LIME, 700), tokens, LIME,
                t("SORT: PRICE DESC", 11.5, DIM, 400, "0.12em"), t("78 MATCHES", 11.5, INK, 700, "0.12em")))
 
 
@@ -169,8 +170,8 @@ def table_row(p, i, hot=False):
     bg = SURF if hot else ("transparent" if i % 2 else "rgba(255,255,255,0.014)")
     return ('<div style="display: flex; align-items: center; background: %s; border-bottom: 1px solid %s; '
             'border-left: 2px solid %s;">%s%s%s%s%s%s%s%s%s</div>'
-            % (bg, LINE, AMBER if hot else "transparent",
-               cell(t(p["sku"], 12, AMBER if hot else DIM, 500), 142),
+            % (bg, LINE, LIME if hot else "transparent",
+               cell(t(p["sku"], 12, LIME if hot else DIM, 500), 142),
                cell('<span style="color: %s; font-weight: 700;">%s</span>'
                     '<span style="color: %s; margin-left: 12px; font-weight: 400;">%s</span>'
                     % (INK, p["name"], FAINT, p["brand"].upper()), None),
@@ -193,7 +194,7 @@ def rail():
     return ('<div style="width: 246px; flex-shrink: 0; border-right: 1px solid %s; background: %s;">'
             '<div style="display: flex; align-items: center; justify-content: space-between; height: 34px; '
             'padding: 0 16px; background: %s; border-bottom: 1px solid %s;">%s%s</div>%s%s%s%s%s</div>'
-            % (LINE, BG, SURF2, LINE, t("FILTERS", 11, DIM, 700, "0.18em"), t("RESET", 11, AMBER, 400, "0.1em"),
+            % (LINE, BG, SURF2, LINE, t("FILTERS", 11, DIM, 700, "0.18em"), t("RESET", 11, LIME, 400, "0.1em"),
                group("BRAND", [check("samsung", 4, True), check("ulefone", 4)]),
                group("PRICE BAND", [check("< 4 000", 2), check("4 000 - 10 000", 4, True), check("> 10 000", 2)]),
                group("STORAGE", [check("128GB", 5, True), check("256GB", 2), check("512GB", 1)]),
@@ -259,7 +260,7 @@ def unit():
     crumb = ('<div style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 18px; '
              'border-bottom: 1px solid %s;">%s%s%s%s%s</div>'
              % (LINE, t("SHELF", 11.5, DIM), t("/", 11.5, FAINT), t(p["brand"].upper(), 11.5, DIM),
-                t("/", 11.5, FAINT), t(p["sku"], 11.5, AMBER, 700)))
+                t("/", 11.5, FAINT), t(p["sku"], 11.5, LIME, 700)))
 
     title = ('<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 40px; '
              'padding: 30px 18px 26px; border-bottom: 1px solid %s;">'
@@ -269,7 +270,7 @@ def unit():
              '<div style="margin-top: 8px; font-size: 34px; font-weight: 700; color: %s; letter-spacing: -0.01em;">%s</div>'
              '<div style="margin-top: 6px;">%s</div></div></div>'
              % (LINE, t("UNIT RECORD", 11, FAINT, 700, "0.2em"), INK, p["name"], DIM, p["blurb"],
-                t("CASH PRICE INCL. VAT", 10.5, FAINT, 700, "0.18em"), AMBER, money(p["price"]),
+                t("CASH PRICE INCL. VAT", 10.5, FAINT, 700, "0.18em"), LIME, money(p["price"]),
                 t("COST BASIS HIDDEN · MARGIN VISIBLE IN CONSOLE ONLY", 10.5, FAINT)))
 
     specs = "".join(kv(k.upper(), v) for k, v in p["specs"])
@@ -301,7 +302,7 @@ def unit():
     hist_vals = [4, 6, 3, 7, 5, 9, 6, 8, 4, 7, 10, 6, 5, 8, 6, 9, 7, 4, 6, 8]
     hist = "".join('<div style="flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; height: 96px;">'
                    '<div style="height: %d%%; background: %s;"></div></div>'
-                   % (int(100 * v / 10.0), CYAN if v < 9 else AMBER) for v in hist_vals)
+                   % (int(100 * v / 10.0), CYAN if v < 9 else GREEN) for v in hist_vals)
 
     left = ('<div style="flex: 1 1 0; min-width: 0; border-right: 1px solid %s;">'
             '<div style="padding: 20px 18px;">%s</div>'
@@ -335,7 +336,7 @@ def radio(label, detail, price, on=False):
             '<span style="color: %s; font-size: 13px;">(%s)</span>'
             '<div style="flex-grow: 1;"><div style="font-size: 13px; font-weight: 700; color: %s;">%s</div>'
             '<div style="margin-top: 3px; font-size: 11.5px; color: %s;">%s</div></div>%s</div>'
-            % (AMBER if on else LINE, SURF if on else "transparent", AMBER if on else FAINT,
+            % (LIME if on else LINE, SURF if on else "transparent", LIME if on else FAINT,
                "•" if on else " ", INK if on else DIM, label, FAINT, detail,
                t(price, 12.5, INK if on else DIM, 700)))
 
@@ -363,8 +364,8 @@ def buy():
                '<div style="margin-top: 14px;">%s</div>'
                % (receipt_rows, LINE2,
                   kv("SUBTOTAL", money(15497), DIM), kv("VAT 15% INCLUDED", money(2040.91), DIM), LINE2,
-                  t("TOTAL DUE", 14, INK, 700, "0.14em"), t(money(15647), 20, AMBER, 700),
-                  AMBER, t("STOCK RESERVATION", 10.5, AMBER, 700, "0.18em"), t("28:14", 15, AMBER, 700),
+                  t("TOTAL DUE", 14, INK, 700, "0.14em"), t(money(15647), 20, LIME, 700),
+                  LIME, t("STOCK RESERVATION", 10.5, LIME, 700, "0.18em"), t("28:14", 15, LIME, 700),
                   DIM, btn("CONFIRM ORDER", "amber", "full", 50, 13)))
 
     left = ('<div style="flex: 1 1 0; min-width: 0; padding: 22px 18px; border-right: 1px solid %s;">'
@@ -372,15 +373,15 @@ def buy():
             '<div style="margin-top: 26px;">%s</div>%s%s%s'
             '<div style="margin-top: 26px;">%s</div>%s%s%s%s</div>'
             % (LINE,
-               '<div style="margin-bottom: 18px;">%s</div>' % t("01 // CUSTOMER", 12, AMBER, 700, "0.2em"),
+               '<div style="margin-bottom: 18px;">%s</div>' % t("01 // CUSTOMER", 12, LIME, 700, "0.2em"),
                tinput("FULL NAME", "Johanna Amutenya", 380), tinput("MOBILE", "+264 81 234 5678", 300),
                tinput("EMAIL", "johanna@example.na", 380),
                tinput("DELIVERY ADDRESS", "12 Nathaniel Maxuilili Street, Swakopmund"),
-               t("02 // FULFILMENT", 12, AMBER, 700, "0.2em"),
+               t("02 // FULFILMENT", 12, LIME, 700, "0.2em"),
                '<div style="margin-top: 14px;"></div>',
                radio("COLLECT AT " + STORE["address"].upper(), "READY WITHIN THE HOUR · " + STORE["hours"].upper(), "FREE"),
                radio("COURIER · NATIONWIDE", "1-3 WORKING DAYS · ALL 14 REGIONS", money(150), True),
-               t("03 // PAYMENT", 12, AMBER, 700, "0.2em"),
+               t("03 // PAYMENT", 12, LIME, 700, "0.2em"),
                '<div style="margin-top: 14px;"></div>',
                radio("CARD ONLINE (DPO)", "VISA / MASTERCARD · 3D SECURE", "NOW", True),
                radio("EFT / BANK TRANSFER", "SHIPS ONCE PAYMENT REFLECTS", "1-2 DAYS"),
@@ -395,7 +396,7 @@ def buy():
                  'border-right: 1px solid %s; background: %s;">%s%s</div>'
                  % (LINE, SURF if st == "NOW" else "transparent",
                     t("[%s]" % ("x" if st == "DONE" else (">" if st == "NOW" else " ")), 12,
-                      GREEN if st == "DONE" else (AMBER if st == "NOW" else FAINT), 700),
+                      GREEN if st == "DONE" else (LIME if st == "NOW" else FAINT), 700),
                     t(nm, 11.5, INK if st != "NEXT" else FAINT, 700, "0.16em"))
                  for nm, st in [("CART", "DONE"), ("DETAILS", "NOW"), ("PAYMENT", "NEXT"), ("DONE", "NEXT")])))
 
@@ -423,8 +424,8 @@ def workshop():
                cell(t("STATUS", 10.5, DIM, 700, "0.18em"), 190), cell(t("BENCH", 10.5, DIM, 700, "0.18em"), 110, "right")))
     rows = "".join(
         '<div style="display: flex; align-items: center; border-bottom: 1px solid %s; border-left: 2px solid %s; background: %s;">%s%s%s%s%s%s%s</div>'
-        % (LINE, AMBER if i == 0 else "transparent", SURF if i == 0 else "transparent",
-           cell(t(jc, 12, AMBER if i == 0 else DIM, 700), 108),
+        % (LINE, LIME if i == 0 else "transparent", SURF if i == 0 else "transparent",
+           cell(t(jc, 12, LIME if i == 0 else DIM, 700), 108),
            cell(t(dev, 12.5, INK, 700), 190), cell(t(fault, 12, DIM), None),
            cell(t(owner, 12, DIM), 150), cell(t(when, 11.5, FAINT), 120),
            cell('<span style="display: inline-flex; align-items: center; gap: 7px;">'
@@ -451,7 +452,7 @@ def workshop():
                     kv("QUOTED", money(1450), AMBER), kv("APPROVED", "TUE 14:02 · BY SMS", GREEN),
                     kv("HANDLING FEE", money(200) + " NON-REFUNDABLE", DIM),
                     btn("MARK READY", "green", h=38, fs=12), btn("PRINT CARD", "ghost", h=38, fs=12)),
-                 right=t("IN REPAIR", 10.5, AMBER, 700, "0.16em"), pad=16)
+                 right=t("IN REPAIR", 10.5, LIME, 700, "0.16em"), pad=16)
 
     terms = panel("PRINTED TERMS // VERBATIM",
                   "".join('<div style="display: flex; gap: 10px; padding: 7px 0; font-size: 11.5px; line-height: 1.6; color: %s;">'
@@ -504,7 +505,7 @@ def _m_row(p):
             '<span style="font-size: 11px; color: %s;">%s · %s · %s</span>'
             '<span style="display: inline-flex; align-items: center; gap: 7px;">'
             '<span style="font-size: 11px; font-weight: 700; color: %s;">%d</span>%s</span></div></div>'
-            % (LINE, INK, p["name"], AMBER, money(p["price"]).replace("N$ ", ""),
+            % (LINE, INK, p["name"], LIME, money(p["price"]).replace("N$ ", ""),
                FAINT, p["sku"], p["specs"][2][1].replace(" RAM · ", "/"), batt, lvl, p["stock"],
                bar_meter(p["stock"], 40, lvl, 40)))
 
@@ -521,7 +522,7 @@ def mobile():
         '%s'
         '<div style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; height: 62px; border-top: 1px solid %s; background: %s;">%s</div>'
         % (SURF2, LINE, t("JR // TERMINAL", 12, INK, 700, "0.16em"), t("108 UNITS", 11, GREEN, 700, "0.1em"),
-           LINE, t(">", 14, AMBER, 700), CYAN, AMBER, FAINT, LINE,
+           LINE, t(">", 14, LIME, 700), CYAN, LIME, FAINT, LINE,
            '<div style="flex: 1 1 0; padding: 12px 14px; border-right: 1px solid %s;">%s'
            '<div style="margin-top: 5px; font-size: 18px; font-weight: 700; color: %s;">108</div></div>'
            % (LINE, t("ON SHELF", 9.5, FAINT, 700, "0.16em"), INK),
@@ -536,7 +537,7 @@ def mobile():
            "".join('<div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; '
                    'justify-content: center; gap: 5px; color: %s;">%s<span style="font-size: 9.5px; font-weight: 700; '
                    'letter-spacing: 0.12em;">%s</span></div>'
-                   % (AMBER if on else FAINT, svg(ic, 17, "currentColor", 1.9), lbl)
+                   % (LIME if on else FAINT, svg(ic, 17, "currentColor", 1.9), lbl)
                    for ic, lbl, on in [("list", "SHELF", True), ("search", "QUERY", False),
                                        ("wrench", "WORKSHOP", False), ("bag", "CART", False)])))
 
@@ -550,8 +551,8 @@ def mobile():
         '<div style="padding: 12px 14px;">%s</div>'
         '<div style="padding: 0 14px;">%s</div>'
         '<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 14px 16px; background: %s; border-top: 1px solid %s;">%s</div>'
-        % (SURF2, LINE, t("< SHELF", 12, DIM, 700, "0.14em"), t("JRP-UF26U", 11, AMBER, 700, "0.1em"),
-           LINE, t("ULEFONE // RUGGED", 10.5, FAINT, 700, "0.2em"), INK, "Armor 26 Ultra", AMBER, money(11999),
+        % (SURF2, LINE, t("< SHELF", 12, DIM, 700, "0.14em"), t("JRP-UF26U", 11, LIME, 700, "0.1em"),
+           LINE, t("ULEFONE // RUGGED", 10.5, FAINT, 700, "0.2em"), INK, "Armor 26 Ultra", LIME, money(11999),
            '<span style="display: inline-flex; align-items: center; gap: 8px;">'
            '<span style="font-size: 11.5px; font-weight: 700; color: %s;">12 ON SHELF</span>%s</span>'
            % (GREEN, bar_meter(12, 40, GREEN, 60)),
@@ -580,7 +581,7 @@ def system():
                  '<div style="margin-top: 3px; font-size: 10.5px; color: %s;">%s</div></div>'
                  % (val, LINE2, INK, name, FAINT, val)
                  for name, val in [("GROUND", BG), ("SURFACE", SURF), ("RAISED", SURF2), ("LINE", LINE2),
-                                   ("INK", INK), ("DIM", DIM), ("AMBER", AMBER), ("GREEN", GREEN),
+                                   ("INK", INK), ("DIM", DIM), ("LIME", LIME), ("AMBER", AMBER),
                                    ("RED", RED), ("CYAN", CYAN)])
 
     ramp = "".join('<div style="display: flex; align-items: baseline; gap: 22px; padding: 9px 0; border-top: 1px solid %s;">'
@@ -589,7 +590,7 @@ def system():
                    % (LINE, FAINT, spec, size, weight, color, ls, sample)
                    for spec, size, weight, color, ls, sample in [
                        ("DISPLAY / 40 / 700", 40, 700, INK, "-0.02em", "Galaxy S24 Ultra"),
-                       ("FIGURE / 22 / 700", 22, 700, AMBER, "-0.01em", money(26499)),
+                       ("FIGURE / 22 / 700", 22, 700, LIME, "-0.01em", money(26499)),
                        ("ROW / 12.5 / 700", 12.5, 700, INK, "0.02em", "Armor 26 Ultra"),
                        ("ROW / 12.5 / 400", 12.5, 400, DIM, "0.02em", "12GB / 512GB · 5950mAh · IP69K"),
                        ("LABEL / 10.5 / 700", 10.5, 700, FAINT, "0.18em", "UNITS ON SHELF"),
@@ -602,7 +603,7 @@ def system():
         for label, bd, bg, desc in [
             ("DEFAULT", "transparent", "transparent", "1px rule below, no fill"),
             ("ZEBRA", "transparent", "rgba(255,255,255,0.014)", "every second row, 1.4% white"),
-            ("HOVER / FOCUS", AMBER, SURF, "amber 2px marker, surface fill"),
+            ("HOVER / FOCUS", LIME, SURF, "amber 2px marker, surface fill"),
             ("LOW STOCK", RED, "transparent", "count and meter turn red under 8"),
             ("SOLD OUT", "transparent", "transparent", "row dims to 45%, action disabled")])
 
@@ -620,7 +621,7 @@ def system():
             'One typeface, one grid, no photography. Everything is a row in a table because everything in this shop '
             'is a unit with an IMEI. Colour is reserved for state — amber is the cursor and the action, green is '
             'available, red is running out.</div></div>'
-            % (t("DIRECTION 01", 11.5, AMBER, 700, "0.24em"), INK, DIM))
+            % (t("DIRECTION 01", 11.5, LIME, 700, "0.24em"), INK, DIM))
 
     return page(statusline() + navline("ACCOUNT") +
                 '<div style="padding: 0 18px 40px;">%s%s%s%s%s%s%s</div>'
@@ -643,7 +644,7 @@ def system():
                        % ('<span style="display: inline-flex; align-items: center; gap: 10px;">'
                           '<span style="font-size: 12px; font-weight: 700; color: %s;">40</span>%s</span>' % (GREEN, bar_meter(40, 40, GREEN)),
                           '<span style="display: inline-flex; align-items: center; gap: 10px;">'
-                          '<span style="font-size: 12px; font-weight: 700; color: %s;">12</span>%s</span>' % (AMBER, bar_meter(12, 40, AMBER)),
+                          '<span style="font-size: 12px; font-weight: 700; color: %s;">12</span>%s</span>' % (LIME, bar_meter(12, 40, LIME)),
                           '<span style="display: inline-flex; align-items: center; gap: 10px;">'
                           '<span style="font-size: 12px; font-weight: 700; color: %s;">3</span>%s</span>' % (RED, bar_meter(3, 40, RED)),
                           spark([3, 6, 4, 8, 5, 9, 6, 7, 4, 8, 6, 5])),
