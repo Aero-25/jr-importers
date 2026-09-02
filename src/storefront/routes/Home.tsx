@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, ShieldCheck, Truck, Wrench } from 'lucide-react';
-import { useMemo } from 'react';
 import { useCatalog, useFacets } from '@/data/products';
 import { STORE } from '@/lib/constants';
 import { money } from '@/lib/format';
@@ -8,7 +7,6 @@ import { ErrorState } from '@/ui';
 import { useParallax, useReveal } from '@/ui/effects';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
 import { ChipRail } from '../components/ChipRail';
-import { HeroShelf } from '../components/HeroShelf';
 import { useSeo } from '../seo';
 
 const PROMISES = [
@@ -33,18 +31,16 @@ export default function Home() {
 
   const cheapest = phones.data?.[0]?.price;
 
-  // The shelf, dearest first: the flagship fronts the hero and the next two
-  // sit under it. All one query — the same rows that fill the grid below.
-  const showcase = useMemo(() => [...(phones.data ?? [])].reverse(), [phones.data]);
-
   return (
     <div ref={revealRoot}>
       {/* ── Hero ────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
+        {/* One column since the shelf came out: a two-column grid with one
+            empty side left the headline stranded against dead space. */}
         <div
           ref={heroRef}
           data-hero
-          className="mx-auto grid max-w-7xl items-center gap-6 px-4 py-14 sm:py-20 lg:grid-cols-[1fr_1.05fr] lg:gap-10"
+          className="mx-auto max-w-7xl px-4 py-14 sm:py-20"
           style={{ transform: 'translateY(calc(var(--parallax, 0px) * -1))' }}
         >
           <div className="max-w-xl">
@@ -144,11 +140,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* The shelf itself: real stock, real prices, straight off the same
-              catalogue query as the grid below. */}
-          <div className="reveal" data-reveal-index="2">
-            <HeroShelf products={showcase} loading={phones.isLoading} />
-          </div>
         </div>
 
       </section>
