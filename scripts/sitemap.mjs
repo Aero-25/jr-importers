@@ -63,6 +63,9 @@ async function fetchProducts(config) {
   const params = new URLSearchParams({
     select: 'id,name,updated_at,category',
     active: 'eq.true',
+    // Counter-only stock must not be advertised to search engines. RLS already
+    // withholds it from the anon key this runs under; asking is explicit.
+    show_online: 'eq.true',
     order: 'name.asc',
     limit: '500',
   });

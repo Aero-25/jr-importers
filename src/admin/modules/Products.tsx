@@ -130,7 +130,12 @@ export default function Products() {
           )}
           {!product.active && (
             <Badge tone="neutral" size="sm">
-              Hidden
+              Retired
+            </Badge>
+          )}
+          {product.active && product.show_online === false && (
+            <Badge tone="neutral" size="sm">
+              Counter only
             </Badge>
           )}
           <Pencil aria-hidden className="h-3.5 w-3.5 text-ink-subtle" />
@@ -208,6 +213,7 @@ const BLANK = {
   color: '',
   image: '',
   active: true,
+  show_online: true,
   featured: false,
 };
 
@@ -276,6 +282,7 @@ function ProductDialog({
           color: product.color ?? '',
           image: product.image ?? '',
           active: product.active,
+          show_online: product.show_online ?? true,
           featured: product.featured,
         },
   );
@@ -312,6 +319,7 @@ function ProductDialog({
       image4: images[4] ?? null,
       image5: images[5] ?? null,
       active: form.active,
+      show_online: form.show_online,
       featured: form.featured,
     };
 
@@ -486,10 +494,16 @@ function ProductDialog({
 
           <div className="space-y-2 sm:col-span-2">
             <Checkbox
-              label="Visible in the shop"
-              hint="Unchecking hides it from customers without deleting it."
+              label="On sale"
+              hint="Unchecking retires it everywhere — the shop and the till — without deleting it."
               checked={form.active}
               onChange={(e) => set('active', e.target.checked)}
+            />
+            <Checkbox
+              label="List on the website"
+              hint="Uncheck for counter-only stock. It stays sellable on the till, customers just never see it online."
+              checked={form.show_online}
+              onChange={(e) => set('show_online', e.target.checked)}
             />
             <Checkbox
               label="Feature on the home page"

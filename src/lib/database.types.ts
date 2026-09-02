@@ -178,6 +178,8 @@ export type ProductRow = {
   spec_weight: string | null;
   spec_extras: string | null;
   active: boolean;
+  /** Listed on the public storefront. Counter-only stock is active but not shown. */
+  show_online: boolean;
   featured: boolean;
   created_at: string;
   updated_at: string;

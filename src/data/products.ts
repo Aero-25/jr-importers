@@ -44,9 +44,13 @@ export type CatalogSort = 'newest' | 'price-asc' | 'price-desc' | 'name' | 'popu
 /**
  * The storefront catalogue query.
  *
- * Only `active` products are requested. That is also enforced by RLS, but
- * asking for it here keeps the payload small rather than relying on the
- * policy to filter after transfer.
+ * Only `active` products that are `show_online` are requested. Both are
+ * also enforced by RLS, but asking for them here keeps the payload small
+ * rather than relying on the policy to filter after transfer.
+ *
+ * `active` and `show_online` are not the same thing: counter-only stock
+ * (screen protectors, say) stays active so the till can sell it, and is kept
+ * off the shop with `show_online`.
  */
 export function useCatalog(filters: CatalogFilters = {}) {
   return useQuery<ProductRow[], Error>({
@@ -56,6 +60,7 @@ export function useCatalog(filters: CatalogFilters = {}) {
         .from('products')
         .select('*')
         .eq('active', true)
+        .eq('show_online', true)
         .gt('stock', 0)
         .or(NOT_A_SERVICE);
 
@@ -144,6 +149,7 @@ export function useFacets(scope: { categories?: string[] | null } = {}) {
         .from('products')
         .select('category, brand, price')
         .eq('active', true)
+        .eq('show_online', true)
         .gt('stock', 0)
         .or(NOT_A_SERVICE);
       if (scoped) query = query.in('category', scoped);
@@ -193,6 +199,7 @@ export function useRelatedProducts(product: ProductRow | null | undefined, limit
         .from('products')
         .select('*')
         .eq('active', true)
+        .eq('show_online', true)
         .gt('stock', 0)
         .not('category', 'in', NO_SERVICES)
         .eq('category', product!.category!)
