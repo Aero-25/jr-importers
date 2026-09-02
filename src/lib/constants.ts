@@ -49,6 +49,12 @@ export const SHOP_CATEGORIES: Category[] = [
   'Tablets',
   'Smart Watches',
   'Accessories',
+  // Grouped behind one tab below. They stay separate categories because the
+  // console and the stock reports should still know a dashcam from a door
+  // alarm, even where the shop sells them off one page.
+  'Cameras',
+  'Smart Home',
+  'Car Tech',
 ];
 
 /** Groups the storefront's top-level tabs. Order is the order shown. */
@@ -57,6 +63,19 @@ export const CATEGORY_GROUPS: Array<{ id: string; label: string; categories: Cat
   { id: 'tablets', label: 'Tablets', categories: ['Tablets'] },
   { id: 'watches', label: 'Smart watches', categories: ['Smart Watches'] },
   { id: 'accessories', label: 'Accessories', categories: ['Accessories'] },
+  /*
+    One tab over three categories. A security camera, a door alarm and a car
+    diagnostic tool have little in common except that none of them is a phone
+    accessory — and a customer hunting for any of them will not think to look
+    under cases and cables. Three near-empty tabs would be worse than one that
+    reads as "the other things we sell", and this leaves room for drones and
+    gaming to join without another tab appearing.
+  */
+  {
+    id: 'gadgets',
+    label: 'Cameras & gadgets',
+    categories: ['Cameras', 'Smart Home', 'Car Tech'],
+  },
 ];
 
 /**
