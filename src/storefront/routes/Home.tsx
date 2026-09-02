@@ -8,7 +8,7 @@ import { ErrorState } from '@/ui';
 import { useParallax, useReveal } from '@/ui/effects';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
 import { ChipRail } from '../components/ChipRail';
-import { HeroShelf, HeroTicker } from '../components/HeroShelf';
+import { HeroShelf } from '../components/HeroShelf';
 import { useSeo } from '../seo';
 
 const PROMISES = [
@@ -33,11 +33,9 @@ export default function Home() {
 
   const cheapest = phones.data?.[0]?.price;
 
-  // The shelf, dearest first: the flagship fronts the hero, the next two sit
-  // under it, and the ticker cycles the rest. All one query — the same rows
-  // that fill the grid below.
+  // The shelf, dearest first: the flagship fronts the hero and the next two
+  // sit under it. All one query — the same rows that fill the grid below.
   const showcase = useMemo(() => [...(phones.data ?? [])].reverse(), [phones.data]);
-  const ticker = useMemo(() => showcase.slice(0, 14), [showcase]);
 
   return (
     <div ref={revealRoot}>
@@ -153,12 +151,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Live-stock ticker — every chip is a product on the shelf. */}
-        {ticker.length > 2 && (
-          <div className="reveal mx-auto max-w-7xl px-4 pb-6">
-            <HeroTicker products={ticker} />
-          </div>
-        )}
       </section>
 
       {/* ── The rail from direction 01, in glass ─────────────────────────── */}

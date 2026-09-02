@@ -15,6 +15,11 @@ export const CATEGORIES = [
   'Tablets',
   'Laptops',
   'Audio',
+  'Smart Watches',
+  /**
+   * Kept for the handful of non-watch wearables the shop may carry. Watches
+   * have their own category because that is what customers shop for by name.
+   */
   'Wearables',
   'Cameras',
   'Drones',
@@ -39,12 +44,18 @@ export type Category = (typeof CATEGORIES)[number];
  * sellable units with their own IMEIs, so leaving them off meant carrying
  * stock the storefront could not sell.
  */
-export const SHOP_CATEGORIES: Category[] = ['Smartphones', 'Tablets', 'Accessories'];
+export const SHOP_CATEGORIES: Category[] = [
+  'Smartphones',
+  'Tablets',
+  'Smart Watches',
+  'Accessories',
+];
 
 /** Groups the storefront's top-level tabs. Order is the order shown. */
 export const CATEGORY_GROUPS: Array<{ id: string; label: string; categories: Category[] }> = [
   { id: 'phones', label: 'All phones', categories: ['Smartphones'] },
   { id: 'tablets', label: 'Tablets', categories: ['Tablets'] },
+  { id: 'watches', label: 'Smart watches', categories: ['Smart Watches'] },
   { id: 'accessories', label: 'Accessories', categories: ['Accessories'] },
 ];
 
