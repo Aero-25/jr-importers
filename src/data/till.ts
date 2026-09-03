@@ -45,6 +45,14 @@ export interface CashUp {
   expected_cash: number;
   counted_cash: number;
   variance: number;
+  /** What the float should be restored to. From the `till_float_target` setting. */
+  float_target: number;
+  /** What stays in the drawer. Capped at the counted cash on a thin day. */
+  float_retained: number;
+  /** Counted cash less the retained float. Never negative. */
+  cash_to_bank: number;
+  /** How far the float falls short of its target, or 0. */
+  float_short: number;
   opening_denominations: DenominationCounts;
   closing_denominations: DenominationCounts;
   stock_count: ShiftStockLine[];
@@ -181,6 +189,8 @@ export function useCloseTill() {
           cash_sales: summary.cash_sales,
           card_sales: round2(summary.card_sales + summary.eft_sales + summary.other_sales),
           petty_cash_total: summary.petty_cash,
+          float_retained: summary.float_retained,
+          cash_banked: summary.cash_to_bank,
           transaction_count: summary.transaction_count,
           status: 'Closed',
         })

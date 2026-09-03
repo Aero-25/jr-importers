@@ -7,6 +7,7 @@ const INK: [number, number, number] = [13, 38, 63];
 const GREY: [number, number, number] = [110, 122, 143];
 const RED: [number, number, number] = [198, 40, 40];
 const GREEN: [number, number, number] = [22, 143, 79];
+const WHITE: [number, number, number] = [255, 255, 255];
 
 /** Where the cash-up is sent when a shift closes. */
 export const CASHUP_WHATSAPP = '264811447669';
@@ -42,13 +43,25 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   const row = (
     text: string,
     value: string,
-    opts: { bold?: boolean; colour?: [number, number, number]; highlight?: boolean } = {},
+    opts: {
+      bold?: boolean;
+      colour?: [number, number, number];
+      highlight?: boolean;
+      /** Banded red — the cash to be banked. */
+      banked?: boolean;
+    } = {},
   ) => {
     // Cash is the only tender that has to be in the drawer, so it is banded on
     // the page the same way it is on screen.
     if (opts.highlight) {
       doc.setFillColor(...LIME);
       doc.rect(left - 1.5, y - 3.8, right - left + 3, 5.8, 'F');
+    }
+    // The banking line is banded red and set in white: it is the one figure on
+    // the page that means money physically leaving the shop.
+    if (opts.banked) {
+      doc.setFillColor(...RED);
+      doc.rect(left - 1.5, y - 4.2, right - left + 3, 6.6, 'F');
     }
     doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
     doc.setFontSize(opts.bold ? 11 : 9.6);
@@ -117,7 +130,7 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
     row(`of which layby instalments  (${report.layby_payment_count})`, money(report.layby_payments));
   }
   if (report.refunds > 0) {
-    row('Less refunds', `− ${money(report.refunds)}`);
+    row('Less refunds', `- ${money(report.refunds)}`);
     row('Net takings', money(report.total_sales - report.refunds), { bold: true });
   }
   y += 3;
@@ -130,9 +143,9 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
 
   row('Opening float (counted)', money(report.opening_float));
   row('Cash takings', money(report.cash_sales), { highlight: true });
-  row('Petty cash paid out', `− ${money(report.petty_cash)}`);
+  row('Petty cash paid out', `- ${money(report.petty_cash)}`);
   if (report.cash_refunds > 0) {
-    row(`Refunds paid out (${report.refund_count})`, `− ${money(report.cash_refunds)}`);
+    row(`Refunds paid out (${report.refund_count})`, `- ${money(report.cash_refunds)}`);
   }
   line(y - 2);
   y += 2;
@@ -146,6 +159,22 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
     money(Math.abs(report.variance)),
     { bold: true, colour: short ? RED : over ? RED : GREEN },
   );
+  y += 4;
+
+  /* What to do with the money now it has been counted. */
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...INK);
+  doc.text('FLOAT & BANKING', left, y);
+  y += 6;
+
+  row(`Float left in drawer  (target ${money(report.float_target)})`, money(report.float_retained));
+  if (report.float_short > 0.005) {
+    // Say it plainly rather than leaving the cashier to subtract: the drawer
+    // could not cover the float, so tomorrow opens light.
+    row('Float short by', money(report.float_short), { colour: RED });
+  }
+  row('TO BANK', money(report.cash_to_bank), { bold: true, banked: true, colour: WHITE });
   y += 4;
 
   /* Denominations, side by side */

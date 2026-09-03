@@ -359,6 +359,10 @@ export type TillShiftRow = {
   opening_time: string;
   closing_time: string | null;
   expected_cash: number | null;
+  /** Cash left in the drawer as the next shift's float. */
+  float_retained: number | null;
+  /** Counted cash less the retained float — the amount to bank. */
+  cash_banked: number | null;
   actual_cash: number | null;
   cash_variance: number | null;
   total_sales: number | null;
