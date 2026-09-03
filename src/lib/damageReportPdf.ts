@@ -12,21 +12,31 @@ export interface DamageReportPdfInput {
   finding?: string | null;
   /** The components found damaged. */
   description: string;
-  /** How it happened. Included only when recorded. */
+  /** How it happened. */
   cause?: string | null;
   discontinued?: boolean | null;
   signed_by?: string | null;
+  claim_type?: string | null;
   claim_reference?: string | null;
+  claim_amount?: number | null;
+  purchase_invoice?: string | null;
+  customer_name?: string | null;
+  incident_date?: string | null;
   notes?: string | null;
   reported_date?: string | null;
   created_at?: string | null;
 }
 
-const INK: [number, number, number] = [0, 0, 0];
-const LEFT = 22;
-const RIGHT = 188;
+const INK: [number, number, number] = [17, 24, 39];
+const GREEN: [number, number, number] = [22, 101, 52];
+const SOFT: [number, number, number] = [240, 247, 242];
+const GREY: [number, number, number] = [110, 122, 143];
+const HAIR: [number, number, number] = [214, 223, 232];
 
-/** The shop's letterhead banner, or null when it cannot be fetched. */
+const LEFT = 20;
+const RIGHT = 190;
+const WIDTH = RIGHT - LEFT;
+
 async function loadLetterhead(): Promise<string | null> {
   try {
     const res = await fetch('/letterhead.jpg');
@@ -43,7 +53,7 @@ async function loadLetterhead(): Promise<string | null> {
   }
 }
 
-/** `20.08.2026`, the format the shop's own reports use. */
+/** `03.09.2026`, the format the shop's own reports use. */
 function stamp(value?: string | null): string {
   const date = value ? new Date(value) : new Date();
   const d = String(date.getDate()).padStart(2, '0');
@@ -51,138 +61,247 @@ function stamp(value?: string | null): string {
   return `${d}.${m}.${date.getFullYear()}`;
 }
 
-/**
- * Builds the damage report letter.
- *
- * Modelled on the report the shop already sends: addressed to the insurer and
- * their handler, stating what was assessed and why the handset cannot be
- * repaired, recommending replacement, signed, over the shop's letterhead.
- * The wording is fixed; only the details change.
- */
+/** "broken screen" -> "Broken screen". Leaves existing capitals alone. */
+function sentence(text: string): string {
+  const t = text.trim().replace(/[.\s]+$/, '');
+  if (!t) return '';
+  return /^[A-Z]/.test(t) ? t : t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/** Lowercases a fragment so it reads inside a sentence. */
+function clause(text: string): string {
+  const t = text.trim().replace(/[.\s]+$/, '');
+  // Leave anything with internal capitals alone — model names, brands.
+  return /[A-Z]/.test(t.slice(1)) ? t : t.charAt(0).toLowerCase() + t.slice(1);
+}
+
 export async function buildDamageReportPdf(report: DamageReportPdfInput): Promise<Blob> {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const letterhead = await loadLetterhead();
 
-  doc.setTextColor(...INK);
-  let y = 26;
+  /* ── Letterhead, at the top where a letterhead belongs ─────────────────── */
+  let y = 14;
+  let headerBottom = y;
 
-  /* ── Addressee, with the date out to the right ─────────────────────────── */
+  if (letterhead) {
+    try {
+      const props = doc.getImageProperties(letterhead);
+      const w = 58;
+      const h = (props.height / props.width) * w;
+      doc.addImage(letterhead, 'JPEG', LEFT, y, w, h);
+      headerBottom = y + h;
+    } catch {
+      /* Unreadable banner: the typed block below still identifies the shop. */
+    }
+  }
+
+  if (!letterhead || headerBottom === y) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(19);
+    doc.setTextColor(...GREEN);
+    doc.text('JR IMPORTERS', LEFT, y + 7);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...GREY);
+    doc.text('Smart phones, tablets, accessories and repairs', LEFT, y + 12);
+    headerBottom = y + 16;
+  }
+
+  /* Title block, set against the banner. */
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text(report.insurer_name || 'To whom it may concern', LEFT, y);
-  doc.setFont('helvetica', 'normal');
-  doc.text(stamp(report.reported_date ?? report.created_at), RIGHT, y, { align: 'right' });
+  doc.setFontSize(20);
+  doc.setTextColor(...INK);
+  doc.text('DAMAGE REPORT', RIGHT, y + 8, { align: 'right' });
 
-  if (report.insurer_contact) {
-    y += 5.5;
-    doc.text(report.insurer_contact, LEFT, y);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...GREEN);
+  doc.text(report.report_number, RIGHT, y + 14.5, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...GREY);
+  doc.text(stamp(report.reported_date ?? report.created_at), RIGHT, y + 20, { align: 'right' });
+
+  y = Math.max(headerBottom, y + 24) + 6;
+
+  doc.setDrawColor(...GREEN);
+  doc.setLineWidth(0.8);
+  doc.line(LEFT, y, RIGHT, y);
+  y += 10;
+
+  /* ── Addressee ─────────────────────────────────────────────────────────── */
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GREY);
+  doc.text('TO', LEFT, y);
+  y += 5;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11.5);
+  doc.setTextColor(...INK);
+  doc.text(report.insurer_name || 'To whom it may concern', LEFT, y);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  for (const line of [report.insurer_contact, report.insurer_phone].filter(Boolean)) {
+    y += 5;
+    doc.text(String(line), LEFT, y);
   }
-  if (report.insurer_phone) {
-    y += 5.5;
-    doc.text(report.insurer_phone, LEFT, y);
-  }
+  y += 12;
 
   /* ── Subject ───────────────────────────────────────────────────────────── */
-  y += 14;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
+  doc.setFontSize(12.5);
+  doc.setTextColor(...GREEN);
   doc.text(`Damage Report – ${report.product_name}`, LEFT, y);
+  y += 10;
 
-  y += 12;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
+  doc.setFontSize(10.5);
+  doc.setTextColor(...INK);
   doc.text('To whom it may concern:', LEFT, y);
+  y += 8;
 
-  /* ── Body ──────────────────────────────────────────────────────────────── */
-  const width = RIGHT - LEFT;
-  const write = (text: string, gap = 8) => {
-    const lines = doc.splitTextToSize(text, width) as string[];
-    // A letter that spills must break at a paragraph, never mid-sentence.
-    if (y + lines.length * 5.6 > 240) {
+  const write = (text: string, gap = 6) => {
+    const lines = doc.splitTextToSize(text, WIDTH) as string[];
+    if (y + lines.length * 5.4 > 250) {
       doc.addPage();
-      y = 26;
+      y = 20;
     }
     y += gap;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
+    doc.setTextColor(...INK);
     doc.text(lines, LEFT, y, { lineHeightFactor: 1.45 });
-    y += (lines.length - 1) * 5.6;
+    y += (lines.length - 1) * 5.4;
   };
 
   const device = report.product_name;
-  const imei = report.imei ? ` (IMEI ${report.imei})` : '';
-  const because = report.finding ? ` due to ${report.finding}` : '';
+  // An IMEI the shop never recorded is simply left out. "IMEI N/A" on a claim
+  // reads as though the handset could not be identified.
+  const ident = report.imei ? `${device} (IMEI ${report.imei})` : device;
+  const because = report.finding ? ` due to ${clause(report.finding)}` : '';
 
   write(
-    `Please note that the ${device}${imei} has been assessed and it has been determined `
-      + `that the phone is not repairable${because}.`,
-    10,
+    `Please note that the ${ident} has been assessed and it has been determined that `
+      + `the device is not repairable${because}.`,
+    0,
   );
 
-  if (report.description?.trim()) {
-    write(`It has also been assessed that ${report.description.trim()}.`);
+  /* ── Assessment panel ──────────────────────────────────────────────────── */
+  const rows: Array<[string, string]> = [];
+  rows.push(['Device', device]);
+  if (report.imei) rows.push(['IMEI', report.imei]);
+  if (report.finding) rows.push(['Not repairable due to', sentence(report.finding)]);
+  if (report.description?.trim()) rows.push(['Damage found', sentence(report.description)]);
+  if (report.cause?.trim()) rows.push(['Cause of damage', sentence(report.cause)]);
+  if (report.incident_date) rows.push(['Date of incident', stamp(report.incident_date)]);
+  if (report.purchase_invoice) rows.push(['Purchase invoice', report.purchase_invoice]);
+  if (report.customer_name) rows.push(['Customer', report.customer_name]);
+  if (report.claim_reference) rows.push(['Claim reference', report.claim_reference]);
+
+  y += 9;
+  const panelTop = y;
+  const rowHeights = rows.map(([, value]) => {
+    const lines = doc.splitTextToSize(value, WIDTH - 52) as string[];
+    return Math.max(6.4, lines.length * 4.9 + 1.6);
+  });
+  const panelHeight = rowHeights.reduce((n, h) => n + h, 0) + 12;
+
+  if (panelTop + panelHeight > 258) {
+    doc.addPage();
+    y = 20;
   }
 
-  if (report.cause?.trim()) {
-    write(`Cause of damage: ${report.cause.trim()}.`);
-  }
+  doc.setFillColor(...SOFT);
+  doc.setDrawColor(...HAIR);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(LEFT, y, WIDTH, panelHeight, 2.5, 2.5, 'FD');
 
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GREEN);
+  doc.text('ASSESSMENT', LEFT + 5, y + 6.5);
+
+  let ry = y + 12.5;
+  rows.forEach(([labelText, value], i) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...GREY);
+    doc.text(labelText.toUpperCase(), LEFT + 5, ry);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(...INK);
+    const lines = doc.splitTextToSize(value, WIDTH - 52) as string[];
+    doc.text(lines, LEFT + 52, ry);
+    ry += rowHeights[i] ?? 6.4;
+  });
+  y += panelHeight + 4;
+
+  /* ── Recommendation ────────────────────────────────────────────────────── */
   write(
     `We recommend that the device needs to be replaced.${
       report.discontinued ? ` The ${device} has been discontinued.` : ''
     }`,
   );
-
-  if (report.notes?.trim()) write(report.notes.trim());
-
+  if (report.notes?.trim()) write(sentence(report.notes) + '.');
   write('See attached quotation.');
 
   /* ── Sign-off ──────────────────────────────────────────────────────────── */
-  y += 14;
-  doc.text('Regards,', LEFT, y);
-  y += 12;
-  doc.text(report.signed_by || '', LEFT, y);
-
-  y += 6;
-  doc.setDrawColor(...INK);
-  doc.setLineWidth(0.3);
-  doc.line(LEFT, y, RIGHT, y);
-
-  y += 6;
-  doc.setFontSize(10.5);
-  doc.text('JR Importers Walvis Bay', LEFT, y);
-  y += 5;
-  doc.text(STORE.address.replace(/,\s*Walvis Bay$/i, ''), LEFT, y);
-  y += 5;
-  doc.text(STORE.phone.replace(/^\+264\s*/, '0').replace(/\s+/g, ''), LEFT, y);
-
-  /* The reference is ours, not the letter's — kept small and out of the way
-     so the page still reads as the shop's own report. */
-  if (report.report_number || report.claim_reference) {
-    y += 8;
-    doc.setFontSize(8);
-    doc.setTextColor(120, 120, 120);
-    doc.text(
-      [report.report_number, report.claim_reference && `Ref ${report.claim_reference}`]
-        .filter(Boolean)
-        .join('  ·  '),
-      LEFT,
-      y,
-    );
-    doc.setTextColor(...INK);
+  y += 16;
+  if (y > 250) {
+    doc.addPage();
+    y = 30;
   }
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10.5);
+  doc.setTextColor(...INK);
+  doc.text('Regards,', LEFT, y);
 
-  /* ── Letterhead, at the foot of the last page ──────────────────────────── */
-  if (letterhead) {
-    try {
-      const props = doc.getImageProperties(letterhead);
-      const w = 92;
-      const h = (props.height / props.width) * w;
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const top = Math.max(y + 10, pageHeight - h - 16);
-      doc.addImage(letterhead, 'JPEG', LEFT, top, w, h);
-    } catch {
-      /* Banner unavailable: the typed footer above already identifies us. */
-    }
+  y += 16;
+  doc.setDrawColor(...HAIR);
+  doc.setLineWidth(0.3);
+  doc.line(LEFT, y, LEFT + 62, y);
+  y += 5;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.text(report.signed_by || STORE.name, LEFT, y);
+  y += 4.6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...GREY);
+  doc.text('for JR Importers Walvis Bay', LEFT, y);
+
+  /* ── Footer, on every page ─────────────────────────────────────────────── */
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p += 1) {
+    doc.setPage(p);
+    doc.setDrawColor(...HAIR);
+    doc.setLineWidth(0.2);
+    doc.line(LEFT, 276, RIGHT, 276);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...GREEN);
+    doc.text('JR Importers Walvis Bay', LEFT, 281.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...GREY);
+    doc.text(
+      `${STORE.address}  ·  ${STORE.phone}  ·  ${STORE.email}`,
+      LEFT,
+      286,
+    );
+    doc.text(
+      pages > 1 ? `${report.report_number}  ·  Page ${p} of ${pages}` : report.report_number,
+      RIGHT,
+      286,
+      { align: 'right' },
+    );
   }
 
   return doc.output('blob');
