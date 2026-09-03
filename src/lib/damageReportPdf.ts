@@ -179,9 +179,13 @@ export async function buildDamageReportPdf(report: DamageReportPdfInput): Promis
   };
 
   const device = report.product_name;
-  // An IMEI the shop never recorded is simply left out. "IMEI N/A" on a claim
-  // reads as though the handset could not be identified.
-  const ident = report.imei ? `${device} (IMEI ${report.imei})` : device;
+  // A handset can be too badly damaged to read its IMEI off. Saying so is
+  // better than leaving a gap, which an assessor will simply query — and far
+  // better than "N/A", which reads as though nobody looked.
+  const imeiText = report.imei?.trim() || 'Not recoverable';
+  const ident = report.imei?.trim()
+    ? `${device} (IMEI ${report.imei.trim()})`
+    : `${device} (IMEI not recoverable)`;
   const because = report.finding ? ` due to ${clause(report.finding)}` : '';
 
   write(
@@ -193,7 +197,7 @@ export async function buildDamageReportPdf(report: DamageReportPdfInput): Promis
   /* ── Assessment panel ──────────────────────────────────────────────────── */
   const rows: Array<[string, string]> = [];
   rows.push(['Device', device]);
-  if (report.imei) rows.push(['IMEI', report.imei]);
+  rows.push(['IMEI', imeiText]);
   if (report.finding) rows.push(['Not repairable due to', sentence(report.finding)]);
   if (report.description?.trim()) rows.push(['Damage found', sentence(report.description)]);
   if (report.cause?.trim()) rows.push(['Cause of damage', sentence(report.cause)]);
