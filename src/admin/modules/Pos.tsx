@@ -48,7 +48,6 @@ import {
   Input,
   Modal,
   Notice,
-  Select,
   StockBadge,
   useToast,
 } from '@/ui';
@@ -770,7 +769,10 @@ function TenderDialog({
   ) => void;
   busy: boolean;
 }) {
-  const [method, setMethod] = useState<string>('Cash');
+  // Deliberately unset. A method that defaults to Cash books every card
+  // sale as cash whenever the cashier does not think to change it — which is
+  // how a card sale landed in the cash column and left the drawer short.
+  const [method, setMethod] = useState<string | null>(null);
   const [tendered, setTendered] = useState('');
 
   // Account sale is the default: the shop knows its customers, and their
@@ -808,12 +810,12 @@ function TenderDialog({
 
   async function confirm() {
     if (mode === 'walkin') {
-      onConfirm(method, toNumber(tendered) || total, null);
+      onConfirm(method!, toNumber(tendered) || total, null);
       return;
     }
 
     if (matched) {
-      onConfirm(method, toNumber(tendered) || total, {
+      onConfirm(method!, toNumber(tendered) || total, {
         id: matched.id,
         name: matched.name,
         phone: matched.phone ?? phone.trim(),
@@ -836,12 +838,13 @@ function TenderDialog({
     } catch {
       // Offline or refused — the order still records name and number.
     }
-    onConfirm(method, toNumber(tendered) || total, { id, name, phone: phone.trim() });
+    onConfirm(method!, toNumber(tendered) || total, { id, name, phone: phone.trim() });
   }
 
   const value = toNumber(tendered);
   const change = round2(value - total);
   const isCash = method === 'Cash';
+  const methodMissing = method === null;
   const short = isCash && value > 0 && change < 0;
 
   // Quick-tender buttons: the notes a customer actually hands over.
@@ -870,7 +873,7 @@ function TenderDialog({
           <Button
             variant="success"
             loading={busy}
-            disabled={short || accountIncomplete || accountLookupPending}
+            disabled={short || methodMissing || accountIncomplete || accountLookupPending}
             onClick={() => void confirm()}
           >
             Complete sale
@@ -934,15 +937,34 @@ function TenderDialog({
           </div>
         )}
 
-        <Select
-          label="Payment method"
-          value={method}
-          onChange={(e) => setMethod(e.target.value)}
-          options={PAYMENT_METHODS.filter((m) => m !== 'DPO Online').map((m) => ({
-            value: m,
-            label: m,
-          }))}
-        />
+        <div>
+          <p className="text-sm font-medium text-ink">
+            Payment method
+            {methodMissing && <span className="ml-1 text-brand-600">*</span>}
+          </p>
+          <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+            {PAYMENT_METHODS.filter((m) => m !== 'DPO Online').map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMethod(m)}
+                className={cn(
+                  'rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors',
+                  method === m
+                    ? 'border-brand-600 bg-brand-600 text-white'
+                    : 'border-hairline text-ink hover:border-brand-400 hover:bg-raised',
+                )}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+          {methodMissing && (
+            <p className="mt-1.5 text-xs text-ink-muted">
+              Choose how the money arrived before completing the sale.
+            </p>
+          )}
+        </div>
 
         {isCash && (
           <>
