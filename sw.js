@@ -6,7 +6,7 @@
 // external or API requests.
 // ============================================
 
-const CACHE_NAME = 'jr-importers-v4.1';
+const CACHE_NAME = 'jr-importers-v4.2';
 const FAVICON_URL = '/icon.svg';
 const DEBUG = false;
 const debugLog = (...args) => {
@@ -82,7 +82,9 @@ async function cacheResponse(request, response) {
 
 // Install - cache static assets only
 self.addEventListener('install', (event) => {
-    debugLog('[SW] Installing v4.0...');
+    debugLog('[SW] Installing', CACHE_NAME);
+    // Activate immediately rather than waiting for every tab to close.
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
@@ -113,7 +115,7 @@ self.addEventListener('message', (event) => {
 
 // Activate - clean old caches
 self.addEventListener('activate', (event) => {
-    debugLog('[SW] Activating v4.0...');
+    debugLog('[SW] Activating', CACHE_NAME);
     event.waitUntil(
         (async () => {
             const cacheNames = await caches.keys();
