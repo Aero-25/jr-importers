@@ -32,6 +32,8 @@ const GREEN: [number, number, number] = [22, 101, 52];
 const SOFT: [number, number, number] = [240, 247, 242];
 const GREY: [number, number, number] = [110, 122, 143];
 const HAIR: [number, number, number] = [214, 223, 232];
+/** The banner's own background, sampled from its top edge. */
+const NAVY: [number, number, number] = [12, 22, 47];
 
 const LEFT = 20;
 const RIGHT = 190;
@@ -80,56 +82,57 @@ export async function buildDamageReportPdf(report: DamageReportPdfInput): Promis
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const letterhead = await loadLetterhead();
 
-  /* ── Letterhead, at the top where a letterhead belongs ─────────────────── */
-  let y = 14;
-  let headerBottom = y;
+  /* ── Header band, full bleed across the top ───────────────────────────── */
+  const pageW = doc.internal.pageSize.getWidth();
+  const bandH = 42;
 
+  // Navy sampled from the banner's own top edge, so the artwork sits inside
+  // the band rather than on top of a colour that fights it.
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, pageW, bandH, 'F');
+  doc.setFillColor(...GREEN);
+  doc.rect(0, bandH, pageW, 1.6, 'F');
+
+  let placed = false;
   if (letterhead) {
     try {
       const props = doc.getImageProperties(letterhead);
-      const w = 58;
-      const h = (props.height / props.width) * w;
-      doc.addImage(letterhead, 'JPEG', LEFT, y, w, h);
-      headerBottom = y + h;
+      const h = bandH - 8;
+      const w = (props.width / props.height) * h;
+      doc.addImage(letterhead, 'JPEG', 13, 4, w, h);
+      placed = true;
     } catch {
-      /* Unreadable banner: the typed block below still identifies the shop. */
+      /* Unreadable banner: the wordmark below still identifies the shop. */
     }
   }
 
-  if (!letterhead || headerBottom === y) {
+  if (!placed) {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(19);
-    doc.setTextColor(...GREEN);
-    doc.text('JR IMPORTERS', LEFT, y + 7);
+    doc.setFontSize(21);
+    doc.setTextColor(255, 255, 255);
+    doc.text('JR IMPORTERS', 14, 20);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
-    doc.setTextColor(...GREY);
-    doc.text('Smart phones, tablets, accessories and repairs', LEFT, y + 12);
-    headerBottom = y + 16;
+    doc.setTextColor(190, 205, 220);
+    doc.text('Smart phones, tablets, accessories and repairs', 14, 26);
   }
 
-  /* Title block, set against the banner. */
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
-  doc.setTextColor(...INK);
-  doc.text('DAMAGE REPORT', RIGHT, y + 8, { align: 'right' });
+  doc.setFontSize(19);
+  doc.setTextColor(255, 255, 255);
+  doc.text('DAMAGE REPORT', pageW - 14, 19, { align: 'right' });
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(...GREEN);
-  doc.text(report.report_number, RIGHT, y + 14.5, { align: 'right' });
+  doc.setFontSize(11);
+  doc.setTextColor(150, 214, 170);
+  doc.text(report.report_number, pageW - 14, 26.5, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(...GREY);
-  doc.text(stamp(report.reported_date ?? report.created_at), RIGHT, y + 20, { align: 'right' });
+  doc.setTextColor(185, 200, 215);
+  doc.text(stamp(report.reported_date ?? report.created_at), pageW - 14, 32.5, { align: 'right' });
 
-  y = Math.max(headerBottom, y + 24) + 6;
-
-  doc.setDrawColor(...GREEN);
-  doc.setLineWidth(0.8);
-  doc.line(LEFT, y, RIGHT, y);
-  y += 10;
+  let y = bandH + 16;
 
   /* ── Addressee ─────────────────────────────────────────────────────────── */
   doc.setFont('helvetica', 'normal');
