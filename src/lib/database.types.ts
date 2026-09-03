@@ -460,6 +460,10 @@ export type InvoiceRow = {
   /** The shift this invoice was settled in. Stamped when status becomes paid. */
   till_shift_id: number | null;
   payment_method: string | null;
+  /** The POS/checkout order this invoice was raised from, when there is one. */
+  order_id: string | null;
+  /** Whether raising this invoice already took the stock. */
+  stock_taken: boolean;
   /** The complete IQ document header this row was imported from. */
   iq_data: Record<string, string> | null;
   created_at: string;

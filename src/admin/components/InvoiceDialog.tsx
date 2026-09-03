@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download, Mail, MessageCircle, Receipt } from 'lucide-react';
 import type { OrderRow } from '@/lib/database.types';
 import {
@@ -6,6 +6,7 @@ import {
   invoiceMailtoLink,
   invoiceNumber,
   invoiceWhatsAppLink,
+  resolveInvoiceNumber,
 } from '@/lib/invoicePdf';
 import { isSendableNumber } from '@/lib/phone';
 import { money } from '@/lib/format';
@@ -20,6 +21,21 @@ import { Button, Modal, Notice, useToast } from '@/ui';
 export function InvoiceDialog({ order, onClose }: { order: OrderRow; onClose: () => void }) {
   const toast = useToast();
   const [busy, setBusy] = useState<'pdf' | 'wa' | 'mail' | null>(null);
+
+  // The register issues the number, so it has to be read rather than derived.
+  // Shown optimistically as the derived form until the lookup lands: the
+  // cashier should never wait on a round trip to see that the sale went
+  // through, and the PDF resolves it again for itself.
+  const [issued, setIssued] = useState(() => invoiceNumber(order));
+  useEffect(() => {
+    let live = true;
+    void resolveInvoiceNumber(order).then((n) => {
+      if (live) setIssued(n);
+    });
+    return () => {
+      live = false;
+    };
+  }, [order]);
 
   const canWhatsApp = isSendableNumber(order.customer_phone);
   const canEmail = Boolean(order.customer_email?.includes('@'));
@@ -50,7 +66,7 @@ export function InvoiceDialog({ order, onClose }: { order: OrderRow; onClose: ()
       open
       onClose={onClose}
       title="Sale complete"
-      description={`Tax invoice ${invoiceNumber(order)}`}
+      description={`Tax invoice ${issued}`}
       size="sm"
       footer={<Button variant="ghost" onClick={onClose}>Done</Button>}
     >

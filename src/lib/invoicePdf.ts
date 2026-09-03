@@ -85,6 +85,38 @@ export function invoiceNumber(order: Pick<OrderRow, 'id' | 'created_at'>): strin
 }
 
 /**
+ * The invoice number as it appears in the books.
+ *
+ * The register is authoritative: `invoices.invoice_number` is issued by
+ * `next_document_number` and is what the shop's own invoice list shows. The
+ * derived form above predates that register, and printing it put a number on
+ * the customer's document that exists nowhere in the accounts — INV260903-14A9
+ * on paper against INV12123 in the books.
+ *
+ * It survives only as a fallback for an order with no invoice row: an older
+ * sale, or one raised while offline. A document identifying its order is worse
+ * than the real number but better than none.
+ */
+export async function resolveInvoiceNumber(
+  order: Pick<OrderRow, 'id' | 'created_at'>,
+): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('invoices')
+      .select('invoice_number')
+      .eq('order_id', order.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const issued = (data as { invoice_number?: string | null } | null)?.invoice_number;
+    if (issued) return issued;
+  } catch {
+    /* Offline or refused: fall through rather than fail the sale. */
+  }
+  return invoiceNumber(order);
+}
+
+/**
  * The A4 tax invoice.
  *
  * Laid out to match the document the shop already issues, because customers and
@@ -93,7 +125,13 @@ export function invoiceNumber(order: Pick<OrderRow, 'id' | 'created_at'>): strin
  * old contact block: that invoice still carries an iway.na address the shop no
  * longer uses.
  */
-export async function buildInvoicePdf(order: OrderRow, company: InvoiceCompany): Promise<Blob> {
+export async function buildInvoicePdf(
+  order: OrderRow,
+  company: InvoiceCompany,
+  /** Resolved by the caller so one lookup serves the PDF, the file name and the message. */
+  number?: string,
+): Promise<Blob> {
+  const issuedNumber = number ?? (await resolveInvoiceNumber(order));
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
@@ -187,7 +225,7 @@ export async function buildInvoicePdf(order: OrderRow, company: InvoiceCompany):
     ['Account No', order.customer_phone || '—', left],
     ['Invoice Date', formatDate(order.created_at), left + 42],
     ['Payment', order.payment_method || '—', left + 82],
-    ['Invoice Number', invoiceNumber(order), left + 116],
+    ['Invoice Number', issuedNumber, left + 116],
     ['Page', '1 of 1', right - 14],
   ];
   doc.setFontSize(7.6);
@@ -296,17 +334,18 @@ export async function buildInvoicePdf(order: OrderRow, company: InvoiceCompany):
   return doc.output('blob');
 }
 
-export function invoiceFileName(order: OrderRow): string {
-  return `${invoiceNumber(order)}.pdf`;
+export function invoiceFileName(order: OrderRow, number?: string): string {
+  return `${number ?? invoiceNumber(order)}.pdf`;
 }
 
 export async function downloadInvoicePdf(order: OrderRow): Promise<void> {
-  const blob = await buildInvoicePdf(order, await loadInvoiceCompany());
+  const issued = await resolveInvoiceNumber(order);
+  const blob = await buildInvoicePdf(order, await loadInvoiceCompany(), issued);
   const url = URL.createObjectURL(blob);
 
   const link = document.createElement('a');
   link.href = url;
-  link.download = invoiceFileName(order);
+  link.download = invoiceFileName(order, issued);
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -322,8 +361,9 @@ export async function downloadInvoicePdf(order: OrderRow): Promise<void> {
  */
 export async function invoiceWhatsAppLink(order: OrderRow): Promise<string> {
   const company = await loadInvoiceCompany();
-  const blob = await buildInvoicePdf(order, company);
-  const path = `invoices/${invoiceFileName(order)}`;
+  const issued = await resolveInvoiceNumber(order);
+  const blob = await buildInvoicePdf(order, company, issued);
+  const path = `invoices/${invoiceFileName(order, issued)}`;
 
   const { error } = await supabase.storage
     .from('Images')
@@ -333,7 +373,7 @@ export async function invoiceWhatsAppLink(order: OrderRow): Promise<string> {
   const { data } = supabase.storage.from('Images').getPublicUrl(path);
   const message = [
     `*${company.legalName}*`,
-    `Tax Invoice *${invoiceNumber(order)}*`,
+    `Tax Invoice *${issued}*`,
     ``,
     `Total: *${money(order.total_amount)}*`,
     ``,
@@ -347,19 +387,20 @@ export async function invoiceWhatsAppLink(order: OrderRow): Promise<string> {
 /** A mailto: with the invoice link — no mail server needed to get one sent. */
 export async function invoiceMailtoLink(order: OrderRow): Promise<string> {
   const company = await loadInvoiceCompany();
-  const blob = await buildInvoicePdf(order, company);
-  const path = `invoices/${invoiceFileName(order)}`;
+  const issued = await resolveInvoiceNumber(order);
+  const blob = await buildInvoicePdf(order, company, issued);
+  const path = `invoices/${invoiceFileName(order, issued)}`;
 
   await supabase.storage
     .from('Images')
     .upload(path, blob, { contentType: 'application/pdf', upsert: true });
   const { data } = supabase.storage.from('Images').getPublicUrl(path);
 
-  const subject = `${company.legalName} — Tax Invoice ${invoiceNumber(order)}`;
+  const subject = `${company.legalName} — Tax Invoice ${issued}`;
   const body = [
     `Good day${order.customer_name ? ` ${order.customer_name.split(' ')[0]}` : ''},`,
     ``,
-    `Thank you for your purchase. Your tax invoice ${invoiceNumber(order)} for ${money(order.total_amount)} is attached below.`,
+    `Thank you for your purchase. Your tax invoice ${issued} for ${money(order.total_amount)} is attached below.`,
     ``,
     data.publicUrl,
     ``,
