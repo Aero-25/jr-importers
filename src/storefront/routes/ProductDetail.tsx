@@ -397,7 +397,7 @@ export default function ProductDetail() {
           <ul className="mt-6 space-y-2 border-t border-hairline pt-6 text-sm text-ink-muted">
             <li className="flex items-center gap-2">
               <Truck aria-hidden className="h-4 w-4 shrink-0 text-brand-400" />
-              Nationwide courier, or collect in Windhoek
+              Nationwide courier, or collect in {STORE.city}
             </li>
             <li className="flex items-center gap-2">
               <Check aria-hidden className="h-4 w-4 shrink-0 text-success" />
