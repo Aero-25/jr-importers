@@ -46,6 +46,38 @@ export async function uploadProductImage(
 }
 
 /**
+ * Uploads a photograph attached to a damage report.
+ *
+ * Kept out of `products/` because this is evidence, not merchandising: it
+ * must survive the product being written off and deleted, and it should never
+ * be mistaken for a catalogue shot.
+ */
+export async function uploadDamagePhoto(file: File, reportRef: string): Promise<UploadResult> {
+  if (!ACCEPTED.includes(file.type)) {
+    throw new Error('Use a JPG, PNG, WebP or AVIF image.');
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw new Error(
+      `That photo is ${(file.size / 1024 / 1024).toFixed(1)}MB. Keep photos under 5MB — resize it first.`,
+    );
+  }
+
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const path = `damage/${slugify(reportRef) || 'report'}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}.${extension}`;
+
+  const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, {
+    cacheControl: '31536000',
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+
+  const { data } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+  return { url: data.publicUrl, path };
+}
+
+/**
  * Removes an uploaded image.
  *
  * Only touches files in our own bucket — a product whose image is an external

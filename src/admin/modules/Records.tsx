@@ -3,9 +3,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Trash2 } from 'lucide-react';
 import type { createResource } from '@/data/crud';
 import { supabase } from '@/lib/supabase';
+import { cn } from '@/lib/cn';
 import { keys } from '@/data/keys';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { customers, suppliers } from '@/data/resources';
+import { uploadDamagePhoto } from '@/data/storage';
 import { products } from '@/data/products';
 import type { LineItem } from '@/lib/database.types';
 import {
@@ -371,7 +373,10 @@ function RecordDialog({
                     void (async () => {
                       try {
                         const pdf = await import('@/lib/documentPdf');
-                        if (spec.pdf === 'quote') {
+                        if (spec.pdf === 'damage_report') {
+                          const dr = await import('@/lib/damageReportPdf');
+                          await dr.downloadDamageReportPdf(record as never);
+                        } else if (spec.pdf === 'quote') {
                           await pdf.downloadQuotePdf(record as never);
                         } else {
                           await pdf.downloadInvoiceRecordPdf(record as never);
@@ -531,6 +536,17 @@ function FieldControl({
 
     case 'payments':
       return <LaybyPayments laybyId={recordId ?? null} payments={value} disabled={disabled} />;
+
+    case 'photos':
+      return (
+        <PhotoField
+          field={field}
+          value={value}
+          disabled={disabled}
+          containerClassName={wide}
+          onChange={onChange}
+        />
+      );
 
     case 'customer':
       return (
@@ -959,6 +975,107 @@ function LineItemsEditor({
  * whichever of those the customer happens to quote. Writes the customer's id
  * alongside the name so the document can reach their address and account.
  */
+/**
+ * Evidence photographs for a claim.
+ *
+ * The value is a plain array of public URLs, which is what the column stores
+ * and what the PDF reads. Uploads happen immediately rather than on save: an
+ * assessor's photos are the part of a claim worth losing least, and a failed
+ * save should not take them with it.
+ */
+function PhotoField({
+  field,
+  value,
+  disabled,
+  containerClassName,
+  onChange,
+}: {
+  field: FieldSpec;
+  value: unknown;
+  disabled?: boolean;
+  containerClassName?: string;
+  onChange: (value: unknown) => void;
+}) {
+  const urls = Array.isArray(value) ? (value as string[]) : [];
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  async function add(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (files.length === 0) return;
+
+    setBusy(true);
+    const added: string[] = [];
+    for (const file of files) {
+      try {
+        const { url } = await uploadDamagePhoto(file, 'claim');
+        added.push(url);
+      } catch (error) {
+        toast.error(
+          `Could not upload ${file.name}`,
+          error instanceof Error ? error.message : undefined,
+        );
+      }
+    }
+    setBusy(false);
+    if (added.length > 0) onChange([...urls, ...added]);
+  }
+
+  return (
+    <div className={containerClassName}>
+      <p className="text-sm font-medium text-ink">{field.label}</p>
+      {field.hint && <p className="mt-0.5 text-xs text-ink-muted">{field.hint}</p>}
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        {urls.map((url) => (
+          <div
+            key={url}
+            className="relative h-24 w-24 overflow-hidden rounded-xl border border-hairline bg-raised"
+          >
+            <img src={url} alt="" className="h-full w-full object-cover" />
+            {!disabled && (
+              <button
+                type="button"
+                onClick={() => onChange(urls.filter((u) => u !== url))}
+                className="absolute right-1 top-1 rounded-full bg-ink/70 p-1 text-white transition-colors hover:bg-danger"
+                aria-label="Remove photograph"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        ))}
+
+        {!disabled && (
+          <label
+            className={cn(
+              'flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-hairline text-xs font-medium text-ink-muted transition-colors hover:border-brand-400 hover:text-ink',
+              busy && 'pointer-events-none opacity-60',
+            )}
+          >
+            <Plus className="h-4 w-4" />
+            {busy ? 'Uploading…' : 'Add photo'}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(event) => void add(event)}
+            />
+          </label>
+        )}
+      </div>
+
+      {urls.length === 0 && (
+        <p className="mt-2 text-xs text-ink-subtle">
+          No photographs yet. A claim without them is usually sent back.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CustomerPicker({
   field,
   value,

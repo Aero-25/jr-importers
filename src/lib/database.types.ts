@@ -710,6 +710,46 @@ export type StockTakeRow = {
   completed_at: string | null;
 }
 
+/** An insurance, warranty or supplier claim for damaged or failed stock. */
+export type DamageReportRow = {
+  id: number;
+  report_number: string;
+  claim_type: string;
+  status: string;
+  /** Null once the item itself has been written off and deleted. */
+  product_id: number | null;
+  product_name: string;
+  imei: string | null;
+  purchase_invoice: string | null;
+  customer_id: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  supplier_id: number | null;
+  supplier_name: string | null;
+  incident_date: string | null;
+  reported_date: string;
+  description: string;
+  cause: string | null;
+  claim_amount: number;
+  settled_amount: number | null;
+  /** Public URLs of the evidence photographs. */
+  photos: string[];
+  claim_reference: string | null;
+  notes: string | null;
+  /** Who the letter is addressed to, e.g. "Sanlam Insurance". */
+  insurer_name: string | null;
+  insurer_contact: string | null;
+  insurer_phone: string | null;
+  /** Who signs the letter — often the technician, not the person typing it. */
+  signed_by: string | null;
+  discontinued: boolean;
+  /** The assessment conclusion, e.g. "water damage". */
+  finding: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 /* ── Database ────────────────────────────────────────────────────────────── */
 
 export type Database = {
@@ -720,6 +760,7 @@ export type Database = {
       coupon_usage: Table<CouponUsageRow>;
       coupons: Table<CouponRow, 'code'>;
       customers: Table<CustomerRow>;
+      damage_reports: Table<DamageReportRow, 'product_name' | 'description'>;
       expenses: Table<ExpenseRow, 'description'>;
       grvs: Table<GrvRow>;
       hero_images: Table<HeroImageRow, 'image_url'>;

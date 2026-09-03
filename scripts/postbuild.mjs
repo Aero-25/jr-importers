@@ -68,6 +68,7 @@ async function run() {
     'favicon.ico',
     'logo.png',
     'logo-mark.png',
+    'letterhead.jpg',   // banner foot of the damage-report letter
     'icon-32.png',
     'icon-48.png',
     'icon-180.png',

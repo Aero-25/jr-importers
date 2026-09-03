@@ -118,6 +118,7 @@ export function AdminApp() {
           <Route path="/dispatch" element={<Dispatch />} />
           <Route path="/products" element={<Products />} />
           <Route path="/job-cards" element={<JobCards />} />
+          <Route path="/damage-reports" element={<Records resource="damage_reports" />} />
 
           {/* Schema-driven CRUD covers the modules with no bespoke domain rules. */}
           <Route path="/customers" element={<Records resource="customers" />} />

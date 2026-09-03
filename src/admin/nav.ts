@@ -15,6 +15,7 @@ import {
   RotateCcw,
   ScrollText,
   DatabaseZap,
+  ShieldAlert,
   ShieldCheck,
   Siren,
   PieChart,
@@ -67,7 +68,15 @@ export const NAV: NavSection[] = [
   {
     id: 'repairs',
     label: 'Repairs',
-    items: [{ id: 'job-cards', label: 'Job Cards', path: '/job-cards', icon: Wrench }],
+    items: [
+      { id: 'job-cards', label: 'Job Cards', path: '/job-cards', icon: Wrench },
+      {
+        id: 'damage-reports',
+        label: 'Damage reports',
+        path: '/damage-reports',
+        icon: ShieldAlert,
+      },
+    ],
   },
   {
     id: 'catalogue',

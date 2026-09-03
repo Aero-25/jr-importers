@@ -25,6 +25,10 @@ export const invoices = createResource('invoices', {
   orderBy: { column: 'created_at', ascending: false },
 });
 
+export const damageReports = createResource('damage_reports', {
+  orderBy: { column: 'created_at', ascending: false },
+});
+
 export const quotes = createResource('quotes', {
   orderBy: { column: 'created_at', ascending: false },
 });

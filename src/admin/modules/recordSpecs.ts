@@ -26,7 +26,9 @@ export type FieldType =
   /** Search-as-you-type customer picker. Fills name, email and customer_id. */
   | 'customer'
   /** Layby instalment history, with a control to take the next payment. */
-  | 'payments';
+  | 'payments'
+  /** Evidence photographs, uploaded to storage and kept as an array of URLs. */
+  | 'photos';
 
 export interface FieldSpec {
   key: string;
@@ -87,8 +89,20 @@ export interface RecordSpec {
    */
   lineItems?: boolean;
   /** The record prints as an A4 document of this kind. */
-  pdf?: 'quote' | 'invoice';
+  pdf?: 'quote' | 'invoice' | 'damage_report';
 }
+
+/** What a claim is against. Mirrors the check constraint on the table. */
+export const DAMAGE_CLAIM_TYPES = ['warranty', 'insurance', 'supplier'] as const;
+
+/** Where a claim has got to. Mirrors the check constraint on the table. */
+export const DAMAGE_CLAIM_STATUSES = [
+  'draft',
+  'submitted',
+  'approved',
+  'rejected',
+  'settled',
+] as const;
 
 const money = (key: string, label: string, extra: Partial<FieldSpec> = {}): FieldSpec => ({
   key,
@@ -107,6 +121,91 @@ const money = (key: string, label: string, extra: Partial<FieldSpec> = {}): Fiel
  * "reconciling a till".
  */
 export const RECORD_SPECS: Record<string, RecordSpec> = {
+  damage_reports: {
+    title: 'Damage reports',
+    description:
+      'Insurance, warranty and supplier claims for damaged or failed stock — with the evidence attached.',
+    table: 'damage_reports',
+    resource: resources.damageReports,
+    searchColumns: ['report_number', 'product_name', 'imei', 'claim_reference', 'customer_name'],
+    createLabel: 'New damage report',
+    pdf: 'damage_report',
+    fields: [
+      { key: 'report_number', label: 'Report no.', type: 'readonly', inList: true },
+      {
+        key: 'claim_type',
+        label: 'Claim type',
+        type: 'select',
+        options: DAMAGE_CLAIM_TYPES,
+        required: true,
+        inList: true,
+        hint: 'warranty — the maker should cover it. insurance — an incident on your policy. supplier — arrived damaged or dead.',
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: DAMAGE_CLAIM_STATUSES,
+        inList: true,
+      },
+      {
+        key: 'insurer_name',
+        label: 'Insurance company',
+        type: 'text',
+        inList: true,
+        hint: 'Who the letter is addressed to, e.g. Sanlam Insurance.',
+      },
+      { key: 'insurer_contact', label: 'Their contact person', type: 'text' },
+      { key: 'insurer_phone', label: 'Their phone', type: 'tel' },
+      { key: 'product_name', label: 'Item', type: 'text', required: true, inList: true },
+      { key: 'imei', label: 'IMEI / serial', type: 'text', inList: true, secondary: true },
+      {
+        key: 'purchase_invoice',
+        label: 'Purchase invoice',
+        type: 'text',
+        hint: 'The invoice this item was bought or sold on. An assessor will ask for it.',
+      },
+      { key: 'incident_date', label: 'Date of incident', type: 'date', inList: true },
+      { key: 'reported_date', label: 'Date reported', type: 'date' },
+      {
+        key: 'customer_name',
+        label: 'Customer',
+        type: 'customer',
+        extraKeys: ['customer_id', 'customer_phone'],
+        hint: 'Only if the claim concerns a customer’s handset.',
+      },
+      { key: 'supplier_name', label: 'Supplier', type: 'lookup', lookup: 'suppliers' },
+      {
+        key: 'finding',
+        label: 'Not repairable due to',
+        type: 'text',
+        inList: true,
+        hint: 'The assessment conclusion, e.g. “water damage”. Reads as “…not repairable due to water damage.”',
+      },
+      {
+        key: 'description',
+        label: 'Damage found',
+        type: 'textarea',
+        required: true,
+        wide: true,
+        hint: 'The components found damaged. Reads as “It has also been assessed that <this>.”',
+      },
+      { key: 'cause', label: 'Cause of damage', type: 'textarea', wide: true },
+      {
+        key: 'discontinued',
+        label: 'Model discontinued',
+        type: 'checkbox',
+        hint: 'Adds the line an assessor looks for when a like-for-like replacement is not possible.',
+      },
+      { key: 'signed_by', label: 'Signed by', type: 'text', hint: 'Whoever signs the letter.' },
+      money('claim_amount', 'Amount claimed', { inList: true }),
+      money('settled_amount', 'Amount settled', { secondary: true }),
+      { key: 'claim_reference', label: 'Insurer / supplier reference', type: 'text' },
+      { key: 'photos', label: 'Photographs', type: 'photos', wide: true },
+      { key: 'notes', label: 'Notes', type: 'textarea', wide: true },
+    ],
+  },
+
   customers: {
     title: 'Customers',
     description: 'Everyone who has bought from you or holds an account.',
