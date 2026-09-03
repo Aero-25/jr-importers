@@ -68,7 +68,15 @@ export default function Checkout() {
     if (!code) return;
 
     try {
-      const result = await validateCoupon.mutateAsync({ code, cartTotal: totals.subtotal });
+      const result = await validateCoupon.mutateAsync({
+        code,
+        cartTotal: totals.subtotal,
+        items: lines.map((line) => ({
+          product_id: line.product_id,
+          price: line.price,
+          quantity: line.quantity,
+        })),
+      });
       if (!result.valid) {
         toast.warn('Coupon not applied', result.message ?? 'That code is not valid.');
         setDiscount(0);

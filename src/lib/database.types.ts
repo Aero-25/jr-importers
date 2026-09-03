@@ -525,6 +525,8 @@ export type GrvRow = {
 }
 
 export type CouponRow = {
+  /** Products this coupon applies to. Null or empty means the whole catalogue. */
+  product_ids: number[] | null;
   id: number;
   code: string;
   discount_type: string;

@@ -218,11 +218,19 @@ export interface CouponResult {
  * by whoever is holding the page.
  */
 export function useValidateCoupon() {
-  return useMutation<CouponResult, Error, { code: string; cartTotal: number }>({
-    mutationFn: async ({ code, cartTotal }) => {
+  return useMutation<
+    CouponResult,
+    Error,
+    { code: string; cartTotal: number; items?: Array<Record<string, unknown>> }
+  >({
+    mutationFn: async ({ code, cartTotal, items }) => {
+      // The basket goes with the code: a coupon scoped to named products can
+      // only be judged against what is actually being bought, and that
+      // decision has to stay on the server.
       const { data, error } = await supabase.rpc('validate_coupon', {
         p_code: code,
         p_cart_total: cartTotal,
+        p_items: (items ?? null) as never,
       });
       if (error) throw new Error(error.message);
       return (data ?? { valid: false, message: 'Coupon could not be checked.' }) as unknown as CouponResult;

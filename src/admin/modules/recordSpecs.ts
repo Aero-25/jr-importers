@@ -28,7 +28,9 @@ export type FieldType =
   /** Layby instalment history, with a control to take the next payment. */
   | 'payments'
   /** Evidence photographs, uploaded to storage and kept as an array of URLs. */
-  | 'photos';
+  | 'photos'
+  /** Products a coupon is limited to. Empty means the whole catalogue. */
+  | 'productScope';
 
 export interface FieldSpec {
   key: string;
@@ -586,6 +588,12 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
       { key: 'times_used', label: 'Used', type: 'readonly', align: 'right', inList: true },
       { key: 'valid_until', label: 'Expires', type: 'date', inList: true },
       { key: 'active', label: 'Active', type: 'checkbox', defaultChecked: true, inList: true },
+      {
+        key: 'product_ids',
+        label: 'Applies to',
+        type: 'productScope',
+        wide: true,
+      },
       { key: 'notes', label: 'Notes', type: 'textarea', wide: true },
     ],
   },

@@ -537,6 +537,17 @@ function FieldControl({
     case 'payments':
       return <LaybyPayments laybyId={recordId ?? null} payments={value} disabled={disabled} />;
 
+    case 'productScope':
+      return (
+        <ProductScopeField
+          field={field}
+          value={value}
+          disabled={disabled}
+          containerClassName={wide}
+          onChange={onChange}
+        />
+      );
+
     case 'photos':
       return (
         <PhotoField
@@ -975,6 +986,155 @@ function LineItemsEditor({
  * whichever of those the customer happens to quote. Writes the customer's id
  * alongside the name so the document can reach their address and account.
  */
+/**
+ * Which products a coupon applies to.
+ *
+ * Empty means the whole catalogue, which is what every coupon issued before
+ * this existed does — so the default has to stay "everything" rather than
+ * "nothing", or an old code would suddenly discount no lines at all.
+ */
+function ProductScopeField({
+  field,
+  value,
+  disabled,
+  containerClassName,
+  onChange,
+}: {
+  field: FieldSpec;
+  value: unknown;
+  disabled?: boolean;
+  containerClassName?: string;
+  onChange: (value: unknown) => void;
+}) {
+  const ids = Array.isArray(value) ? (value as number[]).filter((n) => Number.isFinite(n)) : [];
+  const scoped = ids.length > 0;
+  const [term, setTerm] = useState('');
+  const [results, setResults] = useState<Array<{ id: number; name: string; sku: string | null }>>([]);
+  const [chosen, setChosen] = useState<Array<{ id: number; name: string }>>([]);
+
+  // Names for ids already saved, so an existing coupon does not open showing
+  // bare numbers.
+  useEffect(() => {
+    if (ids.length === 0) { setChosen([]); return; }
+    let live = true;
+    void supabase
+      .from('products')
+      .select('id, name')
+      .in('id', ids)
+      .then(({ data }) => {
+        if (live) setChosen((data ?? []) as Array<{ id: number; name: string }>);
+      });
+    return () => { live = false; };
+  }, [JSON.stringify(ids)]);
+
+  useEffect(() => {
+    const q = term.trim();
+    if (q.length < 2) { setResults([]); return; }
+    let live = true;
+    const timer = setTimeout(() => {
+      void supabase
+        .from('products')
+        .select('id, name, sku')
+        .or(`name.ilike.%${q}%,sku.ilike.%${q}%`)
+        .eq('active', true)
+        .limit(8)
+        .then(({ data }) => {
+          if (live) setResults((data ?? []) as Array<{ id: number; name: string; sku: string | null }>);
+        });
+    }, 200);
+    return () => { live = false; clearTimeout(timer); };
+  }, [term]);
+
+  return (
+    <div className={containerClassName}>
+      <p className="text-sm font-medium text-ink">{field.label}</p>
+
+      <div className="mt-2 flex gap-1 rounded-xl border border-hairline p-1">
+        {([[false, 'All products'], [true, 'Only selected products']] as const).map(([on, text]) => (
+          <button
+            key={String(on)}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(on ? ids : [])}
+            className={cn(
+              'flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+              scoped === on ? 'bg-brand-600 text-white' : 'text-ink-muted hover:bg-raised',
+            )}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+
+      {!scoped ? (
+        <p className="mt-2 text-xs text-ink-muted">
+          The code works on anything in the basket.
+        </p>
+      ) : (
+        <>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {chosen.map((p) => (
+              <span
+                key={p.id}
+                className="inline-flex items-center gap-1.5 rounded-full bg-raised px-2.5 py-1 text-xs font-medium text-ink"
+              >
+                {p.name}
+                {!disabled && (
+                  <button
+                    type="button"
+                    onClick={() => onChange(ids.filter((n) => n !== p.id))}
+                    aria-label={`Remove ${p.name}`}
+                    className="text-ink-subtle transition-colors hover:text-danger"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+
+          {!disabled && (
+            <div className="relative mt-2">
+              <Input
+                label=""
+                placeholder="Search a product by name or SKU"
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
+              />
+              {results.length > 0 && (
+                <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-hairline bg-surface shadow-lg">
+                  {results.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-raised"
+                        onClick={() => {
+                          if (!ids.includes(p.id)) onChange([...ids, p.id]);
+                          setTerm('');
+                          setResults([]);
+                        }}
+                      >
+                        <span className="text-ink">{p.name}</span>
+                        <span className="text-2xs text-ink-subtle">{p.sku}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {ids.length === 0 && (
+            <p className="mt-1.5 text-xs text-danger">
+              Pick at least one product, or switch back to all products.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 /**
  * Evidence photographs for a claim.
  *
