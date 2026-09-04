@@ -338,7 +338,7 @@ export default function Pos() {
                       key={product.id}
                       type="button"
                       onClick={() => addProduct(product)}
-                      disabled={product.stock <= 0}
+                      disabled={!isServiceCategory(product.category) && product.stock <= 0}
                       className={cn(
                         'glass flex flex-col rounded-2xl p-3 text-left transition-all',
                         'hover:-translate-y-0.5 hover:brightness-[1.03] disabled:opacity-50',
@@ -351,11 +351,19 @@ export default function Pos() {
                         {money(product.price)}
                       </span>
                       <span className="mt-1.5">
-                        <StockBadge
-                          stock={product.stock}
-                          reorderLevel={product.reorder_level}
-                          size="sm"
-                        />
+                        {isServiceCategory(product.category) ? (
+                          // A service has no stock, so a stock badge on it is
+                          // noise at best and "Out of stock" at worst.
+                          <Badge tone="info" size="sm">
+                            Priced per job
+                          </Badge>
+                        ) : (
+                          <StockBadge
+                            stock={product.stock}
+                            reorderLevel={product.reorder_level}
+                            size="sm"
+                          />
+                        )}
                       </span>
                     </button>
                   ))}
