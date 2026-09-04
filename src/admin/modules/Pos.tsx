@@ -37,7 +37,7 @@ import {
   useAvailableUnits,
 } from '../components/ImeiChooser';
 import { useAuth } from '@/auth/AuthProvider';
-import { PAYMENT_METHODS } from '@/lib/constants';
+import { PAYMENT_METHODS, isServiceCategory } from '@/lib/constants';
 import { formatTime, money, round2, toNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import {
@@ -117,15 +117,19 @@ export default function Pos() {
   }, [search.data]);
 
   function addProduct(product: ProductRow) {
-    if (product.stock <= 0) {
+    // A repair charge, a parts line or commission is billed, not stocked, so
+    // it has no stock to be out of and no cap to run into.
+    const service = isServiceCategory(product.category);
+
+    if (!service && product.stock <= 0) {
       toast.warn('Out of stock', product.name);
       return;
     }
-    if (product.id != null) stockCaps.current[product.id] = product.stock;
+    if (!service && product.id != null) stockCaps.current[product.id] = product.stock;
     setLines((current) => {
       const existing = current.find((l) => l.product_id === product.id);
       if (existing) {
-        if (existing.quantity >= product.stock) {
+        if (!service && existing.quantity >= product.stock) {
           toast.warn('No more stock', `Only ${product.stock} of ${product.name} on hand.`);
           return current;
         }
@@ -145,6 +149,8 @@ export default function Pos() {
           cost_price: Number(product.cost_price) || 0,
           quantity: 1,
           color: product.color,
+          // Priced per job, so the till has to let the cashier type it.
+          editable_price: service,
         },
       ];
     });
@@ -155,6 +161,13 @@ export default function Pos() {
       quantity <= 0
         ? current.filter((l) => l.product_id !== productId)
         : current.map((l) => (l.product_id === productId ? { ...l, quantity } : l)),
+    );
+  }
+
+  /** Only for service lines: their price is the job, not a shelf price. */
+  function setPrice(productId: number | null | undefined, price: number) {
+    setLines((current) =>
+      current.map((l) => (l.product_id === productId ? { ...l, price } : l)),
     );
   }
 
@@ -376,9 +389,28 @@ export default function Pos() {
                       <li key={line.product_id} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm text-ink">{line.name}</p>
-                          <p className="tabular text-xs text-ink-subtle">
-                            {money(line.price)} each
-                          </p>
+                          {(line as { editable_price?: boolean }).editable_price ? (
+                            <div className="mt-1 flex items-center gap-1.5">
+                              <span className="text-xs text-ink-subtle">N$</span>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                inputMode="decimal"
+                                value={line.price || ''}
+                                placeholder="0.00"
+                                onChange={(e) =>
+                                  setPrice(line.product_id, Math.max(0, Number(e.target.value) || 0))
+                                }
+                                className="tabular w-24 rounded-lg border border-hairline bg-surface px-2 py-1 text-sm text-ink focus:border-brand-400 focus:outline-none"
+                                aria-label={`Price for ${line.name}`}
+                              />
+                            </div>
+                          ) : (
+                            <p className="tabular text-xs text-ink-subtle">
+                              {money(line.price)} each
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-0.5">
                           <IconButton
