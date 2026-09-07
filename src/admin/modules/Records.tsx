@@ -9,7 +9,7 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import { customers, suppliers } from '@/data/resources';
 import { uploadDamagePhoto } from '@/data/storage';
 import { products } from '@/data/products';
-import type { LineItem } from '@/lib/database.types';
+import type { InvoiceRow, LineItem, QuoteRow } from '@/lib/database.types';
 import {
   DEFAULT_VAT_RATE,
   formatDate,
@@ -38,6 +38,7 @@ import {
 import { ImeiChooser, useAvailableUnits } from '../components/ImeiChooser';
 import { ModuleHeader } from '../components/AdminShell';
 import { StaffLogin } from '../components/StaffLogin';
+import { PdfActions } from '../components/PdfActions';
 import { RECORD_SPECS, type FieldSpec, type RecordSpec } from './recordSpecs';
 
 type AnyRow = Record<string, unknown>;
@@ -344,6 +345,21 @@ function RecordDialog({
     (field) =>
       (!spec.readOnly || field.type === 'readonly' || field.type === 'record') && !field.computed,
   );
+  const pdfRecord = isNew ? null : {
+    ...record,
+    ...Object.fromEntries(Object.entries(form).filter(([key]) => {
+      const field = spec.fields.find((candidate) => candidate.key === key);
+      return !field || (field.type !== 'readonly' && !field.computed);
+    })),
+    items,
+    // Imported invoices can have header totals without itemised lines.
+    // Preserve those totals until the user actually changes the lines.
+    ...(items !== record.items && (Array.isArray(record.items) || items.length > 0) ? {
+      total_amount: itemTotals.total,
+      vat_amount: itemTotals.vat,
+      subtotal_amount: itemTotals.subtotal,
+    } : {}),
+  };
 
   return (
     <>
@@ -366,21 +382,14 @@ function RecordDialog({
                   Delete
                 </Button>
               )}
-              {!isNew && spec.pdf && (
+              {!isNew && spec.pdf === 'damage_report' && (
                 <Button
                   variant="secondary"
                   onClick={() => {
                     void (async () => {
                       try {
-                        const pdf = await import('@/lib/documentPdf');
-                        if (spec.pdf === 'damage_report') {
-                          const dr = await import('@/lib/damageReportPdf');
-                          await dr.downloadDamageReportPdf(record as never);
-                        } else if (spec.pdf === 'quote') {
-                          await pdf.downloadQuotePdf(record as never);
-                        } else {
-                          await pdf.downloadInvoiceRecordPdf(record as never);
-                        }
+                        const dr = await import('@/lib/damageReportPdf');
+                        await dr.downloadDamageReportPdf(record as never);
                       } catch (error) {
                         toast.error(
                           'Could not build the PDF',
@@ -403,6 +412,17 @@ function RecordDialog({
           )
         }
       >
+        {!isNew && (spec.pdf === 'invoice' || spec.pdf === 'quote') && (
+          <>
+            <PdfActions
+              disabled={update.isPending || remove.isPending}
+              document={spec.pdf === 'quote'
+                ? { kind: 'quote', record: pdfRecord as QuoteRow }
+                : { kind: 'invoice', record: pdfRecord as InvoiceRow }}
+            />
+            <p className="mb-4 text-xs text-ink-muted">The PDF uses the details below. Save changes to keep any edits in the register.</p>
+          </>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           {editable.map((field, index) => (
             <FieldControl

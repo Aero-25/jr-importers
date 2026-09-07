@@ -26,6 +26,7 @@ import {
   JOB_CARD_STATUS_TONE,
 } from '@/lib/constants';
 import { downloadJobCardPdf } from '@/lib/jobCardPdf';
+import { PdfActions } from '../components/PdfActions';
 import { isSendableNumber } from '@/lib/phone';
 import { formatDate, formatDateTime, money, relativeTime, toNumber } from '@/lib/format';
 import {
@@ -382,6 +383,15 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
       >
         <div className="space-y-5">
           {saved && (
+            <>
+              <PdfActions
+                disabled={create.isPending || update.isPending}
+                document={{ kind: 'jobcard', record: { ...saved, ...form, checks, deposit: toNumber(form.deposit), cost: toNumber(form.cost) } }}
+              />
+              <p className="text-xs text-ink-muted">The customer PDF uses the details below. Save changes to keep any edits.</p>
+            </>
+          )}
+          {saved && (
             <div className="rounded-lg border border-hairline bg-raised p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
@@ -391,7 +401,7 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
                   onClick={sendWhatsApp}
                   loading={sending}
                 >
-                  Send via WhatsApp
+                  WhatsApp approval link
                 </Button>
                 <Button
                   size="sm"
@@ -407,7 +417,7 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
                   icon={<Download className="h-4 w-4" />}
                   onClick={downloadPdf}
                 >
-                  Download PDF
+                  Workshop PDF
                 </Button>
                 {needsQuoteApproval && (
                   <Button

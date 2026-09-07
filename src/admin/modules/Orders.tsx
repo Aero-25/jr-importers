@@ -16,6 +16,7 @@ import {
   useToast,
 } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
+import { PdfActions } from '../components/PdfActions';
 
 export default function Orders() {
   const [search, setSearch] = useState('');
@@ -173,6 +174,7 @@ function OrderDialog({ order, onClose }: { order: OrderRow | null; onClose: () =
         }
       >
         <div className="space-y-5">
+          <PdfActions key={order.id} document={{ kind: 'order', record: order }} />
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <Detail label="Customer" value={order.customer_name} />
             <Detail label="Email" value={order.customer_email} />

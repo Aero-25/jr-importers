@@ -1,4 +1,4 @@
-import type { InvoiceRow, LineItem, QuoteRow } from './database.types';
+import type { InvoiceRow, LineItem, OrderRow, QuoteRow } from './database.types';
 import { supabase } from './supabase';
 import {
   BRAND_GREEN,
@@ -21,7 +21,7 @@ const GREY: [number, number, number] = [110, 122, 143];
 const LINE: [number, number, number] = [196, 205, 218];
 
 interface DocumentSpec {
-  title: 'QUOTATION' | 'TAX INVOICE';
+  title: 'QUOTATION' | 'TAX INVOICE' | 'ORDER';
   number: string;
   date: string | null;
   customerName: string;
@@ -70,7 +70,7 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
 
   /* From / To */
   box(left, 24, mid - left - 3, 36, 'From');
-  box(mid, 24, right - mid, 36, spec.title === 'QUOTATION' ? 'Quotation To' : 'Invoice To');
+  box(mid, 24, right - mid, 36, spec.title === 'QUOTATION' ? 'Quotation To' : spec.title === 'ORDER' ? 'Order To' : 'Invoice To');
 
   if (logo) {
     try {
@@ -106,7 +106,7 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
   let y = 67;
   doc.setFontSize(7.6);
   const cols: Array<[string, string]> = [
-    [spec.title === 'QUOTATION' ? 'Quote Number' : 'Invoice Number', spec.number],
+    [spec.title === 'QUOTATION' ? 'Quote Number' : spec.title === 'ORDER' ? 'Order Number' : 'Invoice Number', spec.number],
     ['Date', spec.date ? formatDate(spec.date) : '—'],
     ...(spec.validityLine
       ? ([[spec.validityLine.split(' ')[0]!, spec.validityLine.split(' ').slice(1).join(' ')]] as Array<[string, string]>)
@@ -272,7 +272,7 @@ function download(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-export async function downloadQuotePdf(quote: QuoteRow): Promise<void> {
+export async function buildQuotePdf(quote: QuoteRow): Promise<Blob> {
   const company = await loadInvoiceCompany();
   const blob = await buildDocumentPdf(
     {
@@ -290,10 +290,10 @@ export async function downloadQuotePdf(quote: QuoteRow): Promise<void> {
     },
     company,
   );
-  download(blob, `${quote.quote_number ?? `Q-${quote.id}`}.pdf`);
+  return blob;
 }
 
-export async function downloadInvoiceRecordPdf(invoice: InvoiceRow): Promise<void> {
+export async function buildInvoiceRecordPdf(invoice: InvoiceRow): Promise<Blob> {
   const company = await loadInvoiceCompany();
 
   // The invoice stores the customer's name and email, but a proper tax invoice
@@ -344,5 +344,34 @@ export async function downloadInvoiceRecordPdf(invoice: InvoiceRow): Promise<voi
     },
     company,
   );
-  download(blob, `${invoice.invoice_number ?? `INV-${invoice.id}`}.pdf`);
+  return blob;
+}
+
+export async function downloadQuotePdf(quote: QuoteRow): Promise<void> {
+  download(await buildQuotePdf(quote), `${quote.quote_number ?? `Q-${quote.id}`}.pdf`);
+}
+
+export async function downloadInvoiceRecordPdf(invoice: InvoiceRow): Promise<void> {
+  download(await buildInvoiceRecordPdf(invoice), `${invoice.invoice_number ?? `INV-${invoice.id}`}.pdf`);
+}
+
+export async function buildOrderPdf(order: OrderRow): Promise<Blob> {
+  return buildDocumentPdf({
+    title: 'ORDER',
+    number: order.id.slice(0, 8).toUpperCase(),
+    date: order.created_at,
+    customerName: order.customer_name ?? 'Walk-in',
+    customerContact: [order.customer_phone ?? '', order.customer_email ?? '', order.delivery_address ?? ''],
+    items: (order.items ?? []).map((item) => ({ ...item, line_total: item.quantity * item.price })),
+    subtotal: Number(order.subtotal_amount ?? Number(order.total_amount) - Number(order.vat_amount)),
+    vat: Number(order.vat_amount ?? 0),
+    total: Number(order.total_amount ?? 0),
+    notes: [
+      `Status: ${order.status}`,
+      order.payment_method ? `Payment: ${order.payment_method}` : '',
+      order.delivery_method ? `Delivery: ${order.delivery_method}` : '',
+      Number(order.coupon_discount) > 0 ? `Discount: ${money(order.coupon_discount)}` : '',
+      order.delivery_notes,
+    ].filter(Boolean).join('\n'),
+  }, await loadInvoiceCompany());
 }
