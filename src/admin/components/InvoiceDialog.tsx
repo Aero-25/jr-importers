@@ -3,11 +3,11 @@ import { Download, Mail, MessageCircle, Receipt } from 'lucide-react';
 import type { OrderRow } from '@/lib/database.types';
 import {
   downloadInvoicePdf,
-  invoiceMailtoLink,
   invoiceNumber,
   invoiceWhatsAppLink,
   resolveInvoiceNumber,
 } from '@/lib/invoicePdf';
+import { emailSharedPdf } from '@/lib/pdfSharing';
 import { isSendableNumber } from '@/lib/phone';
 import { money } from '@/lib/format';
 import { Button, Modal, Notice, useToast } from '@/ui';
@@ -48,8 +48,16 @@ export function InvoiceDialog({ order, onClose }: { order: OrderRow; onClose: ()
     try {
       if (kind === 'pdf') {
         await downloadInvoicePdf(order);
+      } else if (kind === 'mail') {
+        // Sent from the shop, with the PDF attached, rather than handing the
+        // cashier a mailto: that would go out from their personal address.
+        tab?.close();
+        await emailSharedPdf({ kind: 'order', record: order }, order.customer_email ?? '');
+        toast.success('Invoice emailed', `Sent to ${order.customer_email} from info@jrimporters.com.`);
       } else {
-        const href = kind === 'wa' ? await invoiceWhatsAppLink(order) : await invoiceMailtoLink(order);
+        // WhatsApp only. Email no longer opens a client — it sends from the
+        // shop, so `invoiceMailtoLink` is deliberately gone from this path.
+        const href = await invoiceWhatsAppLink(order);
         if (tab) tab.location.href = href;
         else window.location.href = href;
       }

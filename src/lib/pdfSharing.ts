@@ -81,6 +81,60 @@ export function pdfMessageLink(document: PdfDocument, channel: PdfChannel, recip
     : `mailto:${encodeURIComponent(recipient.trim())}?subject=${encodeURIComponent(`${STORE.name} - ${reference}`)}&body=${encodeURIComponent(body)}`;
 }
 
+/**
+ * Emails the document from the shop's own address, with the PDF attached.
+ *
+ * A `mailto:` link opens whatever mail client the cashier is signed into and
+ * sends from their personal address — the customer gets an invoice from a
+ * Gmail account, and the shop has no record it went. This goes out through
+ * Resend as info@jrimporters.com, and the PDF travels with it rather than as
+ * a link the customer has to click.
+ *
+ * The Resend key lives in the edge function, never in this bundle: the anon
+ * key ships inside the site's own config.js, so nothing secret can live here.
+ */
+export async function emailSharedPdf(document: PdfDocument, recipient: string): Promise<void> {
+  if (!validPdfRecipient('email', recipient)) throw new Error('Enter a valid email address.');
+
+  const blob = await buildSharedPdf(document);
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+    reader.onerror = () => reject(new Error('Could not read the PDF.'));
+    reader.readAsDataURL(blob);
+  });
+
+  const reference = documentReference(document);
+  const greeting = document.record.customer_name ? ` ${document.record.customer_name}` : '';
+  const html = [
+    `<p>Good day${greeting},</p>`,
+    `<p>Please find your ${reference.toLowerCase()} attached.</p>`,
+    '<p>Thank you for your business.</p>',
+    `<p>${STORE.name}<br>${STORE.address}<br>${STORE.phone}</p>`,
+  ].join('');
+  const text = [
+    `Good day${greeting},`, '',
+    `Please find your ${reference.toLowerCase()} attached.`, '',
+    'Thank you for your business.', '',
+    STORE.name, STORE.address, STORE.phone,
+  ].join('\n');
+
+  const { data, error } = await supabase.functions.invoke('send-document', {
+    body: {
+      to: recipient.trim(),
+      subject: `${STORE.name} - ${reference}`,
+      html,
+      text,
+      attachment: base64,
+      filename: `${reference.replace(/[^a-z0-9_-]/gi, '-')}.pdf`,
+    },
+  });
+
+  if (error) throw new Error(error.message || 'The email could not be sent.');
+  const result = data as { ok?: boolean; message?: string } | null;
+  if (!result?.ok) throw new Error(result?.message ?? 'The email could not be sent.');
+}
+
 export async function downloadSharedPdf(document: PdfDocument): Promise<void> {
   const url = URL.createObjectURL(await buildSharedPdf(document));
   const link = window.document.createElement('a');

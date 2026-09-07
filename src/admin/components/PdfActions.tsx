@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { Download, Mail, MessageCircle } from 'lucide-react';
 import { Button, Input, useToast } from '@/ui';
 import {
-  downloadSharedPdf, pdfMessageLink, pdfRecipient, publishSharedPdf, validPdfRecipient,
+  documentReference, downloadSharedPdf, emailSharedPdf, pdfMessageLink, pdfRecipient,
+  publishSharedPdf, validPdfRecipient,
   type PdfChannel, type PdfDocument,
 } from '@/lib/pdfSharing';
 
@@ -35,11 +36,16 @@ export function PdfActions({ document, disabled = false }: { document: PdfDocume
     lock.current = true;
     setBusy(true);
     // Reserve the browsing context in the click, before rendering/uploading.
-    const tab = download ? null : window.open('about:blank', '_blank');
+    const opensWindow = !download && channel === 'whatsapp';
+    const tab = opensWindow ? window.open('about:blank', '_blank') : null;
     if (tab) tab.opener = null;
     try {
       if (download) {
         await downloadSharedPdf(document);
+      } else if (channel === 'email') {
+        await emailSharedPdf(document, recipient);
+        toast.success('Email sent', `${documentReference(document)} sent to ${recipient.trim()}.`);
+        setChannel(null);
       } else if (channel) {
         const url = await publishSharedPdf(document);
         const href = pdfMessageLink(document, channel, recipient, url);
@@ -48,7 +54,10 @@ export function PdfActions({ document, disabled = false }: { document: PdfDocume
       }
     } catch (error) {
       tab?.close();
-      toast.error('Could not prepare the PDF', error instanceof Error ? error.message : undefined);
+      toast.error(
+        channel === 'email' ? 'Could not send the email' : 'Could not prepare the PDF',
+        error instanceof Error ? error.message : undefined,
+      );
     } finally {
       lock.current = false;
       setBusy(false);
@@ -65,9 +74,13 @@ export function PdfActions({ document, disabled = false }: { document: PdfDocume
       {channel && (
         <div className="mt-3 space-y-2 border-t border-hairline pt-3">
           <Input label={channel === 'whatsapp' ? 'WhatsApp number' : 'Email address'} type={channel === 'whatsapp' ? 'tel' : 'email'} value={recipient} disabled={busy || disabled} onChange={(event) => setRecipient(event.target.value)} placeholder={channel === 'whatsapp' ? '081 234 5678' : 'customer@example.com'} />
-          <p className="text-xs text-ink-muted">Opens a message with a downloadable PDF link. Review and send it in {channel === 'whatsapp' ? 'WhatsApp' : 'your email app'}.</p>
+          <p className="text-xs text-ink-muted">
+            {channel === 'whatsapp'
+              ? 'Opens WhatsApp with a link to the PDF. Review and send it there.'
+              : 'Sends the PDF straight from info@jrimporters.com. Nothing else to do.'}
+          </p>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" loading={busy} disabled={disabled || !validPdfRecipient(channel, recipient)} onClick={() => void run()}>{channel === 'whatsapp' ? 'Open WhatsApp' : 'Open email'}</Button>
+            <Button size="sm" loading={busy} disabled={disabled || !validPdfRecipient(channel, recipient)} onClick={() => void run()}>{channel === 'whatsapp' ? 'Open WhatsApp' : 'Send email'}</Button>
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => setChannel(null)}>Cancel sharing</Button>
           </div>
         </div>
