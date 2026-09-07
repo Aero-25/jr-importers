@@ -1269,14 +1269,14 @@ function CustomerPicker({
   containerClassName?: string;
   onPick: (patch: Record<string, unknown>) => void;
 }) {
-  const [term, setTerm] = useState('');
+  const [term, setTerm] = useState(value);
   const [results, setResults] = useState<Array<Record<string, unknown>>>([]);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const q = term.trim();
-    if (q.length < 2) { setResults([]); return; }
+    if (!open || q.length < 2) { setResults([]); setBusy(false); return; }
     let cancelled = false;
     // Debounced: a search per keystroke against 2,492 rows is wasted work and
     // the results only matter once the typing pauses.
@@ -1298,7 +1298,7 @@ function CustomerPicker({
         });
     }, 250);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [term]);
+  }, [term, open]);
 
   return (
     <div className={containerClassName}>
@@ -1307,7 +1307,7 @@ function CustomerPicker({
         hint={field.hint}
         required={field.required}
         disabled={disabled}
-        value={term || value}
+        value={term}
         placeholder="Search name, account, phone or email"
         onChange={(e: ChangeEvent<HTMLInputElement>) => {
           setTerm(e.target.value);
@@ -1332,6 +1332,7 @@ function CustomerPicker({
                       customer_id: c.id,
                       customer_name: c.name ?? '',
                       customer_email: c.email ?? '',
+                      ...(field.extraKeys?.includes('customer_phone') ? { customer_phone: c.phone ?? '' } : {}),
                     });
                     setTerm(String(c.name ?? ''));
                     setOpen(false);
