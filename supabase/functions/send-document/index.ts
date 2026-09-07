@@ -94,6 +94,11 @@ Deno.serve(async (req: Request) => {
 
   const from = Deno.env.get('EMAIL_FROM') ?? 'JR Importers <info@jrimporters.com>';
 
+  // The shop keeps a copy of everything it sends. Nothing else records
+  // outgoing mail, so without this there is no way to prove an invoice went
+  // out, or to find what a customer was actually sent.
+  const copyTo = Deno.env.get('EMAIL_BCC') ?? 'info@jrimporters.com';
+
   const body: Record<string, unknown> = {
     from,
     to: [to],
@@ -101,6 +106,9 @@ Deno.serve(async (req: Request) => {
     html: payload.html,
     reply_to: payload.replyTo ?? 'info@jrimporters.com',
   };
+  // Skipped when the shop is the recipient, so it does not receive the same
+  // message twice.
+  if (copyTo && copyTo.toLowerCase() !== to.toLowerCase()) body.cc = [copyTo];
   if (payload.text?.trim()) body.text = payload.text;
   if (payload.attachment && payload.filename) {
     body.attachments = [{ filename: payload.filename, content: payload.attachment }];

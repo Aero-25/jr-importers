@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock, Download, Image as ImageIcon, Smartphone, Store } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { keys } from '@/data/keys';
 import { heroImages } from '@/data/resources';
 import { ADMIN_APK_URL } from '@/lib/constants';
+import { BUILD_TIME, buildLabel, checkForUpdate, isInstalledApp } from '@/lib/buildInfo';
 import { DEFAULT_VAT_RATE, percent } from '@/lib/format';
 import { Button, Card, Input, Notice, Panel, useToast } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
@@ -35,10 +36,15 @@ function MobileApp() {
     >
       <div className="space-y-3">
         <p className="text-sm text-ink-muted">
-          Installs on a phone or tablet and opens straight to the live console — useful for POS on
-          a handheld or checking stock on the floor. Rebuilt automatically from the latest admin
-          build, so reinstalling picks up whatever has shipped since.
+          Installs on a phone or tablet — useful for POS on a handheld or checking stock on the
+          floor. It carries its own copy of the console, so it keeps working with no signal.
         </p>
+        <p className="text-sm text-ink-muted">
+          That copy is fixed at the moment the app was built: it does not update itself.
+          Reinstalling is what picks up anything that has shipped since.
+        </p>
+
+        <BuildStamp />
         <a
           href={ADMIN_APK_URL}
           className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-brand-500 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-400 active:bg-brand-600"
@@ -262,5 +268,45 @@ function HeroImages() {
         )}
       </div>
     </Panel>
+  );
+}
+
+/**
+ * Which build this device is running, and whether it is behind.
+ *
+ * Shown to everyone: in a browser it answers "did my fix actually ship?", and
+ * on the installed app it answers "is this till stale?" — which nothing could
+ * tell you before.
+ */
+function BuildStamp() {
+  const [state, setState] = useState<{ stale: boolean; serverBuild: string | null } | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    void checkForUpdate().then((result) => {
+      if (live) setState(result);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  if (!BUILD_TIME) return null;
+
+  return (
+    <div className="rounded-lg border border-hairline bg-raised px-3 py-2.5 text-xs">
+      <p className="text-ink-muted">
+        This device is running the build from{' '}
+        <span className="font-semibold text-ink">{buildLabel()}</span>.
+      </p>
+      {state?.stale && (
+        <p className="mt-1 font-semibold text-danger">
+          A newer build is available{state.serverBuild ? ` (${buildLabel(state.serverBuild)})` : ''}.
+          {isInstalledApp()
+            ? ' Download and reinstall the app to pick it up.'
+            : ' Refresh the page to pick it up.'}
+        </p>
+      )}
+    </div>
   );
 }

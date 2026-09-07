@@ -119,6 +119,15 @@ async function run() {
 
   await writeSitemap(dist, root);
 
+  // What the installed Android app polls to find out whether it is stale.
+  // Written last so it can never advertise a build that did not finish.
+  await fs.writeFile(
+    path.join(dist, 'build.json'),
+    JSON.stringify({ builtAt: process.env.JR_BUILD_TIME ?? new Date().toISOString() }, null, 2),
+    'utf8',
+  );
+  log('wrote /build.json (used by the app to spot a stale install)');
+
   log('done — dist/ is ready for Cloudflare Pages (output directory: dist)');
 }
 
