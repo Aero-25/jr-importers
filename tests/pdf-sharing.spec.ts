@@ -72,14 +72,22 @@ async function mockApp(page: Page, failUpload = false, rows = fixtures) {
       user: { id: 'test-staff', email: 'staff@example.com', aud: 'authenticated' },
     }));
     // Capture handoffs without opening WhatsApp or sending anything.
-    const state = window as unknown as { handoffs: string[]; closedPopups: number };
+    const state = window as unknown as { handoffs: string[]; closedPopups: number; popupReservations: number };
     state.handoffs = [];
     state.closedPopups = 0;
-    window.open = (() => ({
-      opener: null,
-      location: { set href(value: string) { state.handoffs.push(value); } },
-      close() { state.closedPopups++; },
-    })) as unknown as typeof window.open;
+    state.popupReservations = 0;
+    window.open = ((url?: string) => {
+      if (url && url !== 'about:blank') {
+        state.handoffs.push(url);
+        return null;
+      }
+      state.popupReservations++;
+      return {
+        opener: null,
+        location: { set href(value: string) { state.handoffs.push(value); } },
+        close() { state.closedPopups++; },
+      };
+    }) as unknown as typeof window.open;
   });
   await page.route('**/config.js', (route) => route.fulfill({
     contentType: 'application/javascript',
@@ -237,6 +245,24 @@ test('an email address must be valid before the message can be sent', async ({ p
   await expect(page.getByText('Email sent', { exact: true })).toBeVisible();
   expect(sent).toHaveLength(1);
   expect(sent[0]!.to).toBe('new@example.com');
+});
+
+test('Android tablets open the installed WhatsApp Business app, with a web fallback', async ({ browser }) => {
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Linux; Android 14; Tablet) AppleWebKit/537.36 Chrome/126.0',
+  });
+  const page = await context.newPage();
+  await mockApp(page);
+  await openRecord(page, 'orders');
+  await page.getByRole('button', { name: 'WhatsApp PDF', exact: true }).click();
+  await page.getByRole('button', { name: 'Open WhatsApp Business', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { handoffs: string[] }).handoffs.length)).toBe(1);
+  const href = await page.evaluate(() => (window as unknown as { handoffs: string[] }).handoffs[0]);
+  expect(href).toMatch(/^intent:\/\/send\?phone=264816720024&text=/);
+  expect(href).toContain('scheme=whatsapp;package=com.whatsapp.w4b;');
+  expect(href).toContain('S.browser_fallback_url=https%3A%2F%2Fwa.me%2F264816720024%3Ftext%3D');
+  expect(await page.evaluate(() => (window as unknown as { popupReservations: number }).popupReservations)).toBe(0);
+  await context.close();
 });
 
 test('invoice PDF includes current edits and remains usable on a narrow screen', async ({ page }, testInfo) => {

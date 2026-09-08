@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Download, Mail, MessageCircle } from 'lucide-react';
 import { Button, Input, useToast } from '@/ui';
 import {
-  documentReference, downloadSharedPdf, emailSharedPdf, pdfMessageLink, pdfRecipient,
+  documentReference, downloadSharedPdf, emailSharedPdf, opensWhatsAppBusinessApp, pdfMessageLink, pdfRecipient,
   publishSharedPdf, validPdfRecipient,
   type PdfChannel, type PdfDocument,
 } from '@/lib/pdfSharing';
@@ -14,6 +14,7 @@ export function PdfActions({ document, disabled = false }: { document: PdfDocume
   const [recipient, setRecipient] = useState('');
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
+  const usesWhatsAppBusiness = channel === 'whatsapp' && opensWhatsAppBusinessApp();
 
   async function choose(next: PdfChannel) {
     if (lock.current) return;
@@ -35,9 +36,10 @@ export function PdfActions({ document, disabled = false }: { document: PdfDocume
     if (lock.current || (!download && (!channel || !validPdfRecipient(channel, recipient)))) return;
     lock.current = true;
     setBusy(true);
-    // Reserve the browsing context in the click, before rendering/uploading.
+    // Android Business must leave this WebView directly; reserving a blank tab
+    // sends the user to the web installer instead of the installed app.
     const opensWindow = !download && channel === 'whatsapp';
-    const tab = opensWindow ? window.open('about:blank', '_blank') : null;
+    const tab = opensWindow && !usesWhatsAppBusiness ? window.open('about:blank', '_blank') : null;
     if (tab) tab.opener = null;
     try {
       if (download) {
@@ -49,7 +51,8 @@ export function PdfActions({ document, disabled = false }: { document: PdfDocume
       } else if (channel) {
         const url = await publishSharedPdf(document);
         const href = pdfMessageLink(document, channel, recipient, url);
-        if (tab) tab.location.href = href;
+        if (usesWhatsAppBusiness) window.open(href, '_self');
+        else if (tab) tab.location.href = href;
         else window.location.href = href;
       }
     } catch (error) {
@@ -80,7 +83,7 @@ export function PdfActions({ document, disabled = false }: { document: PdfDocume
               : 'Sends the PDF straight from info@jrimporters.com. Nothing else to do.'}
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" loading={busy} disabled={disabled || !validPdfRecipient(channel, recipient)} onClick={() => void run()}>{channel === 'whatsapp' ? 'Open WhatsApp' : 'Send email'}</Button>
+            <Button size="sm" loading={busy} disabled={disabled || !validPdfRecipient(channel, recipient)} onClick={() => void run()}>{channel === 'whatsapp' ? (usesWhatsAppBusiness ? 'Open WhatsApp Business' : 'Open WhatsApp') : 'Send email'}</Button>
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => setChannel(null)}>Cancel sharing</Button>
           </div>
         </div>

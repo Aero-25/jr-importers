@@ -11,6 +11,16 @@ export type PdfDocument =
   | { kind: 'damage'; record: DamageReportRow };
 export type PdfChannel = 'whatsapp' | 'email';
 
+/**
+ * Android can host WhatsApp Messenger and WhatsApp Business side-by-side. A
+ * normal `wa.me` URL is handled by the browser first and can end at the Play
+ * Store even though Business is installed. The Android intent below names the
+ * Business package (`com.whatsapp.w4b`) so it opens the app staff actually use.
+ */
+export function opensWhatsAppBusinessApp(userAgent = navigator.userAgent): boolean {
+  return /android/i.test(userAgent);
+}
+
 export function documentReference(document: PdfDocument): string {
   switch (document.kind) {
     case 'invoice': return `Invoice ${document.record.invoice_number ?? `INV-${document.record.id}`}`;
@@ -134,9 +144,15 @@ export function pdfMessageLink(document: PdfDocument, channel: PdfChannel, recip
       : `Your PDF from ${STORE.name} - ${reference}:`,
     url, '', STORE.name, STORE.phone,
   ].join('\n');
-  return channel === 'whatsapp'
-    ? `https://wa.me/${whatsappNumber(recipient)}?text=${encodeURIComponent(body)}`
-    : `mailto:${encodeURIComponent(recipient.trim())}?subject=${encodeURIComponent(`${STORE.name} - ${reference}`)}&body=${encodeURIComponent(body)}`;
+  if (channel === 'whatsapp') {
+    const webLink = `https://wa.me/${whatsappNumber(recipient)}?text=${encodeURIComponent(body)}`;
+    if (!opensWhatsAppBusinessApp()) return webLink;
+
+    // Chrome uses browser_fallback_url only when WhatsApp Business is absent;
+    // it keeps normal browser/tablet behaviour available without a dead end.
+    return `intent://send?phone=${whatsappNumber(recipient)}&text=${encodeURIComponent(body)}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${encodeURIComponent(webLink)};end`;
+  }
+  return `mailto:${encodeURIComponent(recipient.trim())}?subject=${encodeURIComponent(`${STORE.name} - ${reference}`)}&body=${encodeURIComponent(body)}`;
 }
 
 /**
