@@ -25,6 +25,8 @@ export interface DamageReportPdfInput {
   notes?: string | null;
   reported_date?: string | null;
   created_at?: string | null;
+  /** Public URLs of the evidence photographs, shown on their own page. */
+  photos?: string[] | null;
 }
 
 const INK: [number, number, number] = [17, 24, 39];
@@ -50,6 +52,33 @@ async function loadLetterhead(): Promise<string | null> {
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetches one evidence photograph as a data URL that jsPDF can place.
+ *
+ * Returns null on anything that goes wrong. A photograph that will not load
+ * must not take the whole claim letter down with it — the letter is still
+ * worth sending, and the assessor can be sent the picture separately.
+ */
+async function loadPhoto(url: string): Promise<{ data: string; type: string } | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    // jsPDF handles JPEG and PNG. Anything else (WebP, AVIF) it cannot embed.
+    const type = blob.type === 'image/png' ? 'PNG' : blob.type === 'image/jpeg' ? 'JPEG' : '';
+    if (!type) return null;
+    const data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    return { data, type };
   } catch {
     return null;
   }
@@ -282,6 +311,75 @@ export async function buildDamageReportPdf(report: DamageReportPdfInput): Promis
   doc.setTextColor(...GREY);
   doc.text('for JR Importers Walvis Bay', LEFT, y);
 
+  /* ── Evidence photographs ──────────────────────────────────────────────── */
+  // The console has always collected these and told the assessor's own field
+  // that "a claim without them is usually sent back" — but they never reached
+  // the PDF, so every claim went out without its evidence. They start on a
+  // fresh page so the letter itself reads uninterrupted.
+  const photos = (report.photos ?? []).filter((url) => typeof url === 'string' && url.trim());
+  if (photos.length > 0) {
+    const loaded = (await Promise.all(photos.slice(0, 12).map(loadPhoto))).filter(
+      (p): p is { data: string; type: string } => p !== null,
+    );
+
+    if (loaded.length > 0) {
+      doc.addPage();
+
+      doc.setFillColor(...NAVY);
+      doc.rect(0, 0, pageW, 24, 'F');
+      doc.setFillColor(...GREEN);
+      doc.rect(0, 24, pageW, 1.2, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(255, 255, 255);
+      doc.text('EVIDENCE PHOTOGRAPHS', LEFT, 15);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(report.report_number, RIGHT, 15, { align: 'right' });
+
+      // Two across, each cell a fixed box the photograph is fitted inside so
+      // portrait and landscape shots line up on a grid rather than stagger.
+      const gap = 8;
+      const cellW = (WIDTH - gap) / 2;
+      const cellH = 62;
+      let top = 36;
+
+      loaded.forEach((photo, index) => {
+        const column = index % 2;
+        if (index > 0 && column === 0) top += cellH + 14;
+        if (top + cellH > 268) {
+          doc.addPage();
+          top = 24;
+        }
+
+        const x = LEFT + column * (cellW + gap);
+        doc.setDrawColor(...HAIR);
+        doc.setLineWidth(0.3);
+        doc.setFillColor(...SOFT);
+        doc.roundedRect(x, top, cellW, cellH, 2, 2, 'FD');
+
+        try {
+          const props = doc.getImageProperties(photo.data);
+          const scale = Math.min((cellW - 4) / props.width, (cellH - 4) / props.height);
+          const w = props.width * scale;
+          const h = props.height * scale;
+          doc.addImage(
+            photo.data, photo.type,
+            x + (cellW - w) / 2, top + (cellH - h) / 2,
+            w, h,
+          );
+        } catch {
+          /* Placed frame stays, so the numbering below still lines up. */
+        }
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...GREY);
+        doc.text(`Photograph ${index + 1} of ${loaded.length}`, x, top + cellH + 4.5);
+      });
+    }
+  }
+
   /* ── Footer, on every page ─────────────────────────────────────────────── */
   const pages = doc.getNumberOfPages();
   for (let p = 1; p <= pages; p += 1) {
@@ -319,6 +417,7 @@ export function damageReportFileName(reportNumber: string, product?: string | nu
   return `Damage Report${who ? ` - ${who}` : ''} (${reportNumber}).pdf`;
 }
 
+/** Kept for direct use; the console downloads through `pdfSharing` instead. */
 export async function downloadDamageReportPdf(report: DamageReportPdfInput): Promise<void> {
   const blob = await buildDamageReportPdf(report);
   const url = URL.createObjectURL(blob);

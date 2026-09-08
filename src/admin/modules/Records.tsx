@@ -9,7 +9,7 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import { customers, suppliers } from '@/data/resources';
 import { uploadDamagePhoto } from '@/data/storage';
 import { products } from '@/data/products';
-import type { InvoiceRow, LineItem, QuoteRow } from '@/lib/database.types';
+import type { DamageReportRow, InvoiceRow, LineItem, QuoteRow } from '@/lib/database.types';
 import {
   DEFAULT_VAT_RATE,
   formatDate,
@@ -296,6 +296,14 @@ function RecordDialog({
       const raw = form[field.key];
 
       if (field.type === 'checkbox') values[field.key] = Boolean(raw);
+      // List controls hold arrays, and the string branch below would ruin one:
+      // `String(['a','b'])` flattens it to "a,b", and an empty list becomes
+      // null. `damage_reports.photos` is NOT NULL, so that null was rejected
+      // outright — a report could not be saved until a photograph was attached.
+      // `coupons.product_ids` has the same shape and would have been written as
+      // a string rather than an array.
+      else if (field.type === 'photos' || field.type === 'productScope')
+        values[field.key] = Array.isArray(raw) ? raw : [];
       else if (field.type === 'money' || field.type === 'number')
         values[field.key] = raw === '' ? null : toNumber(raw as string);
       else values[field.key] = String(raw ?? '').trim() || null;
@@ -382,26 +390,6 @@ function RecordDialog({
                   Delete
                 </Button>
               )}
-              {!isNew && spec.pdf === 'damage_report' && (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    void (async () => {
-                      try {
-                        const dr = await import('@/lib/damageReportPdf');
-                        await dr.downloadDamageReportPdf(record as never);
-                      } catch (error) {
-                        toast.error(
-                          'Could not build the PDF',
-                          error instanceof Error ? error.message : undefined,
-                        );
-                      }
-                    })();
-                  }}
-                >
-                  PDF
-                </Button>
-              )}
               <Button variant="ghost" onClick={onClose}>
                 Cancel
               </Button>
@@ -412,15 +400,23 @@ function RecordDialog({
           )
         }
       >
-        {!isNew && (spec.pdf === 'invoice' || spec.pdf === 'quote') && (
+        {!isNew && spec.pdf && (
           <>
             <PdfActions
               disabled={update.isPending || remove.isPending}
-              document={spec.pdf === 'quote'
-                ? { kind: 'quote', record: pdfRecord as QuoteRow }
-                : { kind: 'invoice', record: pdfRecord as InvoiceRow }}
+              document={
+                spec.pdf === 'quote'
+                  ? { kind: 'quote', record: pdfRecord as QuoteRow }
+                  : spec.pdf === 'damage_report'
+                    ? { kind: 'damage', record: pdfRecord as unknown as DamageReportRow }
+                    : { kind: 'invoice', record: pdfRecord as InvoiceRow }
+              }
             />
-            <p className="mb-4 text-xs text-ink-muted">The PDF uses the details below. Save changes to keep any edits in the register.</p>
+            <p className="mb-4 text-xs text-ink-muted">
+              {spec.pdf === 'damage_report'
+                ? 'The report goes to the insurer or supplier, not the customer. Save changes to keep any edits on file.'
+                : 'The PDF uses the details below. Save changes to keep any edits in the register.'}
+            </p>
           </>
         )}
         <div className="grid gap-3 sm:grid-cols-2">

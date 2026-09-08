@@ -1,4 +1,4 @@
-import type { InvoiceRow, JobCardRow, OrderRow, QuoteRow } from './database.types';
+import type { DamageReportRow, InvoiceRow, JobCardRow, OrderRow, QuoteRow } from './database.types';
 import { supabase } from './supabase';
 import { STORE } from './constants';
 import { isSendableNumber, whatsappNumber } from './phone';
@@ -7,7 +7,8 @@ export type PdfDocument =
   | { kind: 'invoice'; record: InvoiceRow }
   | { kind: 'order'; record: OrderRow }
   | { kind: 'quote'; record: QuoteRow }
-  | { kind: 'jobcard'; record: JobCardRow };
+  | { kind: 'jobcard'; record: JobCardRow }
+  | { kind: 'damage'; record: DamageReportRow };
 export type PdfChannel = 'whatsapp' | 'email';
 
 export function documentReference(document: PdfDocument): string {
@@ -16,10 +17,44 @@ export function documentReference(document: PdfDocument): string {
     case 'order': return `Order ${document.record.id.slice(0, 8).toUpperCase()}`;
     case 'quote': return `Quote ${document.record.quote_number ?? `Q-${document.record.id}`}`;
     case 'jobcard': return `Job Card ${document.record.job_number}`;
+    case 'damage': return `Damage Report ${document.record.report_number}`;
   }
 }
 
+/**
+ * Who the covering message greets.
+ *
+ * A damage report is a claim letter written to an insurer or a supplier, not
+ * to the customer whose handset it concerns — greeting that customer would
+ * address the claim to the wrong reader entirely. Everything else does go to
+ * the customer.
+ */
+/**
+ * What the file is called once it lands in someone's inbox.
+ *
+ * A damage report names the device as well as the report number: an assessor
+ * handling a dozen claims files by handset, and "Damage-Report-DR-0007.pdf"
+ * tells them nothing about which one this is.
+ */
+async function pdfFileName(document: PdfDocument): Promise<string> {
+  if (document.kind === 'damage') {
+    const { damageReportFileName } = await import('./damageReportPdf');
+    return damageReportFileName(document.record.report_number, document.record.product_name);
+  }
+  return `${documentReference(document).replace(/[^a-z0-9_-]/gi, '-')}.pdf`;
+}
+
+function addressee(document: PdfDocument): string {
+  if (document.kind !== 'damage') return document.record.customer_name?.trim() ?? '';
+  const { insurer_contact, insurer_name, supplier_name } = document.record;
+  return insurer_contact?.trim() || insurer_name?.trim() || supplier_name?.trim() || '';
+}
+
 export async function buildSharedPdf(document: PdfDocument): Promise<Blob> {
+  if (document.kind === 'damage') {
+    const { buildDamageReportPdf } = await import('./damageReportPdf');
+    return buildDamageReportPdf(document.record);
+  }
   if (document.kind === 'jobcard') {
     const { buildJobCardPdf, customerJobCardPdfInput } = await import('./jobCardPdf');
     return buildJobCardPdf(customerJobCardPdfInput(document.record));
@@ -41,7 +76,26 @@ export function validPdfRecipient(channel: PdfChannel, value: string): boolean {
 /** Invoices may carry contact details only on their customer or source order. */
 export async function pdfRecipient(document: PdfDocument, channel: PdfChannel): Promise<string> {
   const record = document.record;
-  const direct = channel === 'email' ? record.customer_email : 'customer_phone' in record ? record.customer_phone : null;
+
+  // A damage report is sent to whoever is being claimed from. The insurer's
+  // phone is typed straight onto the report; a supplier claim goes to the
+  // supplier's own details. There is no column for an insurer's email, so on
+  // that path the cashier is simply asked — better than pre-filling the
+  // customer's address and having the claim go to them by accident.
+  if (document.kind === 'damage') {
+    const report = document.record;
+    if (channel === 'whatsapp' && report.insurer_phone?.trim()) return report.insurer_phone.trim();
+    if (report.supplier_id) {
+      const { data } = await supabase.from('suppliers').select('phone, email').eq('id', report.supplier_id).maybeSingle();
+      const value = channel === 'email' ? data?.email : data?.phone;
+      if (value?.trim()) return value.trim();
+    }
+    return '';
+  }
+
+  const direct = channel === 'email'
+    ? ('customer_email' in record ? record.customer_email : null)
+    : 'customer_phone' in record ? record.customer_phone : null;
   if (direct?.trim()) return direct.trim();
   if ('customer_id' in record && record.customer_id) {
     const { data } = await supabase.from('customers').select('phone, email').eq('id', record.customer_id).maybeSingle();
@@ -59,7 +113,7 @@ export async function publishSharedPdf(document: PdfDocument): Promise<string> {
   const blob = await buildSharedPdf(document);
   // Use the existing staff-writable document folders. Random paths prevent
   // enumeration by document number and keep previously sent copies immutable.
-  const folder = document.kind === 'jobcard' ? 'jobcards' : 'invoices';
+  const folder = document.kind === 'jobcard' ? 'jobcards' : document.kind === 'damage' ? 'damage' : 'invoices';
   const path = `${folder}/${document.kind}/${crypto.randomUUID()}.pdf`;
   const { error } = await supabase.storage.from('Images').upload(path, blob, {
     contentType: 'application/pdf', upsert: false,
@@ -71,9 +125,13 @@ export async function publishSharedPdf(document: PdfDocument): Promise<string> {
 export function pdfMessageLink(document: PdfDocument, channel: PdfChannel, recipient: string, url: string): string {
   if (!validPdfRecipient(channel, recipient)) throw new Error('Enter a valid recipient.');
   const reference = documentReference(document);
+  const name = addressee(document);
   const body = [
-    `Good day${document.record.customer_name ? ` ${document.record.customer_name}` : ''},`,
-    '', `Your PDF from ${STORE.name} - ${reference}:`,
+    `Good day${name ? ` ${name}` : ''},`,
+    '',
+    document.kind === 'damage'
+      ? `Please find our ${reference.toLowerCase()} from ${STORE.name}:`
+      : `Your PDF from ${STORE.name} - ${reference}:`,
     url, '', STORE.name, STORE.phone,
   ].join('\n');
   return channel === 'whatsapp'
@@ -105,17 +163,25 @@ export async function emailSharedPdf(document: PdfDocument, recipient: string): 
   });
 
   const reference = documentReference(document);
-  const greeting = document.record.customer_name ? ` ${document.record.customer_name}` : '';
+  const name = addressee(document);
+  const greeting = name ? ` ${name}` : '';
+  // A claim asks the reader for something; a sale thanks them for something.
+  const claim = document.kind === 'damage';
+  const line = claim
+    ? `Please find our ${reference.toLowerCase()} attached for your assessment.`
+    : `Please find your ${reference.toLowerCase()} attached.`;
+  const closing = claim ? 'Thank you for your assistance.' : 'Thank you for your business.';
+
   const html = [
     `<p>Good day${greeting},</p>`,
-    `<p>Please find your ${reference.toLowerCase()} attached.</p>`,
-    '<p>Thank you for your business.</p>',
+    `<p>${line}</p>`,
+    `<p>${closing}</p>`,
     `<p>${STORE.name}<br>${STORE.address}<br>${STORE.phone}</p>`,
   ].join('');
   const text = [
     `Good day${greeting},`, '',
-    `Please find your ${reference.toLowerCase()} attached.`, '',
-    'Thank you for your business.', '',
+    line, '',
+    closing, '',
     STORE.name, STORE.address, STORE.phone,
   ].join('\n');
 
@@ -126,7 +192,7 @@ export async function emailSharedPdf(document: PdfDocument, recipient: string): 
       html,
       text,
       attachment: base64,
-      filename: `${reference.replace(/[^a-z0-9_-]/gi, '-')}.pdf`,
+      filename: await pdfFileName(document),
     },
   });
 
@@ -139,7 +205,7 @@ export async function downloadSharedPdf(document: PdfDocument): Promise<void> {
   const url = URL.createObjectURL(await buildSharedPdf(document));
   const link = window.document.createElement('a');
   link.href = url;
-  link.download = `${documentReference(document).replace(/[^a-z0-9_-]/gi, '-')}.pdf`;
+  link.download = await pdfFileName(document);
   window.document.body.appendChild(link);
   link.click();
   link.remove();
