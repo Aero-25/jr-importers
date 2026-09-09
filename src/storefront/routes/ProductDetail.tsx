@@ -143,7 +143,7 @@ export default function ProductDetail() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6">
+    <div className="coast-detail mx-auto max-w-7xl px-4 py-6">
       <nav aria-label="Breadcrumb" className="mb-4">
         <Link
           to="/shop"
@@ -154,9 +154,9 @@ export default function ProductDetail() {
         </Link>
       </nav>
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <div>
-          <div className="overflow-hidden rounded-panel border border-hairline bg-raised">
+      <div className="coast-detail__layout grid gap-8 lg:grid-cols-2">
+        <div className="coast-detail__gallery">
+          <div className="coast-detail__image overflow-hidden">
             {images[activeImage] ? (
               <img
                 src={images[activeImage]}
@@ -164,7 +164,7 @@ export default function ProductDetail() {
                 width={800}
                 height={800}
                 fetchPriority="high"
-                className="aspect-square w-full object-cover"
+                className="aspect-square w-full object-contain"
               />
             ) : (
               <div className="flex aspect-square items-center justify-center text-ink-subtle">
@@ -174,7 +174,7 @@ export default function ProductDetail() {
           </div>
 
           {images.length > 1 && (
-            <ul className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            <ul className="coast-detail__thumbnails mt-3 flex gap-2 overflow-x-auto pb-1">
               {images.map((src, index) => (
                 <li key={src}>
                   <button
@@ -187,7 +187,7 @@ export default function ProductDetail() {
                       index === activeImage ? 'border-brand-500' : 'border-hairline',
                     )}
                   >
-                    <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    <img src={src} alt="" loading="lazy" className="h-full w-full object-contain" />
                   </button>
                 </li>
               ))}
@@ -195,18 +195,18 @@ export default function ProductDetail() {
           )}
         </div>
 
-        <div>
+        <div className="coast-detail__information">
           {product.brand && (
-            <p className="text-xs font-medium uppercase tracking-wide text-brand-400">
+            <p className="coast-commerce-eyebrow text-brand-400">
               {product.brand}
             </p>
           )}
-          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-ink">
+          <h1 className="coast-detail__title mt-3 font-display font-bold tracking-tight text-ink">
             {product.name}
           </h1>
 
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <p className="tabular font-display text-3xl font-bold text-ink">
+          <div className="coast-detail__pricing mt-6 flex flex-wrap items-center gap-3">
+            <p className="tabular font-display text-3xl font-semibold text-ink">
               {service ? `From ${money(product.price)}` : money(product.price)}
             </p>
             {service ? (
@@ -239,13 +239,13 @@ export default function ProductDetail() {
           )}
 
           {product.description && (
-            <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-ink-muted">
+            <p className="coast-detail__description mt-5 whitespace-pre-line text-sm leading-relaxed text-ink-muted">
               {product.description}
             </p>
           )}
 
           {service ? (
-            <div className="glass mt-6 rounded-2xl p-5">
+            <div className="coast-detail__service mt-6 rounded-2xl p-5">
               <h2 className="font-display text-base font-semibold text-ink">
                 Booked in at the shop
               </h2>
@@ -318,9 +318,9 @@ export default function ProductDetail() {
               </p>
             </fieldset>
           )}
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+          <div className="coast-detail__purchase mt-6 flex flex-wrap items-center gap-3">
             {!outOfStock && (
-              <div className="flex items-center rounded-lg border border-hairline">
+              <div className="coast-detail__quantity flex items-center rounded-lg border border-hairline">
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
@@ -359,7 +359,7 @@ export default function ProductDetail() {
                 size="lg"
                 icon={<ShoppingBag className="h-4 w-4" />}
                 onClick={addToCart}
-                className="flex-1 sm:flex-none"
+                className="coast-detail__add flex-1"
               >
                 Add to cart
               </Button>
@@ -367,7 +367,7 @@ export default function ProductDetail() {
           </div>
 
           {product.category === 'Smartphones' && !outOfStock && (
-            <div className="mt-4 rounded-card border border-hairline p-4">
+            <div className="coast-detail__laybuy mt-5 rounded-card border border-hairline p-5">
               <p className="flex items-center gap-2 text-sm font-semibold text-ink">
                 <CalendarClock aria-hidden className="h-4 w-4 text-brand-400" />
                 Lay-buy it over 3 months
@@ -394,7 +394,7 @@ export default function ProductDetail() {
             </>
           )}
 
-          <ul className="mt-6 space-y-2 border-t border-hairline pt-6 text-sm text-ink-muted">
+          <ul className="coast-detail__assurance mt-6 space-y-3 border-t border-hairline pt-6 text-sm text-ink-muted">
             <li className="flex items-center gap-2">
               <Truck aria-hidden className="h-4 w-4 shrink-0 text-brand-400" />
               Nationwide courier, or collect in {STORE.city}
@@ -406,7 +406,7 @@ export default function ProductDetail() {
           </ul>
 
           {specs.length > 0 && (
-            <section className="mt-8">
+            <section className="coast-detail__specs mt-8">
               <h2 className="font-display text-lg font-semibold text-ink">Specifications</h2>
               <dl className="mt-3 divide-y divide-hairline rounded-card border border-hairline">
                 {specs.map((spec) => (
@@ -422,11 +422,11 @@ export default function ProductDetail() {
       </div>
 
       {related.data && related.data.length > 0 && (
-        <section className="mt-16">
+        <section className="coast-detail__related mt-16">
           <h2 className="mb-5 font-display text-2xl font-bold tracking-tight text-ink">
             You might also like
           </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          <div className="coast-product-grid grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {related.data.map((item) => (
               <ProductCard key={item.id} product={item} />
             ))}

@@ -1,39 +1,36 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
-import { Menu, Scale, Search, ShoppingBag, User, X } from 'lucide-react';
+import { Link, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowUpRight, ChevronRight, Menu, Scale, Search, ShoppingBag, User, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { CATEGORY_GROUPS, STORE } from '@/lib/constants';
 import { useCart } from '@/data/cart';
 import { useCompare } from '@/data/compare';
 import { useAuth } from '@/auth/AuthProvider';
+import '../shell.css';
 
-/**
- * Floating pill header.
- *
- * Detached from the top edge so the light field shows around it and the pill
- * reads as an object above the page rather than a bar welded to it. Everything
- * inside is white on the deep colour sweep; the vivid version of that spectrum
- * is the ring and the glow.
- */
 export function Header() {
   const { count } = useCart();
   const { count: compareCount } = useCompare();
   const { isAuthenticated, profile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [params] = useSearchParams();
   const [term, setTerm] = useState(params.get('q') ?? '');
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
+    const onScroll = () => setScrolled(window.scrollY > 30);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // `/` focuses search, the way every catalogue site behaves.
+  useEffect(() => setTerm(params.get('q') ?? ''), [params]);
+  useEffect(() => setMenuOpen(false), [location.pathname, location.search]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -43,227 +40,87 @@ export function Header() {
         event.preventDefault();
         searchRef.current?.focus();
       }
+      if (event.key === 'Escape' && menuOpen) {
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [menuOpen]);
 
   function submitSearch(event: FormEvent) {
     event.preventDefault();
     const query = term.trim();
     navigate(query ? `/shop?q=${encodeURIComponent(query)}` : '/shop');
     setMenuOpen(false);
+    searchRef.current?.blur();
   }
 
   return (
-    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-4 sm:pt-4">
-      <div
-        className={cn(
-          'sweep sweep-ring relative mx-auto flex max-w-7xl items-center gap-2 rounded-full',
-          'px-2.5 transition-[height] duration-300 sm:gap-3 sm:px-4',
-          // Tightens once you start reading, giving the page back a little
-          // room without the pill ever leaving.
-          scrolled ? 'h-16' : 'h-16 sm:h-[4.5rem]',
-        )}
-      >
-        <Link
-          to="/"
-          className="flex shrink-0 items-center gap-2 rounded-full pl-1.5 pr-1"
-          aria-label={`${STORE.name} home`}
-        >
-          <img
-            src="/logo-mark.png"
-            alt=""
-            width={31}
-            height={56}
-            className="h-12 w-auto sm:h-14"
-          />
-          <span className="hidden font-display text-xl font-bold tracking-tight text-white sm:block lg:text-2xl">
-            JR <span className="text-lime-400">Importers</span>
-          </span>
+    <header className={cn('coast-header', scrolled && 'coast-header--scrolled')}>
+      <div className="coast-utility">
+        <div className="coast-shell-width coast-utility-inner">
+          <p><span className="coast-live-dot" />From Walvis Bay. Across Namibia.</p>
+          <Link to="/about">Visit us at Pelican Mall<ArrowUpRight aria-hidden size={12} /></Link>
+        </div>
+      </div>
+
+      <div className="coast-shell-width coast-masthead">
+        <Link to="/" className="coast-brand" aria-label={`${STORE.name} home`}>
+          <img src="/logo-mark.png" alt="" width={31} height={56} />
+          <span className="coast-brand-wordmark">JR<span>IMPORTERS</span></span>
         </Link>
 
-        <nav aria-label="Categories" className="hidden lg:block">
-          <ul className="flex items-center gap-1">
-            {CATEGORY_GROUPS.map((group) => (
-              <li key={group.id}>
-                <NavLink
-                  to={`/shop/${group.id}`}
-                  className={({ isActive }) =>
-                    cn(
-                      'rounded-full px-3.5 py-2 text-sm font-medium transition-colors',
-                      isActive
-                        ? 'sweep-pill text-white'
-                        : 'text-white/80 hover:bg-white/10 hover:text-white',
-                    )
-                  }
-                >
-                  {group.label}
-                </NavLink>
-              </li>
-            ))}
-            <li>
-              <NavLink
-                to="/about"
-                className={({ isActive }) =>
-                  cn(
-                    'rounded-full px-3.5 py-2 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'sweep-pill text-white'
-                      : 'text-white/80 hover:bg-white/10 hover:text-white',
-                  )
-                }
-              >
-                About us
-              </NavLink>
-            </li>
-          </ul>
-        </nav>
-
-        <form
-          onSubmit={submitSearch}
-          className="ml-auto hidden max-w-xs flex-1 md:block"
-          role="search"
-        >
-          <label htmlFor="site-search" className="sr-only">
-            Search products
-          </label>
-          <div className="relative">
-            <Search
-              aria-hidden
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/70"
-            />
-            <input
-              ref={searchRef}
-              id="site-search"
-              type="search"
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              placeholder="Search phones, chargers, repairs…"
-              className="sweep-pill h-9 w-full rounded-full pl-9 pr-4 text-sm text-white placeholder:text-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-            />
-          </div>
+        <form onSubmit={submitSearch} className="coast-search" role="search">
+          <label htmlFor="site-search" className="sr-only">Search products</label>
+          <Search aria-hidden className="coast-search-symbol" size={19} />
+          <input ref={searchRef} id="site-search" type="search" value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Find your next phone, tablet or accessory" />
+          <button type="submit" aria-label="Search products"><Search aria-hidden size={18} /></button>
         </form>
 
-        <div className="ml-auto flex items-center gap-1 md:ml-0">
-          <Link
-            to={isAuthenticated ? '/account' : '/account/sign-in'}
-            className="hidden items-center gap-2 rounded-full px-3 py-2 text-sm text-white/85 transition-colors hover:bg-white/10 hover:text-white sm:flex"
-          >
-            <User aria-hidden className="h-4 w-4" />
-            <span className="max-w-24 truncate">
-              {isAuthenticated ? (profile?.full_name?.split(' ')[0] ?? 'Account') : 'Sign in'}
-            </span>
+        <div className="coast-header-actions">
+          <Link to="/compare" className="coast-header-action coast-compare-action" aria-label={`Compare, ${compareCount} product${compareCount === 1 ? '' : 's'}`}>
+            <span className="coast-action-icon"><Scale aria-hidden size={21} />{compareCount > 0 && <span className="coast-count">{compareCount}</span>}</span>
+            <span className="coast-action-label">Compare</span>
           </Link>
-
-          <Link
-            to="/compare"
-            className="relative rounded-full p-2.5 text-white/85 transition-colors hover:bg-white/10 hover:text-white"
-            aria-label={`Compare, ${compareCount} product${compareCount === 1 ? '' : 's'}`}
-          >
-            <Scale aria-hidden className="h-5 w-5" />
-            {compareCount > 0 && (
-              <span className="tabular absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-500 px-1 text-2xs font-bold text-brand-800">
-                {compareCount}
-              </span>
-            )}
+          <Link to={isAuthenticated ? '/account' : '/account/sign-in'} className="coast-header-action coast-account-action" aria-label={isAuthenticated ? 'My account' : 'Sign in'}>
+            <User aria-hidden size={21} />
+            <span className="coast-action-label">{isAuthenticated ? (profile?.full_name?.split(' ')[0] ?? 'Account') : 'Sign in'}</span>
           </Link>
-
-          <Link
-            to="/cart"
-            className="relative rounded-full p-2.5 text-white/85 transition-colors hover:bg-white/10 hover:text-white"
-            aria-label={`Cart, ${count} item${count === 1 ? '' : 's'}`}
-          >
-            <ShoppingBag aria-hidden className="h-5 w-5" />
-            {count > 0 && (
-              <span className="tabular absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-lime-500 px-1 text-2xs font-bold text-brand-800">
-                {count > 99 ? '99+' : count}
-              </span>
-            )}
+          <Link to="/cart" className="coast-header-action coast-cart-action" aria-label={`Cart, ${count} item${count === 1 ? '' : 's'}`}>
+            <span className="coast-action-icon"><ShoppingBag aria-hidden size={21} /><span className="coast-count">{count > 99 ? '99+' : count}</span></span>
+            <span className="coast-action-label">My bag</span>
           </Link>
-
-          <button
-            type="button"
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-            className="rounded-full p-2.5 text-white/85 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
-          >
-            {menuOpen ? (
-              <X aria-hidden className="h-5 w-5" />
-            ) : (
-              <Menu aria-hidden className="h-5 w-5" />
-            )}
+          <button ref={menuButtonRef} type="button" className="coast-menu-toggle" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} aria-controls="coast-mobile-menu" onClick={() => setMenuOpen((open) => !open)}>
+            {menuOpen ? <X aria-hidden size={23} /> : <Menu aria-hidden size={23} />}
           </button>
         </div>
       </div>
 
-      {/* The drawer is its own panel, so the pill never grows into a slab. */}
+      <div className="coast-category-bar">
+        <div className="coast-shell-width coast-category-inner">
+          <nav aria-label="Categories"><ul>
+            <li><NavLink to="/shop" end className={({ isActive }) => cn('coast-all-products', isActive && 'is-active')}>Shop all</NavLink></li>
+            {CATEGORY_GROUPS.map((group) => <li key={group.id}><NavLink to={`/shop/${group.id}`} className={({ isActive }) => cn(isActive && 'is-active')}>{group.label}</NavLink></li>)}
+          </ul></nav>
+          <Link to="/about" className="coast-about-link">Meet JR<ArrowUpRight aria-hidden size={14} /></Link>
+        </div>
+      </div>
+
       {menuOpen && (
-        <div className="glass glass-strong mx-auto mt-2 max-w-7xl rounded-3xl p-3 lg:hidden">
-          <form onSubmit={submitSearch} role="search" className="md:hidden">
-            <label htmlFor="mobile-search" className="sr-only">
-              Search products
-            </label>
-            <div className="relative">
-              <Search
-                aria-hidden
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-subtle"
-              />
-              <input
-                id="mobile-search"
-                type="search"
-                value={term}
-                onChange={(e) => setTerm(e.target.value)}
-                placeholder="Search phones…"
-                className="h-11 w-full rounded-full border border-hairline bg-canvas/70 pl-9 pr-4 text-sm text-ink"
-              />
-            </div>
-          </form>
-
-          <nav aria-label="Categories" className="mt-3">
-            <ul className="grid grid-cols-2 gap-2">
-              {CATEGORY_GROUPS.map((group) => (
-                <li key={group.id}>
-                  <Link
-                    to={`/shop/${group.id}`}
-                    onClick={() => setMenuOpen(false)}
-                    className="glass block rounded-2xl px-4 py-3 text-sm font-medium text-ink"
-                  >
-                    {group.label}
-                  </Link>
-                </li>
-              ))}
-              <li>
-                <Link
-                  to="/about"
-                  onClick={() => setMenuOpen(false)}
-                  className="glass block rounded-2xl px-4 py-3 text-sm font-medium text-ink"
-                >
-                  About us
-                </Link>
-              </li>
-            </ul>
+        <div className="coast-mobile-menu" id="coast-mobile-menu">
+          <p className="coast-menu-label">Find your everyday essential</p>
+          <nav aria-label="Mobile categories">
+            <Link to="/shop" onClick={() => setMenuOpen(false)}>Shop all products<ChevronRight aria-hidden size={17} /></Link>
+            {CATEGORY_GROUPS.map((group) => <Link key={group.id} to={`/shop/${group.id}`} onClick={() => setMenuOpen(false)}>{group.label}<ChevronRight aria-hidden size={17} /></Link>)}
+            <Link to="/about" onClick={() => setMenuOpen(false)}>About us<ChevronRight aria-hidden size={17} /></Link>
           </nav>
-
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <Link
-              to="/compare"
-              onClick={() => setMenuOpen(false)}
-              className="glass flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-ink"
-            >
-              <Scale aria-hidden className="h-4 w-4" />
-              Compare{compareCount > 0 ? ` (${compareCount})` : ''}
-            </Link>
-            <Link
-              to={isAuthenticated ? '/account' : '/account/sign-in'}
-              onClick={() => setMenuOpen(false)}
-              className="glass flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-ink"
-            >
-              <User aria-hidden className="h-4 w-4" />
-              {isAuthenticated ? 'My account' : 'Sign in'}
-            </Link>
+          <div className="coast-mobile-menu-bottom">
+            <Link to="/compare" onClick={() => setMenuOpen(false)}><Scale aria-hidden size={18} />Compare{compareCount > 0 ? ` (${compareCount})` : ''}</Link>
+            <Link to={isAuthenticated ? '/account' : '/account/sign-in'} onClick={() => setMenuOpen(false)}><User aria-hidden size={18} />{isAuthenticated ? 'My account' : 'Sign in'}</Link>
           </div>
+          <Link className="coast-mobile-support" to="/support" onClick={() => setMenuOpen(false)}>Need a hand? Talk to our team<ArrowUpRight aria-hidden size={15} /></Link>
         </div>
       )}
     </header>

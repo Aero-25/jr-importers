@@ -58,7 +58,7 @@ export function ChipRail({ className }: { className?: string }) {
   return (
     <nav
       aria-label="Filter phones"
-      className={cn('overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', className)}
+      className={cn('coast-chip-rail overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', className)}
     >
       <ul className="flex w-max gap-2 px-4 py-3">
         {chips.map((chip) => (
@@ -67,10 +67,10 @@ export function ChipRail({ className }: { className?: string }) {
               to={chip.to}
               aria-current={chip.active ? 'page' : undefined}
               className={cn(
-                'inline-flex items-center whitespace-nowrap rounded-full px-4 py-2 text-sm transition-all duration-200',
+                'coast-chip inline-flex items-center whitespace-nowrap rounded-full px-4 py-2 text-sm transition-all duration-200',
                 chip.active
                   ? 'bg-brand-600 font-semibold text-white shadow-card'
-                  : 'glass font-medium text-ink hover:brightness-105',
+                  : 'font-medium text-ink',
               )}
             >
               {chip.label}

@@ -32,7 +32,7 @@ export default function Cart() {
         {totals.itemCount} item{totals.itemCount === 1 ? '' : 's'}
       </p>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
+      <div className="coast-cart-layout mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
         <ul className="space-y-3">
           {lines.map((line) => {
             const overStock = line.available_stock > 0 && line.quantity > line.available_stock;
@@ -46,7 +46,7 @@ export default function Cart() {
                         src={line.image}
                         alt=""
                         loading="lazy"
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain p-1"
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center text-ink-subtle">

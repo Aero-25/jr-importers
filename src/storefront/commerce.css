@@ -1,0 +1,147 @@
+/* Quiet product surfaces let the actual catalogue photography lead. */
+.coastline-shop .coast-product {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgb(var(--c-hairline) / .72);
+  border-radius: 16px;
+  background: rgb(var(--c-surface));
+  box-shadow: 0 3px 12px -9px rgb(21 63 53 / .12);
+  transition: transform .35s cubic-bezier(.2,.65,.3,1), box-shadow .35s, border-color .35s;
+}
+.coastline-shop .coast-product__image {
+  border-radius: 10px;
+  background: #f0f3f0;
+  isolation: isolate;
+}
+.coastline-shop .coast-product__image > img {
+  padding: 12px;
+  mix-blend-mode: multiply;
+  transition: transform .65s cubic-bezier(.2,.65,.3,1);
+}
+.coastline-shop .coast-product__image > div:first-child,
+.coastline-shop .coast-detail__image > div { color: #688174; }
+.coastline-shop .coast-product__service-badge { background: #153f35; color: #fff; }
+.coastline-shop .coast-product__sold-badge { background: #9d342d; color: #fff; border-color: #9d342d; }
+.coastline-shop .coast-product__image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 25%, rgb(255 255 255 / .38) 48%, transparent 72%);
+  transform: translateX(-135%);
+  transition: transform .8s;
+}
+.coastline-shop .coast-product__compare {
+  display: grid; place-items: center;
+  width: 36px; height: 36px;
+  border: 1px solid rgb(21 63 53 / .09);
+  color: #153f35;
+  background: rgb(255 255 255 / .94);
+}
+.coastline-shop .coast-product__compare[aria-pressed='true'] { background: #bbdb45; }
+.coastline-shop .coast-product__body { padding: 18px 9px 10px; }
+.coastline-shop .coast-product__brand { font-size: 9px; letter-spacing: .14em; font-weight: 800; }
+.coastline-shop .coast-product__name { min-height: 2.7em; font-size: 14px; letter-spacing: -.015em; }
+.coastline-shop .coast-product__price { font-size: clamp(18px, 1.8vw, 23px); letter-spacing: -.035em; }
+.coastline-shop .coast-product__action {
+  height: 44px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: none;
+}
+.coastline-shop .coast-product__action:not(:disabled) { background: #153f35; color: #fff; }
+.coastline-shop .coast-product__action:disabled { background: rgb(var(--c-raised)); color: rgb(var(--c-ink-muted)); opacity: .8; }
+.coastline-shop .coast-product__action:not(:disabled):hover { background: #2a5a46; }
+.coastline-shop .coast-chip-rail ul { padding-block: 3px 9px; }
+.coastline-shop .coast-chip { min-height: 42px; border: 1px solid rgb(var(--c-hairline)); font-size: 11px; padding-inline: 18px; }
+.coastline-shop .coast-chip:not([aria-current]) { background: rgb(var(--c-surface)); }
+.coastline-shop .coast-chip[aria-current] { background: #153f35; color: #fff; box-shadow: none; border-color: #153f35; }
+.coastline-shop .coast-chip:hover { border-color: #759e87; }
+.coastline-shop .coast-commerce-eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .16em; line-height: 1.6; }
+.coastline-shop .coast-catalog, .coastline-shop .coast-detail {
+  max-width: 1360px;
+  padding-inline: clamp(22px, 4.2vw, 64px);
+}
+.coastline-shop .coast-catalog__heading { position: relative; padding-block: 7px 30px; }
+.coastline-shop .coast-catalog__heading > h1 { margin-top: 11px; font-size: clamp(40px, 5vw, 68px); line-height: 1.04; letter-spacing: -.055em; }
+.coastline-shop .coast-catalog__intro { max-width: 450px; margin-top: 17px; font-size: 13px; line-height: 1.7; }
+.coastline-shop .coast-catalog__count { margin-top: 20px; font-size: 11px; }
+.coastline-shop .coast-catalog__layout { border-top: 1px solid rgb(var(--c-hairline)); padding-top: 28px; column-gap: 30px; }
+.coastline-shop .coast-catalog aside.coast-catalog__sidebar { top: calc(var(--coast-header-height, 158px) + 20px); }
+.coastline-shop .coast-catalog__filters { padding-right: 14px; }
+.coastline-shop .coast-catalog__filters h2 { margin-bottom: 12px; font-size: 10px; letter-spacing: .12em; }
+.coastline-shop .coast-catalog__filters ul button { min-height: 40px; padding-inline: 12px; font-size: 12px; }
+.coastline-shop .coast-catalog__filters ul button[aria-pressed='true'] { background: rgb(var(--c-overlay)); color: rgb(var(--c-ink)); font-weight: 800; }
+.coastline-shop .coast-catalog__filters > div + div { padding-top: 20px; border-top: 1px solid rgb(var(--c-hairline)); }
+.coastline-shop .coast-product-grid { gap: 18px; }
+.coastline-shop .coast-detail > nav { margin-bottom: 30px; }
+.coastline-shop .coast-detail__layout { gap: clamp(28px, 5vw, 72px); }
+.coastline-shop .coast-detail__image { border: 1px solid rgb(var(--c-hairline)); border-radius: 20px; background: #f0f3f0; }
+.coastline-shop .coast-detail__image > img { padding: clamp(18px, 3vw, 42px); mix-blend-mode: multiply; transition: transform .7s cubic-bezier(.2,.65,.3,1); }
+.coastline-shop .coast-detail__thumbnails { gap: 10px; margin-top: 16px; }
+.coastline-shop .coast-detail__thumbnails button { background: #f0f3f0; border-radius: 10px; }
+.coastline-shop .coast-detail__thumbnails img { mix-blend-mode: multiply; padding: 5px; }
+.coastline-shop .coast-detail__title { font-size: clamp(32px, 3.3vw, 46px); line-height: 1.08; letter-spacing: -.045em; }
+.coastline-shop .coast-detail__pricing > p { letter-spacing: -.04em; }
+.coastline-shop .coast-detail__description { font-size: 13px; line-height: 1.9; }
+.coastline-shop .coast-detail__service, .coastline-shop .coast-detail__laybuy { background: rgb(var(--c-raised)); border-color: rgb(var(--c-hairline)); border-radius: 13px; }
+.coastline-shop .coast-detail__quantity { height: 50px; background: rgb(var(--c-surface)); }
+.coastline-shop .coast-detail__add { min-height: 50px; border-radius: 8px; background: #153f35; color: #fff; box-shadow: 0 7px 18px -13px #153f35; font-size: 13px; }
+.coastline-shop .coast-detail__add:hover { background: #2a5a46; }
+.coastline-shop .coast-detail__laybuy > p + p { font-size: 12px; line-height: 1.8; }
+.coastline-shop .coast-detail__laybuy > button { border-color: #799b86; background: transparent; font-size: 11px; }
+.coastline-shop .coast-detail__assurance { font-size: 11px; line-height: 1.6; }
+.coastline-shop .coast-detail__specs dl { overflow: hidden; background: rgb(var(--c-surface)); }
+.coastline-shop .coast-detail__specs dl > div { padding-block: 15px; font-size: 12px; }
+.coastline-shop .coast-detail__specs dt { overflow-wrap: anywhere; }
+.coastline-shop .coast-detail__related { padding-top: 38px; border-top: 1px solid rgb(var(--c-hairline)); }
+.coastline-shop .coast-detail__related > h2 { margin-bottom: 26px; font-size: clamp(26px, 3vw, 38px); letter-spacing: -.035em; }
+[data-field='navy'] .coastline-shop .coast-product__action:not(:disabled),
+[data-field='navy'] .coastline-shop .coast-detail__add,
+[data-field='navy'] .coastline-shop .coast-chip[aria-current] { background: #a3c7bb; color: #153f35; border-color: #a3c7bb; }
+[data-field='navy'] .coastline-shop .coast-product__action:not(:disabled):hover,
+[data-field='navy'] .coastline-shop .coast-detail__add:hover { background: #bedacf; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .coastline-shop .coast-product:hover { transform: translateY(-5px); box-shadow: 0 17px 34px -21px rgb(21 63 53 / .32); border-color: #b1c7ba; }
+  .coastline-shop .coast-product:hover .coast-product__image > img { transform: scale(1.045); }
+  .coastline-shop .coast-product:hover .coast-product__image::after { transform: translateX(135%); }
+  .coastline-shop .coast-detail__image:hover > img { transform: scale(1.04); }
+}
+@media (min-width: 1024px) {
+  .coastline-shop .coast-catalog__count { position: absolute; right: 0; bottom: 31px; }
+  .coastline-shop .coast-detail__gallery { position: sticky; top: calc(var(--coast-header-height, 158px) + 20px); align-self: start; }
+  .coastline-shop .coast-catalog__sidebar { max-height: calc(100dvh - var(--coast-header-height, 158px) - 40px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #a3c7bb transparent; }
+  .coastline-shop .coast-detail__image > img { max-height: 590px; }
+  .coastline-shop .coast-detail__information { padding-top: 9px; }
+}
+@media (max-width: 1023px) {
+  .coastline-shop .coast-catalog__filter-toggle { min-height: 48px; padding: 10px 14px; border: 1px solid rgb(var(--c-hairline)); border-radius: 9px; background: rgb(var(--c-surface)); }
+  .coastline-shop .coast-catalog__filters { padding: 22px 16px; margin-top: 10px; border: 1px solid rgb(var(--c-hairline)); border-radius: 12px; background: rgb(var(--c-surface)); }
+  .coastline-shop .coast-detail__image > img { max-height: 570px; }
+}
+@media (max-width: 639px) {
+  .coastline-shop .coast-product { border-radius: 12px; padding: 5px; }
+  .coastline-shop .coast-product__image { border-radius: 8px; }
+  .coastline-shop .coast-product__image > img { padding: 8px; }
+  .coastline-shop .coast-product__body { padding: 13px 6px 7px; }
+  .coastline-shop .coast-product__name { font-size: 12px; min-height: 2.75em; }
+  .coastline-shop .coast-product__price { font-size: 18px; }
+  .coastline-shop .coast-product__brand { font-size: 8px; }
+  .coastline-shop .coast-product__compare { right: 9px; top: 9px; width: 40px; height: 40px; }
+  .coastline-shop .coast-product__badges { left: 7px; top: 8px; max-width: calc(100% - 45px); }
+  .coastline-shop .coast-product__badges > * { font-size: 8px; padding-inline: 6px; }
+  .coastline-shop .coast-product__action { font-size: 10px; gap: 5px; height: 44px; padding-inline: 7px; }
+  .coastline-shop .coast-product-grid { gap: 10px; }
+  .coastline-shop .coast-catalog__heading { padding-top: 0; }
+  .coastline-shop .coast-catalog__layout { padding-top: 18px; }
+  .coastline-shop .coast-detail > nav { margin-bottom: 20px; }
+  .coastline-shop .coast-detail__image { border-radius: 14px; }
+  .coastline-shop .coast-detail__title { font-size: 33px; }
+  .coastline-shop .coast-detail__pricing { margin-top: 21px; }
+  .coastline-shop .coast-detail__purchase { gap: 10px; }
+  .coastline-shop .coast-detail__quantity > span { width: 25px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .coastline-shop .coast-product, .coastline-shop .coast-product__image > img, .coastline-shop .coast-product__image::after, .coastline-shop .coast-detail__image > img { transition: none; }
+}

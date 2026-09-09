@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Clock, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
+import { ArrowUpRight, Clock, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
 import { CATEGORY_GROUPS, STORE } from '@/lib/constants';
 import { config } from '@/lib/env';
 
@@ -8,160 +8,58 @@ export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    /*
-      The same sweep the header wears, inset and rounded to match, so the page
-      opens and closes on the same band of colour.
-
-      Every stop in .sweep is deep enough for white to clear 4.5:1, which is
-      what makes the light-on-dark treatment below safe. Lime stays an accent
-      on icons and never becomes body text — on this ground it would read at
-      about 2.7:1.
-    */
-    <footer className="relative z-10 mt-6 px-3 pb-3 sm:px-4 sm:pb-4">
-      <div className="sweep sweep-ring relative mx-auto max-w-7xl rounded-3xl px-6 py-12 sm:px-8">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+    <footer className="coast-footer">
+      <div className="coast-shell-width">
+        <div className="coast-footer-intro">
           <div>
-            <div className="flex items-center gap-2.5">
-              <img src="/logo-mark.png" alt="" width={24} height={44} className="h-11 w-auto" />
-              <span className="font-display text-base font-bold text-white">
-                JR <span className="text-lime-400">Importers</span>
-              </span>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-white/75">
-              Cellphone specialists in {STORE.city}. Imported Samsung and Ulefone handsets, checked
-              against their IMEI, with repairs done in-house.
-            </p>
+            <p className="coast-footer-eyebrow"><span className="coast-live-dot" />Rooted in Walvis Bay</p>
+            <h2>Good tech.<br /><span>Closer to home.</span></h2>
           </div>
-
-          <nav aria-labelledby="footer-shop">
-            <h2 id="footer-shop" className="text-xs font-semibold uppercase tracking-wider text-lime-400">
-              Shop
-            </h2>
-            <ul className="mt-4 space-y-2.5">
-              {CATEGORY_GROUPS.map((group) => (
-                <li key={group.id}>
-                  <Link
-                    to={`/shop/${group.id}`}
-                    className="text-sm text-white/75 transition-colors hover:text-white"
-                  >
-                    {group.label}
-                  </Link>
-                </li>
-              ))}
-              <li>
-                <Link
-                  to="/account"
-                  className="text-sm text-white/75 transition-colors hover:text-white"
-                >
-                  Track my order
-                </Link>
-              </li>
-            </ul>
-          </nav>
-
-          <nav aria-labelledby="footer-company">
-            <h2
-              id="footer-company"
-              className="text-xs font-semibold uppercase tracking-wider text-lime-400"
-            >
-              Company
-            </h2>
-            <ul className="mt-4 space-y-2.5">
-              <li>
-                <Link
-                  to="/about"
-                  className="text-sm text-white/75 transition-colors hover:text-white"
-                >
-                  About us
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/support"
-                  className="text-sm text-white/75 transition-colors hover:text-white"
-                >
-                  Support &amp; special orders
-                </Link>
-              </li>
-              {/* Static pages, served outside the app bundle. */}
-              <li>
-                <a
-                  href="/terms.html"
-                  className="text-sm text-white/75 transition-colors hover:text-white"
-                >
-                  Terms &amp; conditions
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/privacy.html"
-                  className="text-sm text-white/75 transition-colors hover:text-white"
-                >
-                  Privacy policy
-                </a>
-              </li>
-            </ul>
-          </nav>
-
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-lime-400">Visit us</h2>
-            <ul className="mt-4 space-y-3 text-sm text-white/75">
-              <li className="flex gap-2.5">
-                <MapPin aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-lime-400" />
-                <span>
-                  {STORE.address}
-                  <br />
-                  {STORE.country}
-                </span>
-              </li>
-              <li className="flex gap-2.5">
-                <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-lime-400" />
-                <span>
-                  {STORE.hours}
-                  <br />
-                  <span className="text-white/55">{STORE.holidays}</span>
-                </span>
-              </li>
-              <li>
-                <a
-                  href={`tel:${STORE.phone.replace(/\s/g, '')}`}
-                  className="flex gap-2.5 transition-colors hover:text-white"
-                >
-                  <Phone aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-lime-400" />
-                  {STORE.phone}
-                </a>
-              </li>
-              {whatsapp && (
-                <li>
-                  <a
-                    href={`https://wa.me/${whatsapp}`}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="flex gap-2.5 transition-colors hover:text-white"
-                  >
-                    <MessageCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-lime-400" />
-                    WhatsApp us
-                  </a>
-                </li>
-              )}
-              <li>
-                <a
-                  href={`mailto:${STORE.email}`}
-                  className="flex gap-2.5 transition-colors hover:text-white"
-                >
-                  <Mail aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-lime-400" />
-                  <span className="break-all">{STORE.email}</span>
-                </a>
-              </li>
-            </ul>
+          <div className="coast-footer-intro-aside">
+            <p>Your next phone. A little advice. A repair that keeps you going. It starts with a conversation.</p>
+            <Link to="/support">Let’s talk<ArrowUpRight aria-hidden size={20} /></Link>
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col gap-2 border-t border-white/15 pt-6 text-xs text-white/55 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            © {year} {STORE.name}. All prices in Namibian Dollar (N$), VAT inclusive.
-          </p>
-          <p>{STORE.address}</p>
+        <div className="coast-footer-grid">
+          <div className="coast-footer-brand">
+            <Link to="/" className="coast-brand coast-brand--footer" aria-label={`${STORE.name} home`}>
+              <img src="/logo-mark.png" alt="" width={31} height={56} loading="lazy" />
+              <span className="coast-brand-wordmark">JR<span>IMPORTERS</span></span>
+            </Link>
+            <p>Cellphone specialists in {STORE.city}. Imported Samsung and Ulefone handsets, checked against their IMEI, with repairs done in-house.</p>
+            <span className="coast-footer-country">Walvis Bay, Namibia<ArrowUpRight aria-hidden size={13} /></span>
+          </div>
+          <nav aria-labelledby="footer-shop">
+            <h3 id="footer-shop">Find your next</h3>
+            <ul>
+              {CATEGORY_GROUPS.map((group) => <li key={group.id}><Link to={`/shop/${group.id}`}>{group.label}</Link></li>)}
+              <li><Link to="/account">Track my order</Link></li>
+            </ul>
+          </nav>
+          <nav aria-labelledby="footer-company">
+            <h3 id="footer-company">Here to help</h3>
+            <ul>
+              <li><Link to="/about">About us</Link></li>
+              <li><Link to="/support">Support &amp; special orders</Link></li>
+              <li><a href="/terms.html">Terms &amp; conditions</a></li>
+              <li><a href="/privacy.html">Privacy policy</a></li>
+            </ul>
+          </nav>
+          <div className="coast-footer-contact">
+            <h3>Come say hello</h3>
+            <ul>
+              <li><MapPin aria-hidden size={16} /><span>{STORE.address}<br />{STORE.country}</span></li>
+              <li><Clock aria-hidden size={16} /><span>{STORE.hours}<br /><small>{STORE.holidays}</small></span></li>
+              <li><a href={`tel:${STORE.phone.replace(/\s/g, '')}`}><Phone aria-hidden size={16} />{STORE.phone}</a></li>
+              {whatsapp && <li><a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer noopener"><MessageCircle aria-hidden size={16} />WhatsApp us<ArrowUpRight aria-hidden size={12} /></a></li>}
+              <li><a href={`mailto:${STORE.email}`}><Mail aria-hidden size={16} /><span>{STORE.email}</span></a></li>
+            </ul>
+          </div>
+        </div>
+        <div className="coast-footer-bottom">
+          <p>© {year} {STORE.name}. All rights reserved.</p>
+          <p>All prices in Namibian Dollar (N$), VAT inclusive.</p>
         </div>
       </div>
     </footer>

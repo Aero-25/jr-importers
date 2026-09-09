@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowUpRight, MapPin, Search } from 'lucide-react';
+import { STORE } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { Button, Card, Input, useToast } from '@/ui';
 import { useSeo } from '../seo';
@@ -13,7 +15,8 @@ export default function Support() {
   });
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10">
+    <div className="mx-auto max-w-6xl px-4 py-10">
+      <p className="coast-eyebrow mb-4 text-ink-muted">A real shop. Real people.</p>
       <h1 className="font-display text-3xl font-bold tracking-tight text-ink">
         Support &amp; special orders
       </h1>
@@ -21,8 +24,14 @@ export default function Support() {
         Cannot find what you need? Tell us the exact model and we will quote you on importing it.
       </p>
 
-      <div className="mt-8 max-w-xl">
+      <div className="coast-support-layout mt-8">
         <SpecialOrderForm />
+        <aside className="coast-support-aside">
+          <MapPin size={28} strokeWidth={1.4} aria-hidden />
+          <h2>Good advice.<br />Just around the corner.</h2>
+          <p>Visit us at {STORE.address} for a closer look, a little advice, or help with your phone.</p>
+          <Link to="/about">Meet your local tech shop <ArrowUpRight size={17} aria-hidden /></Link>
+        </aside>
       </div>
     </div>
   );

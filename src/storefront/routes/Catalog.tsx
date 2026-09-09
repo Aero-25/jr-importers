@@ -95,12 +95,14 @@ export default function Catalog() {
   ].filter(Boolean) as Array<{ key: string; label: string }>;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <ChipRail className="-mx-4 mb-6" />
-
-      <header className="mb-6">
-        <h1 className="font-display text-3xl font-bold tracking-tight text-ink">{title}</h1>
-        <p className="mt-1 text-sm text-ink-muted">
+    <div className="coast-catalog mx-auto max-w-7xl px-4 py-8">
+      <header className="coast-catalog__heading">
+        <p className="coast-commerce-eyebrow">YOUR NEXT EVERYDAY ESSENTIAL</p>
+        <h1 className="font-display font-bold tracking-tight text-ink">{title}</h1>
+        <p className="coast-catalog__intro text-ink-muted">
+          {search ? 'A little closer to the one you want.' : 'Good tech. Local people. Ready for whatever comes next.'}
+        </p>
+        <p className="coast-catalog__count text-sm text-ink-muted" aria-live="polite">
           {catalog.isLoading
             ? 'Loading products…'
             : `${catalog.data?.length ?? 0} ${isServiceGroup ? 'service' : 'product'}${
@@ -128,14 +130,16 @@ export default function Catalog() {
         )}
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
-        <aside className="lg:sticky lg:top-20 lg:self-start">
+      <ChipRail className="-mx-4 mb-8" />
+
+      <div className="coast-catalog__layout grid gap-6 lg:grid-cols-[13rem_1fr]">
+        <aside className="coast-catalog__sidebar lg:sticky lg:self-start">
           <button
             type="button"
             onClick={() => setFiltersOpen((v) => !v)}
             aria-expanded={filtersOpen}
             aria-controls="catalog-filters"
-            className="flex w-full items-center gap-2 rounded-lg py-1 lg:hidden"
+            className="coast-catalog__filter-toggle flex w-full items-center gap-2 lg:hidden"
           >
             <SlidersHorizontal aria-hidden className="h-4 w-4 text-ink-muted" />
             <span className="text-sm font-medium text-ink">Filters</span>
@@ -155,7 +159,7 @@ export default function Catalog() {
 
           <div
             id="catalog-filters"
-            className={cn('space-y-6 pt-4 lg:block lg:pt-0', filtersOpen ? 'block' : 'hidden')}
+            className={cn('coast-catalog__filters space-y-6 pt-4 lg:block lg:pt-0', filtersOpen ? 'block' : 'hidden')}
           >
             <Select
               label="Sort by"
@@ -262,13 +266,13 @@ export default function Catalog() {
           {catalog.isError ? (
             <ErrorState error={catalog.error} onRetry={() => void catalog.refetch()} />
           ) : catalog.isLoading ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            <div className="coast-product-grid grid grid-cols-2 gap-3 sm:grid-cols-3">
               {Array.from({ length: 12 }).map((_, i) => (
                 <ProductCardSkeleton key={i} />
               ))}
             </div>
           ) : catalog.data && catalog.data.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            <div className="coast-product-grid grid grid-cols-2 gap-3 sm:grid-cols-3">
               {catalog.data.map((product, index) => (
                 <ProductCard key={product.id} product={product} priority={index < 8} />
               ))}

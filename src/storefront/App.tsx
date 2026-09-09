@@ -53,21 +53,15 @@ export function ShopApp() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      {/* The ambient light field. Glass has nothing to refract without it. */}
-      <div className="field" aria-hidden />
-
+    <div className="coastline-shop flex min-h-screen flex-col">
       <ScrollToTop />
       <Header />
 
-      <main id="main" className="relative z-10 flex-1">
+      <main id="main" className={`relative z-10 flex-1 ${location.pathname === '/' ? 'coast-home-main' : 'coast-inner-main'}`}>
         {!isConfigured && (
           <div className="mx-auto max-w-5xl px-4 pt-4">
-            <Notice tone="warn" title="Store not connected">
-              Supabase credentials are missing, so no products can load. Set
-              <code className="mx-1 font-mono text-xs">VITE_SUPABASE_URL</code> and
-              <code className="mx-1 font-mono text-xs">VITE_SUPABASE_ANON_KEY</code>, or populate
-              <code className="mx-1 font-mono text-xs">/config.js</code>.
+            <Notice tone="warn" title="The online catalogue is temporarily unavailable">
+              Please visit our shop at Pelican Mall, Walvis Bay, or try again shortly.
             </Notice>
           </div>
         )}

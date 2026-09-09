@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AppProviders } from '@/app/providers';
 import { installErrorReporting } from '@/lib/errorReporter';
 import '@/styles/global.css';
+import './coastline.css';
 import { ShopApp } from './App';
 
 installErrorReporting();

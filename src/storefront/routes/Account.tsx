@@ -275,7 +275,8 @@ function SignIn() {
   }
 
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
+    <div className="coast-auth-card mx-auto max-w-sm px-4 py-16">
+      <p className="coast-eyebrow mb-5 text-ink-muted">Your corner of JR</p>
       <h1 className="font-display text-2xl font-bold text-ink">Sign in</h1>
       <p className="mt-1 text-sm text-ink-muted">Track orders and check out faster.</p>
 
@@ -361,7 +362,8 @@ function Register() {
   }
 
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
+    <div className="coast-auth-card mx-auto max-w-sm px-4 py-16">
+      <p className="coast-eyebrow mb-5 text-ink-muted">A world of possibility awaits</p>
       <h1 className="font-display text-2xl font-bold text-ink">Create an account</h1>
 
       <Notice tone="info" className="mt-4">

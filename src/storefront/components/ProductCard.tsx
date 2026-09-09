@@ -5,10 +5,10 @@ import { STORE, isServiceCategory } from '@/lib/constants';
 import { money, slugify } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Badge, Button, StockBadge } from '@/ui';
-import { useSpecular } from '@/ui/effects';
 import { useCart } from '@/data/cart';
 import { useCompare } from '@/data/compare';
 import { useToast } from '@/ui';
+import '../commerce.css';
 
 export function productPath(product: Pick<ProductRow, 'id' | 'name'>): string {
   return `/product/${product.id}-${slugify(product.name)}`;
@@ -27,7 +27,6 @@ export function ProductCard({
   const { add } = useCart();
   const compare = useCompare();
   const toast = useToast();
-  const { specularProps } = useSpecular<HTMLElement>();
   const service = isServiceCategory(product.category);
   const outOfStock = !service && product.stock <= 0;
   const compared = compare.has(product.id);
@@ -56,22 +55,15 @@ export function ProductCard({
 
   return (
     <article
-      {...specularProps}
       className={cn(
-        'group glass sheen relative flex flex-col overflow-hidden rounded-2xl',
-        'transition-[transform,filter] duration-300 ease-out',
-        'hover:-translate-y-1 hover:brightness-[1.03]',
+        'coast-product group relative flex flex-col overflow-hidden',
         className,
       )}
     >
-      {/*
-        `cover`, not `contain`: this catalogue is lifestyle photography rather
-        than cut-outs on white, so filling the square reads better than letter-
-        boxing it. The faint grey underneath only shows while the image loads.
-      */}
+      {/* Give every device room in its image well without cropping it. */}
       <Link
         to={productPath(product)}
-        className="relative block aspect-square overflow-hidden bg-white/40"
+        className="coast-product__image relative block aspect-square overflow-hidden"
       >
         {product.image ? (
           <img
@@ -80,7 +72,7 @@ export function ProductCard({
             loading={priority ? 'eager' : 'lazy'}
             decoding="async"
             fetchPriority={priority ? 'high' : 'auto'}
-            className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+            className="h-full w-full object-contain"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-ink-subtle">
@@ -88,11 +80,11 @@ export function ProductCard({
           </div>
         )}
 
-        <div className="absolute left-2 top-2 flex flex-col gap-1">
+        <div className="coast-product__badges absolute left-3 top-3 flex flex-col gap-1">
           {/* Solid, not a soft tint: these badges sit on photography, where a
               12%-alpha fill leaves the label unreadable. */}
           {service ? (
-            <span className="inline-flex items-center rounded-full bg-brand-700 px-2.5 py-0.5 text-2xs font-semibold text-white shadow-card">
+            <span className="coast-product__service-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-2xs font-semibold text-white shadow-card">
               In-store service
             </span>
           ) : (
@@ -103,7 +95,7 @@ export function ProductCard({
             )
           )}
           {outOfStock && (
-            <Badge tone="danger" size="sm">
+            <Badge tone="danger" size="sm" className="coast-product__sold-badge">
               Sold out
             </Badge>
           )}
@@ -119,7 +111,7 @@ export function ProductCard({
           aria-pressed={compared}
           title={compared ? 'Remove from compare' : 'Compare'}
           className={cn(
-            'absolute right-2 top-2 z-10 rounded-full p-2 shadow-card transition-colors',
+            'coast-product__compare absolute right-4 top-4 z-10 rounded-full p-2 transition-colors',
             compared
               ? 'bg-lime-500 text-brand-800'
               : 'bg-white/85 text-ink-muted hover:bg-white hover:text-ink',
@@ -129,21 +121,21 @@ export function ProductCard({
         </button>
       )}
 
-      <div className="flex flex-1 flex-col p-3">
+      <div className="coast-product__body flex flex-1 flex-col">
         {product.brand && (
-          <p className="text-2xs font-medium uppercase tracking-wide text-ink-subtle">
+          <p className="coast-product__brand text-2xs font-medium uppercase tracking-wide text-ink-subtle">
             {product.brand}
           </p>
         )}
 
-        <h3 className="mt-0.5 line-clamp-2 text-sm font-medium leading-snug text-ink">
+        <h3 className="coast-product__name mt-1 line-clamp-2 font-semibold leading-snug text-ink">
           <Link to={productPath(product)} className="after:absolute after:inset-0 after:content-['']">
             {product.name}
           </Link>
         </h3>
 
         <div className="mt-auto pt-3">
-          <p className="tabular font-display text-lg font-bold text-brand-700">
+          <p className="coast-product__price tabular font-display font-bold text-brand-700">
             {service ? `From ${money(product.price)}` : money(product.price)}
           </p>
 
@@ -168,12 +160,12 @@ export function ProductCard({
           {/*
             Repairs are booked in at the shop — a technician has to see the
             handset before the price is real. So the action is a phone call,
-            not a cart. Lime stays reserved for the one action on the card.
+            not a cart.
           */}
           {service ? (
             <a
               href={`tel:${STORE.phone.replace(/\s/g, '')}`}
-              className="relative z-10 mt-3 flex h-8 items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-500"
+              className="coast-product__action relative z-10 mt-4 flex items-center justify-center gap-1.5 px-3 text-xs font-semibold transition-colors"
             >
               <Phone aria-hidden className="h-3.5 w-3.5" />
               Book at the shop
@@ -182,11 +174,11 @@ export function ProductCard({
             <Button
               size="md"
               fullWidth
-              variant={outOfStock ? 'secondary' : 'lime'}
+              variant={outOfStock ? 'secondary' : 'primary'}
               disabled={outOfStock}
               onClick={addToCart}
               // Sits above the card-wide link overlay.
-              className="relative z-10 mt-3"
+              className="coast-product__action relative z-10 mt-4"
               icon={<ShoppingBag className="h-3.5 w-3.5" />}
             >
               {outOfStock ? 'Sold out' : 'Add to cart'}
@@ -201,9 +193,9 @@ export function ProductCard({
 /** Matches ProductCard's box so the grid does not reflow when data lands. */
 export function ProductCardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-card border border-hairline bg-surface" aria-hidden>
-      <div className="skeleton aspect-square" />
-      <div className="space-y-2 p-3">
+    <div className="coast-product overflow-hidden" aria-hidden>
+      <div className="coast-product__image skeleton aspect-square" />
+      <div className="coast-product__body space-y-2">
         <div className="skeleton h-3 w-1/3 rounded" />
         <div className="skeleton h-4 w-full rounded" />
         <div className="skeleton h-5 w-1/2 rounded" />

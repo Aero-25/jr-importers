@@ -51,7 +51,7 @@ export default function About() {
 
   return (
     <div ref={root} className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
-      <header className="reveal max-w-2xl">
+      <header className="coast-about-intro reveal max-w-2xl">
         <p className="text-xs font-semibold uppercase tracking-wider text-lime-700">
           About {STORE.name}
         </p>

@@ -129,7 +129,7 @@ test.describe('hero', () => {
         hero.evaluate((el) => getComputedStyle(el).getPropertyValue('--parallax').trim());
 
       // useParallax writes --parallax on first run, so it starts settled at 0.
-      expect(await read()).toBe('0px');
+      await expect.poll(read).toBe('0px');
 
       // The page has to be long enough to scroll before any of this means
       // anything — with an empty catalogue the home page is much shorter, and
