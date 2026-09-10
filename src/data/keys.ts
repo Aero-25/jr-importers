@@ -17,6 +17,9 @@ export const keys = {
   dashboard: (range: string): unknown[] => ['dashboard', range],
   productFacets: (): unknown[] => ['products', 'facets'],
   openTill: (): unknown[] => ['till_shifts', 'open'],
+  /** One client's whole history — ledger, invoices, laybys and refunds. */
+  statement: (customerId: string, range?: unknown): unknown[] =>
+    range === undefined ? ['statement', customerId] : ['statement', customerId, range],
   ledgerBalance: (kind: 'debtor' | 'creditor', partyId: string | number): unknown[] => [
     'account_transactions',
     'balance',

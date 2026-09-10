@@ -17,6 +17,7 @@ const Products = lazy(() => import('./modules/Products'));
 const JobCards = lazy(() => import('./modules/JobCards'));
 const Records = lazy(() => import('./modules/Records'));
 const Ledger = lazy(() => import('./modules/Ledger'));
+const Statements = lazy(() => import('./modules/Statements'));
 const Settings = lazy(() => import('./modules/Settings'));
 const Activity = lazy(() => import('./modules/Activity'));
 const GoodsReceived = lazy(() => import('./modules/GoodsReceived'));
@@ -27,6 +28,7 @@ const ImportIQ = lazy(() => import('./modules/ImportIQ'));
 const Faults = lazy(() => import('./modules/Faults'));
 
 const ADMIN_ONLY_PATHS = [
+  '/invoices/statements',
   '/purchase-orders',
   '/expenses',
   '/coupons',
@@ -138,6 +140,7 @@ export function AdminApp() {
               <Route path="/coupons" element={<Records resource="coupons" />} />
               <Route path="/staff" element={<Records resource="users" />} />
               <Route path="/ledger" element={<Ledger />} />
+              <Route path="/invoices/statements" element={<Statements />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/activity" element={<Activity />} />
               <Route path="/finance" element={<Finance />} />

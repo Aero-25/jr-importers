@@ -7,7 +7,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { initials } from '@/lib/format';
 import { IconButton } from '@/ui';
 import { useSpecular } from '@/ui/effects';
-import { visibleSections } from '../nav';
+import { matchExactly, visibleSections } from '../nav';
 import { IdleLock } from './IdleLock';
 
 const APK_NOTICE_KEY = 'jr-apk-notice-dismissed';
@@ -129,7 +129,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                       <li key={item.id}>
                         <NavLink
                           to={item.path}
-                          end={item.path === '/'}
+                          end={matchExactly(item.path)}
                           className={({ isActive }) =>
                             cn(
                               'group relative flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-all duration-150',

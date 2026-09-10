@@ -1,6 +1,8 @@
+import type { ClientStatement } from '@/data/statements';
 import type { DamageReportRow, InvoiceRow, JobCardRow, OrderRow, QuoteRow } from './database.types';
 import { supabase } from './supabase';
 import { STORE } from './constants';
+import { formatDate } from './format';
 import { isSendableNumber, whatsappNumber } from './phone';
 
 export type PdfDocument =
@@ -8,7 +10,8 @@ export type PdfDocument =
   | { kind: 'order'; record: OrderRow }
   | { kind: 'quote'; record: QuoteRow }
   | { kind: 'jobcard'; record: JobCardRow }
-  | { kind: 'damage'; record: DamageReportRow };
+  | { kind: 'damage'; record: DamageReportRow }
+  | { kind: 'statement'; record: ClientStatement };
 export type PdfChannel = 'whatsapp' | 'email';
 
 /**
@@ -28,6 +31,7 @@ export function documentReference(document: PdfDocument): string {
     case 'quote': return `Quote ${document.record.quote_number ?? `Q-${document.record.id}`}`;
     case 'jobcard': return `Job Card ${document.record.job_number}`;
     case 'damage': return `Damage Report ${document.record.report_number}`;
+    case 'statement': return `Statement ${document.record.customer_name}`;
   }
 }
 
@@ -47,6 +51,10 @@ export function documentReference(document: PdfDocument): string {
  * tells them nothing about which one this is.
  */
 async function pdfFileName(document: PdfDocument): Promise<string> {
+  if (document.kind === 'statement') {
+    const { statementFileName } = await import('./statementPdf');
+    return statementFileName(document.record);
+  }
   if (document.kind === 'damage') {
     const { damageReportFileName } = await import('./damageReportPdf');
     return damageReportFileName(document.record.report_number, document.record.product_name);
@@ -61,6 +69,10 @@ function addressee(document: PdfDocument): string {
 }
 
 export async function buildSharedPdf(document: PdfDocument): Promise<Blob> {
+  if (document.kind === 'statement') {
+    const { buildClientStatementPdf } = await import('./statementPdf');
+    return buildClientStatementPdf(document.record);
+  }
   if (document.kind === 'damage') {
     const { buildDamageReportPdf } = await import('./damageReportPdf');
     return buildDamageReportPdf(document.record);
@@ -123,6 +135,8 @@ export async function publishSharedPdf(document: PdfDocument): Promise<string> {
   const blob = await buildSharedPdf(document);
   // Use the existing staff-writable document folders. Random paths prevent
   // enumeration by document number and keep previously sent copies immutable.
+  // 'invoices' also carries statements: it is the folder staff may write to
+  // for anything that goes out to a customer about what they were charged.
   const folder = document.kind === 'jobcard' ? 'jobcards' : document.kind === 'damage' ? 'damage' : 'invoices';
   const path = `${folder}/${document.kind}/${crypto.randomUUID()}.pdf`;
   const { error } = await supabase.storage.from('Images').upload(path, blob, {
@@ -183,9 +197,13 @@ export async function emailSharedPdf(document: PdfDocument, recipient: string): 
   const greeting = name ? ` ${name}` : '';
   // A claim asks the reader for something; a sale thanks them for something.
   const claim = document.kind === 'damage';
+  // "your statement john doe attached" is what lowercasing the reference gives
+  // on a statement, so it names the document rather than the reference.
   const line = claim
     ? `Please find our ${reference.toLowerCase()} attached for your assessment.`
-    : `Please find your ${reference.toLowerCase()} attached.`;
+    : document.kind === 'statement'
+      ? `Please find your statement of account attached, drawn to ${formatDate(document.record.asAt)}.`
+      : `Please find your ${reference.toLowerCase()} attached.`;
   const closing = claim ? 'Thank you for your assistance.' : 'Thank you for your business.';
 
   const html = [

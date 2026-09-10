@@ -110,6 +110,16 @@ export const NAV: NavSection[] = [
     items: [
       { id: 'quotes', label: 'Quotes', path: '/quotes', icon: FileText },
       { id: 'invoices', label: 'Invoices', path: '/invoices', icon: Receipt },
+      {
+        id: 'statements',
+        label: 'Client statements',
+        path: '/invoices/statements',
+        icon: ScrollText,
+        // The statement is built from `account_transactions`, whose RLS is
+        // `is_admin()`. A cashier would be shown one with the account
+        // movements missing and no sign that anything was withheld.
+        adminOnly: true,
+      },
       { id: 'laybys', label: 'Laybys', path: '/laybys', icon: Wallet },
     ],
   },
@@ -136,6 +146,27 @@ export const NAV: NavSection[] = [
     ],
   },
 ];
+
+/**
+ * Nav items whose path is the prefix of another item's.
+ *
+ * `/invoices` and `/invoices/statements` both match a prefix comparison, so
+ * without this the sidebar lights up two entries at once and neither reads as
+ * where you are. Derived rather than flagged by hand: a screen added under an
+ * existing one gets the right behaviour without anyone remembering to say so.
+ */
+const NESTED_PARENTS = new Set(
+  NAV.flatMap((section) => section.items).flatMap((item, _i, items) =>
+    items.some((other) => other.path !== item.path && other.path.startsWith(`${item.path}/`))
+      ? [item.path]
+      : [],
+  ),
+);
+
+/** Whether a nav link should only highlight on an exact path match. */
+export function matchExactly(path: string): boolean {
+  return path === '/' || NESTED_PARENTS.has(path);
+}
 
 export function visibleSections(isAdmin: boolean): NavSection[] {
   return NAV.map((section) => ({

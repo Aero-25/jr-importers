@@ -92,6 +92,8 @@ export interface RecordSpec {
   lineItems?: boolean;
   /** The record prints as an A4 document of this kind. */
   pdf?: 'quote' | 'invoice' | 'damage_report';
+  /** A related screen, offered next to the module's own action. */
+  companion?: { label: string; path: string };
 }
 
 /** What a claim is against. Mirrors the check constraint on the table. */
@@ -385,6 +387,9 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     searchColumns: ['invoice_number', 'customer_name', 'customer_email', 'po_number'],
     lineItems: true,
     pdf: 'invoice',
+    // What a customer asks for after their invoices: the whole account, not
+    // one document. Reached from here because this is where staff look.
+    companion: { label: 'Client statements', path: '/invoices/statements' },
     fields: [
       {
         key: 'invoice_number',

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { FileText, Plus, Search, Trash2 } from 'lucide-react';
 import type { createResource } from '@/data/crud';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
@@ -72,7 +73,9 @@ export default function Records({ resource: specKey }: { resource: string }) {
 const PAGE_SIZE = 50;
 
 function RecordsModule({ spec }: { spec: RecordSpec }) {
+  const navigate = useNavigate();
   const resource = spec.resource as unknown as Resource;
+  const companion = spec.companion;
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<AnyRow | 'new' | null>(null);
@@ -110,11 +113,22 @@ function RecordsModule({ spec }: { spec: RecordSpec }) {
         title={spec.title}
         description={spec.description}
         actions={
-          spec.readOnly ? undefined : (
-            <Button icon={<Plus className="h-4 w-4" />} onClick={() => setEditing('new')}>
-              {spec.createLabel ?? 'New'}
-            </Button>
-          )
+          <>
+            {companion && (
+              <Button
+                variant="secondary"
+                icon={<FileText className="h-4 w-4" />}
+                onClick={() => navigate(companion.path)}
+              >
+                {companion.label}
+              </Button>
+            )}
+            {!spec.readOnly && (
+              <Button icon={<Plus className="h-4 w-4" />} onClick={() => setEditing('new')}>
+                {spec.createLabel ?? 'New'}
+              </Button>
+            )}
+          </>
         }
       />
 
