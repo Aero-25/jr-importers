@@ -437,6 +437,13 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         wide: true,
         hint: 'Prints on the invoice, under the totals.',
       },
+      {
+        key: 'iq_data',
+        label: 'IQ document',
+        type: 'record',
+        wide: true,
+        hint: 'The IQ sales-history header this invoice was imported from, under IQ own field names. Empty on invoices the shop raised itself.',
+      },
     ],
   },
 

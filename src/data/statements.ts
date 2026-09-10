@@ -5,6 +5,7 @@ import type {
   CustomerRow,
   InvoiceRow,
   LaybyRow,
+  LineItem,
   RefundRow,
 } from '@/lib/database.types';
 import { round2, toDateInput, toNumber } from '@/lib/format';
@@ -120,6 +121,65 @@ function isHistory(invoice: InvoiceRow): boolean {
   return invoice.source === 'iq-import';
 }
 
+/**
+ * What the document was actually for.
+ *
+ * A statement whose every line reads "Invoice" tells the customer nothing they
+ * could check against their own records, which is the whole job of the
+ * description column. In order of what a reader would recognise:
+ *
+ *   1. The goods, from the invoice's own line items.
+ *   2. What IQ recorded, for documents carried over from it. IQ's sales-history
+ *      export names its columns whatever the shop's IQ version called them, so
+ *      the field is found by shape rather than by a fixed list: a key that
+ *      reads like a description or a reference, holding text a person wrote.
+ *   3. The customer's own order number, or the comment typed on the invoice.
+ */
+const IQ_DESCRIPTION_KEY = /descript|comment|narrat|remark|memo|detail|message/i;
+const IQ_REFERENCE_KEY = /yourref|custref|customerref|orderno|ordernum|order_no|purchase|reference/i;
+
+/** Codes, totals, dates and account numbers describe nothing. */
+function readableValue(value: unknown): string {
+  const text = String(value ?? '').trim();
+  if (text.length < 3) return '';
+  if (/^[\d\s.,:/-]+$/.test(text)) return '';
+  return text;
+}
+
+function iqDescription(iq: Record<string, string> | null): string {
+  if (!iq) return '';
+  const entries = Object.entries(iq);
+  for (const pattern of [IQ_DESCRIPTION_KEY, IQ_REFERENCE_KEY]) {
+    for (const [key, value] of entries) {
+      if (!pattern.test(key)) continue;
+      const text = readableValue(value);
+      if (text) return text;
+    }
+  }
+  return '';
+}
+
+/** "Galaxy A16 x2, Screen protector" — the goods, as the customer saw them. */
+function itemSummary(items: LineItem[]): string {
+  const named = (items ?? []).filter((item) => item?.name);
+  if (!named.length) return '';
+  const shown = named
+    .slice(0, 3)
+    .map((item) => (Number(item.quantity) > 1 ? `${item.name} x${item.quantity}` : item.name))
+    .join(', ');
+  return named.length > 3 ? `${shown} +${named.length - 3} more` : shown;
+}
+
+function invoiceDescription(invoice: InvoiceRow): string {
+  return (
+    itemSummary(invoice.items ?? []) ||
+    iqDescription(invoice.iq_data) ||
+    invoice.notes?.trim() ||
+    (invoice.po_number ? `Your PO ${invoice.po_number}` : '') ||
+    ''
+  );
+}
+
 function invoiceReference(invoice: InvoiceRow): string {
   return invoice.invoice_number ?? `INV-${invoice.id}`;
 }
@@ -231,16 +291,19 @@ export function buildStatement(
     const total = toNumber(invoice.total_amount);
     const history = isHistory(invoice);
     const reference = invoiceReference(invoice);
+    // A credit note comes over as a document with a negative total. Left in the
+    // charges column it reads as a bill for minus five thousand dollars.
+    const credit = total < 0;
 
     lines.push({
       id: `invoice-${invoice.id}`,
       date: toDateInput(invoice.created_at),
       at: invoice.created_at,
-      type: history ? 'Invoice (IQ history)' : 'Invoice',
+      type: credit ? 'Credit note' : 'Invoice',
       reference,
-      detail: invoice.po_number ? `Your PO ${invoice.po_number}` : (invoice.payment_method ?? ''),
-      charge: round2(total),
-      payment: 0,
+      detail: invoiceDescription(invoice),
+      charge: credit ? 0 : round2(total),
+      payment: credit ? round2(-total) : 0,
       onAccount: !history,
       balance: null,
       note: history ? 'Carried over from IQ — already inside the opening balance.' : null,
@@ -249,7 +312,7 @@ export function buildStatement(
 
     // A till sale is invoiced and settled in the same breath. Showing only the
     // charge would tell a customer they owe for a phone they paid cash for.
-    if (!history && invoice.status === 'paid') {
+    if (!history && !credit && invoice.status === 'paid') {
       lines.push({
         id: `invoice-${invoice.id}-settled`,
         date: toDateInput(invoice.paid_at ?? invoice.created_at),
@@ -278,7 +341,7 @@ export function buildStatement(
       at: layby.created_at,
       type: 'Layby opened',
       reference,
-      detail: (layby.items ?? []).map((item) => item.name).join(', '),
+      detail: itemSummary(layby.items ?? []),
       charge: round2(toNumber(layby.total_amount)),
       payment: 0,
       onAccount: false,

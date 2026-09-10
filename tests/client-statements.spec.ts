@@ -53,17 +53,31 @@ const invoices = [
     source: null, order_id: null, created_at: '2026-02-10T09:00:00Z',
   },
   // A till sale: invoiced and settled in the same breath, so it nets to zero.
+  // Its description comes off the goods themselves.
   {
     id: 501, invoice_number: 'INV-501', customer_id: customer.id, customer_name: customer.name,
-    items: [], total_amount: 2700, subtotal_amount: 2347.83, vat_amount: 352.17, status: 'paid',
+    items: [
+      { name: 'Galaxy A16 128GB', quantity: 2, price: 1200 },
+      { name: 'Screen protector', quantity: 1, price: 300 },
+    ],
+    total_amount: 2700, subtotal_amount: 2347.83, vat_amount: 352.17, status: 'paid',
     payment_method: 'Cash', source: 'pos', order_id: null,
     created_at: '2026-03-02T11:00:00Z', paid_at: '2026-03-02T11:00:00Z',
   },
-  // IQ history: the debt is already inside the opening balance.
+  // IQ history: the debt is already inside the opening balance. It carries no
+  // line items — IQ exported document headers only — so the description has to
+  // come out of the header IQ gave us, whatever it named the column.
   {
     id: 502, invoice_number: 'IQ-9001', customer_id: customer.id, customer_name: customer.name,
     items: [], total_amount: 4300, subtotal_amount: 3739.13, vat_amount: 560.87, status: 'paid',
     source: 'iq-import', order_id: null, created_at: '2025-11-14T10:00:00Z',
+    iq_data: { DOCNUMBER: 'IQ-9001', ACCOUNT: 'CF0077', TOTAL: '4300.00', DESCRIPT: 'Handsets for trawler crew' },
+  },
+  // An imported credit note: a document with a negative total.
+  {
+    id: 503, invoice_number: 'IQ-9002', customer_id: customer.id, customer_name: customer.name,
+    items: [], total_amount: -900, status: 'paid', source: 'iq-import', order_id: null,
+    created_at: '2025-11-20T10:00:00Z', iq_data: { COMMENT: 'Returned faulty charger' },
   },
 ];
 
@@ -122,6 +136,15 @@ test('a client statement pulls every transaction on the account and carries the 
   // assertion reads the digits rather than the separator.
   const balanceTile = page.locator('div').filter({ hasText: /^Balance due/ }).first();
   await expect(balanceTile).toContainText(/1.500[.,]00/);
+
+  // What each document was actually for, not a repeated internal label.
+  await expect(page.getByText('Handsets for trawler crew')).toBeVisible();
+  await expect(page.getByText('Galaxy A16 128GB x2, Screen protector')).toBeVisible();
+  // A negative imported document is a credit note, and its money belongs in
+  // the payments column — not a bill for minus nine hundred dollars.
+  const creditRow = page.getByRole('row').filter({ hasText: 'Returned faulty charger' });
+  await expect(creditRow).toContainText('Credit note');
+  await expect(creditRow).toContainText(/900[.,]00/);
 
   await expect(page.getByRole('cell', { name: 'IQ-9001' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'LAY-0007' }).first()).toBeVisible();

@@ -85,7 +85,9 @@ export default function Statements() {
             <span className="text-ink">{line.type}</span>
             {!line.onAccount && (
               <Badge tone="neutral" size="sm" className="ml-2 align-middle">
-                Off account
+                {/* The reason travels with the badge: "off account" on its own
+                    invites the reader to assume the line is a mistake. */}
+                <span title={line.note ?? 'Outside the account balance.'}>Off account</span>
               </Badge>
             )}
             {line.detail && (

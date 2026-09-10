@@ -26,6 +26,17 @@ const OVERDUE: [number, number, number] = [176, 32, 32];
 /** Where the transaction table has to stop to leave room for the totals. */
 const BODY_BOTTOM = 226;
 
+/**
+ * Table geometry, in mm from the left margin.
+ *
+ * Charges, payments and the balance are right-aligned to their x, so the text
+ * to their left has to stop short of where the widest amount begins, not where
+ * its anchor sits. AMOUNT_WIDTH is that reservation: without it a description
+ * is trimmed to a column that does not exist and prints underneath the money.
+ */
+const COL = { date: 2, reference: 24, description: 66, charges: 132, payments: 156 };
+const AMOUNT_WIDTH = 18;
+
 function amount(value: number): string {
   return money(value).replace('N$ ', '');
 }
@@ -45,6 +56,20 @@ export async function buildClientStatementPdf(statement: ClientStatement): Promi
   const left = 12;
   const right = 198;
   const mid = 105;
+
+  /**
+   * Trims to the column rather than to a character count.
+   *
+   * A fixed slice is set for the shortest description and cuts the longest
+   * ones mid-word anyway; measuring the text keeps every column's worth of
+   * detail and stops "Samsung Galaxy A16" running into the charges.
+   */
+  const fit = (text: string, width: number) => {
+    if (doc.getTextWidth(text) <= width) return text;
+    let out = text;
+    while (out.length > 1 && doc.getTextWidth(`${out}…`) > width) out = out.slice(0, -1);
+    return `${out.trimEnd()}…`;
+  };
 
   const box = (x: number, y: number, w: number, h: number, title: string) => {
     doc.setDrawColor(...LINE);
@@ -133,11 +158,11 @@ export async function buildClientStatementPdf(statement: ClientStatement): Promi
     doc.setFontSize(8);
     doc.setTextColor(...BRAND_GREEN);
     y += 4.8;
-    doc.text('Date', left + 2, y);
-    doc.text('Reference', left + 24, y);
-    doc.text('Description', left + 66, y);
-    doc.text('Charges', left + 132, y, { align: 'right' });
-    doc.text('Payments', left + 156, y, { align: 'right' });
+    doc.text('Date', left + COL.date, y);
+    doc.text('Reference', left + COL.reference, y);
+    doc.text('Description', left + COL.description, y);
+    doc.text('Charges', left + COL.charges, y, { align: 'right' });
+    doc.text('Payments', left + COL.payments, y, { align: 'right' });
     doc.text('Balance', right - 2, y, { align: 'right' });
     y += 6;
     doc.setFont('helvetica', 'normal');
@@ -150,8 +175,8 @@ export async function buildClientStatementPdf(statement: ClientStatement): Promi
      stamping today's date on an opening line of zero reads as a transaction
      that happened today. */
   doc.setFont('helvetica', 'bold');
-  if (statement.from) doc.text(formatDate(statement.from), left + 2, y);
-  doc.text('Balance brought forward', left + 24, y);
+  if (statement.from) doc.text(formatDate(statement.from), left + COL.date, y);
+  doc.text('Balance brought forward', left + COL.reference, y);
   doc.text(amount(statement.openingBalance), right - 2, y, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   y += 5.8;
@@ -172,15 +197,15 @@ export async function buildClientStatementPdf(statement: ClientStatement): Promi
     striped = !striped;
 
     doc.setTextColor(...INK);
-    doc.text(formatDate(line.date), left + 2, y);
-    doc.text(String(line.reference).slice(0, 22), left + 24, y);
+    doc.text(formatDate(line.date), left + COL.date, y);
+    doc.text(fit(String(line.reference), COL.description - COL.reference - 3), left + COL.reference, y);
     // Off-account lines are marked in the description rather than dropped: the
     // customer's layby and their old IQ invoices are part of their history,
     // they simply are not part of what the account balance says they owe.
     const description = `${line.type}${line.detail ? ` — ${line.detail}` : ''}${line.onAccount ? '' : ' *'}`;
-    doc.text(description.slice(0, 42), left + 66, y);
-    if (line.charge) doc.text(amount(line.charge), left + 132, y, { align: 'right' });
-    if (line.payment) doc.text(amount(line.payment), left + 156, y, { align: 'right' });
+    doc.text(fit(description, COL.charges - COL.description - AMOUNT_WIDTH), left + COL.description, y);
+    if (line.charge) doc.text(amount(line.charge), left + COL.charges, y, { align: 'right' });
+    if (line.payment) doc.text(amount(line.payment), left + COL.payments, y, { align: 'right' });
     if (line.balance !== null) doc.text(amount(line.balance), right - 2, y, { align: 'right' });
     y += 5.6;
   }
