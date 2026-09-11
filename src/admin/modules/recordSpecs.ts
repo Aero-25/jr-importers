@@ -171,14 +171,18 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
       },
       { key: 'incident_date', label: 'Date of incident', type: 'date', inList: true },
       { key: 'reported_date', label: 'Date reported', type: 'date' },
+      // Typed in, never picked from the accounts. A claim is about whoever
+      // brought the handset in — often not an account holder, and the name
+      // on the insurer's policy is what the assessor matches against, not
+      // whatever the shop's customer record happens to say.
       {
         key: 'customer_name',
         label: 'Customer',
-        type: 'customer',
-        extraKeys: ['customer_id', 'customer_phone'],
-        hint: 'Only if the claim concerns a customer’s handset.',
+        type: 'text',
+        hint: 'As it should appear on the report. Only if the claim concerns a customer’s handset.',
       },
-      { key: 'supplier_name', label: 'Supplier', type: 'lookup', lookup: 'suppliers' },
+      { key: 'customer_phone', label: 'Customer phone', type: 'tel' },
+      { key: 'supplier_name', label: 'Supplier', type: 'text' },
       {
         key: 'finding',
         label: 'Not repairable due to',
