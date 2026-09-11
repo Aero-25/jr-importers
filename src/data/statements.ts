@@ -129,12 +129,27 @@ function isHistory(invoice: InvoiceRow): boolean {
  * description column. In order of what a reader would recognise:
  *
  *   1. The goods, from the invoice's own line items.
- *   2. What IQ recorded, for documents carried over from it. IQ's sales-history
- *      export names its columns whatever the shop's IQ version called them, so
- *      the field is found by shape rather than by a fixed list: a key that
- *      reads like a description or a reference, holding text a person wrote.
+ *   2. What IQ recorded, for documents carried over from it.
  *   3. The customer's own order number, or the comment typed on the invoice.
+ *
+ * On the IQ side the shop's actual export (IQ SaaS 2023.1, Documents grid)
+ * holds free text in exactly three places, and the names are not what a
+ * shape-based guess expects: `LONGDESC` is the note typed on the document
+ * ("Old Mutual Official Order 122187 / Claim no. 123315331"), `FAULTDES` is a
+ * workshop fault line ("TOUCH AND LCD REPLACEMENT"), and `MEMO` is rarely
+ * used. A generic /descript/ pattern matched none of these, so every one of
+ * the 200-odd documents that did carry a description printed its order
+ * number, or nothing. Those names are tried first, by name; the pattern
+ * search stays as a fallback for an export from a differently-named version.
+ *
+ * `ORDERNUM` is the customer's own order or PO number and is on ~950
+ * documents. It is a reference, not a description, and is labelled as such.
+ * It is often purely numeric ("17367") — that is still the number the
+ * customer's buyer will look for, so it is kept where a bare number in a
+ * description field would be dropped.
  */
+const IQ_DESCRIPTION_FIELDS = ['LONGDESC', 'FAULTDES', 'JOBDES', 'MEMO'];
+const IQ_REFERENCE_FIELDS = ['ORDERNUM', 'RealOrderNum'];
 const IQ_DESCRIPTION_KEY = /descript|comment|narrat|remark|memo|detail|message/i;
 const IQ_REFERENCE_KEY = /yourref|custref|customerref|orderno|ordernum|order_no|purchase|reference/i;
 
@@ -146,15 +161,36 @@ function readableValue(value: unknown): string {
   return text;
 }
 
+/** An order number may be all digits; only placeholder junk is refused. */
+function referenceValue(value: unknown): string {
+  const text = String(value ?? '').trim();
+  if (text.length < 2) return '';
+  if (/^[\s.,:/-]+$/.test(text)) return '';
+  return text;
+}
+
 function iqDescription(iq: Record<string, string> | null): string {
   if (!iq) return '';
+
+  for (const key of IQ_DESCRIPTION_FIELDS) {
+    const text = readableValue(iq[key]);
+    if (text) return text;
+  }
+  for (const key of IQ_REFERENCE_FIELDS) {
+    const text = referenceValue(iq[key]);
+    if (text) return `Your order ${text}`;
+  }
+
   const entries = Object.entries(iq);
-  for (const pattern of [IQ_DESCRIPTION_KEY, IQ_REFERENCE_KEY]) {
-    for (const [key, value] of entries) {
-      if (!pattern.test(key)) continue;
-      const text = readableValue(value);
-      if (text) return text;
-    }
+  for (const [key, value] of entries) {
+    if (!IQ_DESCRIPTION_KEY.test(key)) continue;
+    const text = readableValue(value);
+    if (text) return text;
+  }
+  for (const [key, value] of entries) {
+    if (!IQ_REFERENCE_KEY.test(key)) continue;
+    const text = referenceValue(value);
+    if (text) return `Your order ${text}`;
   }
   return '';
 }

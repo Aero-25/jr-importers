@@ -71,13 +71,13 @@ const invoices = [
     id: 502, invoice_number: 'IQ-9001', customer_id: customer.id, customer_name: customer.name,
     items: [], total_amount: 4300, subtotal_amount: 3739.13, vat_amount: 560.87, status: 'paid',
     source: 'iq-import', order_id: null, created_at: '2025-11-14T10:00:00Z',
-    iq_data: { DOCNUMBER: 'IQ-9001', ACCOUNT: 'CF0077', TOTAL: '4300.00', DESCRIPT: 'Handsets for trawler crew' },
+    iq_data: { DOCUMENT: 'IQ-9001', ACCNUM: 'CF0077', TOTAL: '4300.00', ORDERNUM: '17367', LONGDESC: 'Handsets for trawler crew' },
   },
   // An imported credit note: a document with a negative total.
   {
     id: 503, invoice_number: 'IQ-9002', customer_id: customer.id, customer_name: customer.name,
     items: [], total_amount: -900, status: 'paid', source: 'iq-import', order_id: null,
-    created_at: '2025-11-20T10:00:00Z', iq_data: { COMMENT: 'Returned faulty charger' },
+    created_at: '2025-11-20T10:00:00Z', iq_data: { DOCUMENT: 'IQ-9002', FAULTDES: 'Returned faulty charger' },
   },
 ];
 
