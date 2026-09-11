@@ -200,8 +200,8 @@ export async function buildClientStatementPdf(statement: ClientStatement): Promi
     doc.text(formatDate(line.date), left + COL.date, y);
     doc.text(fit(String(line.reference), COL.description - COL.reference - 3), left + COL.reference, y);
     // Off-account lines are marked in the description rather than dropped: the
-    // customer's layby and their old IQ invoices are part of their history,
-    // they simply are not part of what the account balance says they owe.
+    // customer's laybys and refunds are part of their history, they simply
+    // are not part of what the account balance says they owe.
     const description = `${line.type}${line.detail ? ` — ${line.detail}` : ''}${line.onAccount ? '' : ' *'}`;
     doc.text(fit(description, COL.charges - COL.description - AMOUNT_WIDTH), left + COL.description, y);
     if (line.charge) doc.text(amount(line.charge), left + COL.charges, y, { align: 'right' });
@@ -219,7 +219,7 @@ export async function buildClientStatementPdf(statement: ClientStatement): Promi
     doc.setTextColor(...GREY);
     y += 4.4;
     doc.text(
-      '* Shown for your records only — laybys, refunds and documents carried over from our previous system do not form part of the account balance.',
+      '* Shown for your records only — laybys and refunds do not form part of the account balance.',
       left,
       y,
       { maxWidth: right - left },

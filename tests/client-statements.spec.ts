@@ -64,9 +64,12 @@ const invoices = [
     payment_method: 'Cash', source: 'pos', order_id: null,
     created_at: '2026-03-02T11:00:00Z', paid_at: '2026-03-02T11:00:00Z',
   },
-  // IQ history: the debt is already inside the opening balance. It carries no
-  // line items — IQ exported document headers only — so the description has to
-  // come out of the header IQ gave us, whatever it named the column.
+  // IQ history. Paid when raised (IQ recorded a tender), so it charges and
+  // settles on the statement and moves the balance by nothing. It carries no
+  // line items — IQ exported document headers only — so the description comes
+  // out of the header, under the names the shop's IQ actually exported:
+  // LONGDESC for the typed note, FAULTDES for a workshop fault, ORDERNUM for
+  // the customer's own order number. A note wins over an order number.
   {
     id: 502, invoice_number: 'IQ-9001', customer_id: customer.id, customer_name: customer.name,
     items: [], total_amount: 4300, subtotal_amount: 3739.13, vat_amount: 560.87, status: 'paid',
@@ -78,6 +81,14 @@ const invoices = [
     id: 503, invoice_number: 'IQ-9002', customer_id: customer.id, customer_name: customer.name,
     items: [], total_amount: -900, status: 'paid', source: 'iq-import', order_id: null,
     created_at: '2025-11-20T10:00:00Z', iq_data: { DOCUMENT: 'IQ-9002', FAULTDES: 'Returned faulty charger' },
+  },
+  // The common case: no note at all, just the buyer's order number, which on
+  // most accounts is a bare number. It is still what their buyer matches on.
+  // Put on account in IQ (no tender recorded), so it stays owed here too.
+  {
+    id: 504, invoice_number: 'IQ-9003', customer_id: customer.id, customer_name: customer.name,
+    items: [], total_amount: 1250, status: 'sent', source: 'iq-import', order_id: null,
+    created_at: '2025-12-02T10:00:00Z', iq_data: { DOCUMENT: 'IQ-9003', ORDERNUM: '17367', DELIVER1: 'Coastal Fisheries' },
   },
 ];
 
@@ -130,8 +141,11 @@ test('a client statement pulls every transaction on the account and carries the 
   await page.getByRole('textbox', { name: 'Client', exact: true }).fill('Coastal');
   await page.getByRole('button', { name: /Coastal Fisheries/ }).click();
 
-  // Opening 1 200 + invoice 800 - receipt 500 = 1 500. The till sale charges
-  // and settles 2 700, the IQ document and the layby move nothing.
+  // IQ said 1 200 at cutover. The IQ documents net to +350 (a paid invoice, a
+  // 900 credit note, a 1 250 invoice left on account), so the anchor placed
+  // before them is 850; running through them lands back on 1 200, then
+  // invoice 800 and receipt 500 make 1 500. The till sale charges and settles
+  // 2 700, the layby moves nothing.
   // The grouping mark depends on the browser's locale data for en-NA, so the
   // assertion reads the digits rather than the separator.
   const balanceTile = page.locator('div').filter({ hasText: /^Balance due/ }).first();
@@ -139,6 +153,9 @@ test('a client statement pulls every transaction on the account and carries the 
 
   // What each document was actually for, not a repeated internal label.
   await expect(page.getByText('Handsets for trawler crew')).toBeVisible();
+  // The order number is a reference, labelled so, and a bare number is kept.
+  // The delivery address on the same document is not a description.
+  await expect(page.getByText('Your order 17367')).toBeVisible();
   await expect(page.getByText('Galaxy A16 128GB x2, Screen protector')).toBeVisible();
   // A negative imported document is a credit note, and its money belongs in
   // the payments column — not a bill for minus nine hundred dollars.
@@ -146,15 +163,21 @@ test('a client statement pulls every transaction on the account and carries the 
   await expect(creditRow).toContainText('Credit note');
   await expect(creditRow).toContainText(/900[.,]00/);
 
-  await expect(page.getByRole('cell', { name: 'IQ-9001' })).toBeVisible();
+  // The IQ invoice is charged and settled, like any other paid document.
+  await expect(page.getByRole('cell', { name: 'IQ-9001', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'IQ-9001 settled' })).toBeVisible();
+  // The anchor: IQ's 1 200 less the +350 the documents below account for.
+  const anchorRow = page.getByRole('row').filter({ hasText: 'Opening balance' });
+  await expect(anchorRow).toContainText(/850[.,]00/);
+  await expect(anchorRow).toContainText(/1.200[.,]00 at 01 Jan 2026/);
   await expect(page.getByRole('cell', { name: 'LAY-0007' }).first()).toBeVisible();
   await expect(page.getByRole('cell', { name: 'INV-501 settled' })).toBeVisible();
   // INV-500 appears once — the ledger charge. The invoice row for the same
-  // document is dropped, or the customer would be billed for it twice: 1 200
-  // opening + 800 invoice + 2 700 till sale = 4 700 charged, not 5 500.
+  // document is dropped, or the customer would be billed for it twice:
+  // 850 anchor + 4 300 + 1 250 IQ + 800 invoice + 2 700 till = 9 900.
   await expect(page.getByRole('cell', { name: 'INV-500', exact: true })).toHaveCount(1);
   const chargedTile = page.locator('div').filter({ hasText: /^Charged/ }).first();
-  await expect(chargedTile).toContainText(/4.700[.,]00/);
+  await expect(chargedTile).toContainText(/9.900[.,]00/);
 
   await expect(page.getByText(/2.500[.,]00 still to run on laybys/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'PDF', exact: true })).toBeVisible();

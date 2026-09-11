@@ -8,8 +8,15 @@ import type {
   LineItem,
   RefundRow,
 } from '@/lib/database.types';
-import { round2, toDateInput, toNumber } from '@/lib/format';
+import { formatDate, money, round2, toDateInput, toNumber } from '@/lib/format';
 import { keys } from './keys';
+
+/** `YYYY-MM-DD` moved by a number of days, in the calendar rather than UTC. */
+function shiftDate(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return toDateInput(d.toISOString());
+}
 
 /**
  * A client statement: everything that has happened on one customer's account,
@@ -28,8 +35,9 @@ import { keys } from './keys';
  *
  * So the statement is assembled here rather than read from one table, and each
  * line says whether it moves the account balance. Getting that distinction
- * wrong is how a statement double-counts: an IQ invoice from 2024 is already
- * inside the opening balance, and a till sale settled in cash owes nothing.
+ * wrong is how a statement double-counts: a till sale settled in cash owes
+ * nothing, and IQ's opening balance already contains every IQ document, so
+ * the two are reconciled through an anchor rather than both being charged.
  */
 
 export interface StatementLine {
@@ -48,9 +56,8 @@ export interface StatementLine {
   payment: number;
   /**
    * False for lines shown for completeness but deliberately outside the
-   * account balance: IQ history (already in the opening balance), laybys and
-   * their instalments (never posted to the ledger), refunds against till
-   * sales that were settled at the counter.
+   * account balance: laybys and their instalments (never posted to the
+   * ledger), and refunds against till sales that were settled at the counter.
    */
   onAccount: boolean;
   /** Balance after this line. Null on lines that do not move the account. */
@@ -58,6 +65,8 @@ export interface StatementLine {
   /** Why a line sits outside the balance. Printed under the table. */
   note: string | null;
   source: 'ledger' | 'invoice' | 'layby' | 'refund';
+  /** Came over from IQ, and so is reconciled into the opening-balance anchor. */
+  history?: boolean;
 }
 
 export interface StatementAging {
@@ -116,7 +125,7 @@ const LEDGER_LABELS: Record<string, string> = {
   credit_note: 'Credit note',
 };
 
-/** `'iq-import'` rows are history: the debt itself sits in the opening balance. */
+/** `'iq-import'` rows came over from IQ; see the opening-balance anchor below. */
 function isHistory(invoice: InvoiceRow): boolean {
   return invoice.source === 'iq-import';
 }
@@ -129,8 +138,9 @@ function isHistory(invoice: InvoiceRow): boolean {
  * description column. In order of what a reader would recognise:
  *
  *   1. The goods, from the invoice's own line items.
- *   2. What IQ recorded, for documents carried over from it.
- *   3. The customer's own order number, or the comment typed on the invoice.
+ *   2. The comment typed on the invoice by the shop.
+ *   3. What IQ recorded, for documents carried over from it.
+ *   4. The customer's own order number.
  *
  * On the IQ side the shop's actual export (IQ SaaS 2023.1, Documents grid)
  * holds free text in exactly three places, and the names are not what a
@@ -308,7 +318,33 @@ export function buildStatement(
       .map((row) => String(row.doc_id)),
   );
 
+  // The IQ opening balance is not a charge on the day of cutover; it is what
+  // the account stood at on that day. The documents behind it — the invoices,
+  // credit notes and till payments IQ exported — are listed and counted on
+  // this statement, so if the opening were also taken as a charge every one
+  // of them would be billed twice. Instead the opening is anchored at the
+  // very start: IQ's figure less the net of every IQ document, placed before
+  // the earliest of them. Running forward through the documents then lands
+  // exactly on IQ's balance at cutover, and the shop's own ledger carries on
+  // from there.
+  //
+  // What that anchor holds is whatever IQ's ledger contained that the export
+  // did not itemise — chiefly receipts, which the Documents grid never
+  // carried. It is negative for an account that paid down its invoices and
+  // positive for one that owed before the exported history begins.
+  const openings = sources.ledger.filter((row) => row.txn_type === 'opening');
+  const cutover = openings.reduce((latest, row) => (row.txn_date > latest ? row.txn_date : latest), '');
+  const anchor = { net: 0, first: '' };
+  const posting = (line: StatementLine) => {
+    lines.push(line);
+    if (line.source === 'invoice' && line.history && line.onAccount && line.date <= cutover) {
+      anchor.net = round2(anchor.net + line.charge - line.payment);
+      if (!anchor.first || line.date < anchor.first) anchor.first = line.date;
+    }
+  };
+
   for (const row of sources.ledger) {
+    if (row.txn_type === 'opening') continue;
     const amount = toNumber(row.amount);
     lines.push({
       id: `ledger-${row.id}`,
@@ -335,7 +371,7 @@ export function buildStatement(
     // charges column it reads as a bill for minus five thousand dollars.
     const credit = total < 0;
 
-    lines.push({
+    posting({
       id: `invoice-${invoice.id}`,
       date: toDateInput(invoice.created_at),
       at: invoice.created_at,
@@ -344,30 +380,63 @@ export function buildStatement(
       detail: invoiceDescription(invoice),
       charge: credit ? 0 : round2(total),
       payment: credit ? round2(-total) : 0,
-      onAccount: !history,
+      onAccount: true,
       balance: null,
-      note: history ? 'Carried over from IQ — already inside the opening balance.' : null,
+      note: null,
       source: 'invoice',
+      history,
     });
 
     // A till sale is invoiced and settled in the same breath. Showing only the
     // charge would tell a customer they owe for a phone they paid cash for.
-    if (!history && !credit && invoice.status === 'paid') {
-      lines.push({
+    // IQ recorded the same thing as a tender on the document: a document with
+    // a payment method was settled when it was raised, one without was put
+    // on the account — and reconciles to IQ's own balances on that basis.
+    if (!credit && invoice.status === 'paid') {
+      posting({
         id: `invoice-${invoice.id}-settled`,
         date: toDateInput(invoice.paid_at ?? invoice.created_at),
         at: invoice.paid_at ?? invoice.created_at,
         type: 'Payment received',
         reference: `${reference} settled`,
-        detail: invoice.payment_method ?? '',
+        detail: invoice.payment_method ?? (history ? 'Paid when invoiced' : ''),
         charge: 0,
         payment: round2(total),
         onAccount: true,
         balance: null,
         note: null,
         source: 'invoice',
+        history,
       });
     }
+  }
+
+  // The anchor, once every IQ document is known. Dated the day before the
+  // earliest of them so that nothing on the statement precedes it.
+  if (openings.length > 0) {
+    const iqBalance = round2(openings.reduce((sum, row) => sum + toNumber(row.amount), 0));
+    const amount = round2(iqBalance - anchor.net);
+    const date = anchor.first ? shiftDate(anchor.first, -1) : cutover;
+    const stamp = formatDate(cutover);
+    lines.push({
+      id: `opening-${openings.map((row) => row.id).join('-') || 'iq'}`,
+      date,
+      at: `${date}T00:00:00`,
+      type: amount < 0 ? 'Payment received' : 'Opening balance',
+      reference: 'IQ',
+      detail:
+        anchor.net === 0
+          ? `Balance carried over from our previous system at ${stamp}`
+          : amount < 0
+            ? `Receipts recorded on our previous system before ${stamp}, not itemised`
+            : `Balance on our previous system before the documents listed (${money(iqBalance)} at ${stamp})`,
+      charge: amount > 0 ? amount : 0,
+      payment: amount < 0 ? -amount : 0,
+      onAccount: true,
+      balance: null,
+      note: null,
+      source: 'ledger',
+    });
   }
 
   let laybyBalance = 0;
