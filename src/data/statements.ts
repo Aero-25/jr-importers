@@ -207,10 +207,14 @@ function itemSummary(items: LineItem[]): string {
 }
 
 function invoiceDescription(invoice: InvoiceRow): string {
+  // The comment typed on the invoice outranks what IQ carried over: it is
+  // how the shop puts a description onto an imported document whose lines
+  // never came across, and it must be able to replace IQ's wording, not
+  // merely fill in behind it.
   return (
     itemSummary(invoice.items ?? []) ||
-    iqDescription(invoice.iq_data) ||
     invoice.notes?.trim() ||
+    iqDescription(invoice.iq_data) ||
     (invoice.po_number ? `Your PO ${invoice.po_number}` : '') ||
     ''
   );
