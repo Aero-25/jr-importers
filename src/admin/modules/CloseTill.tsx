@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { keys } from '@/data/keys';
 import type { DenominationCounts, ShiftStockLine, TillShiftRow } from '@/lib/database.types';
 import { useCloseTill, type CashUp } from '@/data/till';
+import { useAuth } from '@/auth/AuthProvider';
 import { downloadCashUpPdf, shareCashUp } from '@/lib/cashUpPdf';
 import { useCashUpFile } from '../hooks/useCashUpFile';
 import { money } from '@/lib/format';
@@ -12,7 +13,7 @@ import { cn } from '@/lib/cn';
 import { Badge, Button, Modal, Notice, Textarea, useToast } from '@/ui';
 import { DenominationCounter, denominationTotal } from '../components/DenominationCounter';
 
-type Step = 'cash' | 'phones' | 'done';
+type Step = 'cash' | 'phones' | 'unbalanced' | 'done';
 
 /**
  * Closing a shift, in the order the work actually happens: count the drawer,
@@ -35,6 +36,7 @@ export function CloseTillDialog({
   closedBy: string;
 }) {
   const toast = useToast();
+  const { isAdmin } = useAuth();
   const closeTill = useCloseTill();
 
   const [step, setStep] = useState<Step>('cash');
@@ -42,6 +44,7 @@ export function CloseTillDialog({
   const [countedPhones, setCountedPhones] = useState<Record<number, string>>({});
   const [notes, setNotes] = useState('');
   const [report, setReport] = useState<CashUp | null>(null);
+  const [acceptReason, setAcceptReason] = useState('');
   const [sharing, setSharing] = useState(false);
   const cashUpFile = useCashUpFile(report);
 
@@ -85,17 +88,24 @@ export function CloseTillDialog({
     (p) => countedPhones[p.id] === undefined || countedPhones[p.id] === '',
   ).length;
 
-  async function submit() {
+  async function submit(acceptVariance?: string) {
     try {
-      const summary = await closeTill.mutateAsync({
+      const { summary, closed } = await closeTill.mutateAsync({
         shift,
         counts,
         counted,
         stockCount: stockLines,
         closedBy,
         notes: notes.trim() || undefined,
+        acceptVariance,
       });
       setReport(summary);
+      if (!closed) {
+        // The count is saved and the shift is still open. No toast: the
+        // screen that follows says exactly what is short or over.
+        setStep('unbalanced');
+        return;
+      }
       setStep('done');
       toast.success('Till closed', `Shift #${summary.shift_id} reconciled.`);
     } catch (error) {
@@ -124,7 +134,15 @@ export function CloseTillDialog({
     setCountedPhones({});
     setNotes('');
     setReport(null);
+    setAcceptReason('');
     onClose();
+  }
+
+  // Back to the drawer with the count kept, so one mistyped denomination is
+  // a one-field fix rather than a full recount.
+  function recount() {
+    setAcceptReason('');
+    setStep('cash');
   }
 
   return (
@@ -136,7 +154,9 @@ export function CloseTillDialog({
           ? 'Close till — count the drawer'
           : step === 'phones'
             ? 'Close till — count the phones'
-            : `Cash up — shift #${report?.shift_id}`
+            : step === 'unbalanced'
+              ? 'The drawer does not balance'
+              : `Cash up — shift #${report?.shift_id}`
       }
       description={
         step === 'done' ? undefined : `Till ${shift.till_id} · opened by ${shift.cashier_name ?? '—'}`
@@ -144,7 +164,30 @@ export function CloseTillDialog({
       size="xl"
       dismissable={!closeTill.isPending}
       footer={
-        step === 'cash' ? (
+        step === 'unbalanced' ? (
+          <>
+            <Button variant="ghost" onClick={onClose}>
+              Leave the till open
+            </Button>
+            <Button
+              variant="secondary"
+              icon={<ArrowLeft className="h-4 w-4" />}
+              onClick={recount}
+            >
+              Recount the drawer
+            </Button>
+            {isAdmin && (
+              <Button
+                variant="danger"
+                disabled={acceptReason.trim().length < 5}
+                loading={closeTill.isPending}
+                onClick={() => void submit(acceptReason)}
+              >
+                Accept the difference and close
+              </Button>
+            )}
+          </>
+        ) : step === 'cash' ? (
           <>
             <Button variant="ghost" onClick={onClose}>
               Cancel
@@ -166,7 +209,7 @@ export function CloseTillDialog({
             >
               Back
             </Button>
-            <Button variant="danger" onClick={submit} loading={closeTill.isPending}>
+            <Button variant="danger" onClick={() => void submit()} loading={closeTill.isPending}>
               Close the till
             </Button>
           </>
@@ -304,6 +347,44 @@ export function CloseTillDialog({
         </div>
       )}
 
+      {step === 'unbalanced' && report && (
+        <div className="space-y-4">
+          <div
+            className={cn(
+              'flex items-start gap-3 rounded-2xl px-5 py-4 text-white',
+              report.variance < 0 ? 'bg-danger' : 'bg-warn',
+            )}
+          >
+            <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0" />
+            <div className="min-w-0">
+              <p className="tabular font-display text-2xl font-bold">
+                {money(Math.abs(report.variance))} {report.variance < 0 ? 'short' : 'over'}
+              </p>
+              <p className="text-sm text-white/85">
+                Expected {money(report.expected_cash)} · Counted {money(report.counted_cash)}
+              </p>
+            </div>
+          </div>
+
+          <Notice tone="warn" title="The till stays open until the drawer agrees">
+            Your count has been saved. Recount the drawer — a note in the wrong pile is the usual
+            reason — and the expected figure is checked again when you close.
+            {!isAdmin && ' If it is genuinely short or over, a manager has to sign the difference off.'}
+          </Notice>
+
+          {isAdmin && (
+            <Textarea
+              label="Manager: reason for accepting the difference"
+              value={acceptReason}
+              onChange={(event) => setAcceptReason(event.target.value)}
+              placeholder="e.g. N$80 given as change on order 1234 and not rung up"
+              hint="Recorded on the shift and printed on the cash-up in your name. Leave blank to recount instead."
+              rows={3}
+            />
+          )}
+        </div>
+      )}
+
       {step === 'done' && report && <CashUpSummary report={report} />}
     </Modal>
   );
@@ -331,6 +412,12 @@ export function CashUpSummary({ report }: { report: CashUp }) {
         <p className="tabular mt-1 text-sm text-white/85">
           Expected {money(report.expected_cash)} · Counted {money(report.counted_cash)}
         </p>
+        {(short || over) && report.variance_accepted_reason && (
+          <p className="mt-1 text-sm text-white/90">
+            Accepted{report.variance_accepted_by ? ` by ${report.variance_accepted_by}` : ''}:{' '}
+            {report.variance_accepted_reason}
+          </p>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

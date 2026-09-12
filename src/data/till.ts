@@ -58,6 +58,9 @@ export interface CashUp {
   stock_count: ShiftStockLine[];
   stock_lines_off: number;
   stock_variance_total: number;
+  /** Set only when a manager closed the shift on a drawer that did not balance. */
+  variance_accepted_reason?: string | null;
+  variance_accepted_by?: string | null;
   notes: string | null;
 }
 
@@ -138,18 +141,36 @@ export function useOpenTill() {
   });
 }
 
+/** What closing came back with: the reconciliation, and whether it went through. */
+export interface CloseOutcome {
+  summary: CashUp;
+  /** False when the drawer did not balance and nobody accepted it: the shift is still open. */
+  closed: boolean;
+}
+
+/** A drawer balances when counted and expected agree to the cent. */
+export function drawerBalances(summary: CashUp): boolean {
+  return Math.abs(summary.variance) < 0.005;
+}
+
 /**
  * Closes a shift.
  *
  * Totals come from `till_cash_up` rather than being recomputed here, so the
  * figure written onto the shift is the same one the report shows. The phone
  * count is stored for the report and deliberately does not touch stock.
+ *
+ * The count is saved first and the reconciliation read back before anything
+ * is closed. If the drawer does not balance the shift is left open with the
+ * count on it, and the outcome says so: the cashier recounts, or a manager
+ * accepts the difference with a reason. The database refuses a close on an
+ * unbalanced drawer regardless — this only spares the screen the error.
  */
 export function useCloseTill() {
   const qc = useQueryClient();
 
   return useMutation<
-    CashUp,
+    CloseOutcome,
     Error,
     {
       shift: TillShiftRow;
@@ -158,9 +179,11 @@ export function useCloseTill() {
       stockCount: ShiftStockLine[];
       closedBy: string;
       notes?: string;
+      /** A manager's reason for closing on a drawer that does not balance. */
+      acceptVariance?: string;
     }
   >({
-    mutationFn: async ({ shift, counts, counted, stockCount, closedBy, notes }) => {
+    mutationFn: async ({ shift, counts, counted, stockCount, closedBy, notes, acceptVariance }) => {
       const variance = stockCount.reduce((n, line) => n + Math.abs(line.variance), 0);
 
       const { error: saveError } = await supabase
@@ -179,6 +202,10 @@ export function useCloseTill() {
       // Ask the server for the reconciliation, then persist its numbers.
       const summary = await fetchCashUp(shift.id);
 
+      const balanced = drawerBalances(summary);
+      const reason = acceptVariance?.trim() || null;
+      if (!balanced && !reason) return { summary, closed: false };
+
       const { error: closeError } = await supabase
         .from('till_shifts')
         .update({
@@ -192,12 +219,16 @@ export function useCloseTill() {
           float_retained: summary.float_retained,
           cash_banked: summary.cash_to_bank,
           transaction_count: summary.transaction_count,
+          variance_accepted_reason: balanced ? null : reason,
           status: 'Closed',
         })
         .eq('id', shift.id);
       if (closeError) throw new Error(closeError.message);
 
-      return summary;
+      return {
+        summary: { ...summary, variance_accepted_reason: balanced ? null : reason, variance_accepted_by: balanced ? null : closedBy },
+        closed: true,
+      };
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.table('till_shifts') });
@@ -212,7 +243,19 @@ export async function fetchCashUp(shiftId: number): Promise<CashUp> {
 
   const result = data as unknown as CashUp;
   if (!result?.ok) throw new Error('Could not build the cash-up for that shift.');
-  return result;
+
+  // A difference a manager signed off travels with the report, so the screen
+  // and the PDF both say who accepted it and why — months later included.
+  const { data: shift } = await supabase
+    .from('till_shifts')
+    .select('variance_accepted_by, variance_accepted_reason')
+    .eq('id', shiftId)
+    .maybeSingle();
+  return {
+    ...result,
+    variance_accepted_by: shift?.variance_accepted_by ?? null,
+    variance_accepted_reason: shift?.variance_accepted_reason ?? null,
+  };
 }
 
 export function useCashUp(shiftId: number | null | undefined) {

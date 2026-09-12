@@ -379,6 +379,9 @@ export type TillShiftRow = {
   amended_at: string | null;
   amended_by: string | null;
   amend_reason: string | null;
+  variance_accepted_by: string | null;
+  variance_accepted_reason: string | null;
+  variance_accepted_at: string | null;
   original_denominations: DenominationCounts | null;
   original_counted: number | null;
   closed_by: string | null;

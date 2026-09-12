@@ -159,6 +159,19 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
     money(Math.abs(report.variance)),
     { bold: true, colour: short ? RED : over ? RED : GREEN },
   );
+  if ((short || over) && report.variance_accepted_reason) {
+    // A drawer cannot be closed short or over without a manager's say-so,
+    // so a difference on a closed shift always has a name and a reason.
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(...RED);
+    const who = report.variance_accepted_by ? ` by ${report.variance_accepted_by}` : '';
+    const lines = doc.splitTextToSize(`Difference accepted${who}: ${report.variance_accepted_reason}`, right - left);
+    doc.text(lines, left, y);
+    y += lines.length * 3.8 + 1;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...INK);
+  }
   y += 4;
 
   /* What to do with the money now it has been counted. */
