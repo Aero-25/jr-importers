@@ -82,9 +82,9 @@ export const NAV: NavSection[] = [
     id: 'catalogue',
     label: 'Catalogue & stock',
     items: [
-      { id: 'products', label: 'Products', path: '/products', icon: Package },
-      { id: 'stock-takes', label: 'Stock takes', path: '/stock-takes', icon: ClipboardList },
-      { id: 'grv', label: 'Goods received', path: '/grv', icon: PackageSearch },
+      { id: 'products', label: 'Products', path: '/products', icon: Package, adminOnly: true },
+      { id: 'stock-takes', label: 'Stock takes', path: '/stock-takes', icon: ClipboardList, adminOnly: true },
+      { id: 'grv', label: 'Goods received', path: '/grv', icon: PackageSearch, adminOnly: true },
       {
         id: 'purchase-orders',
         label: 'Purchase orders',
@@ -99,9 +99,9 @@ export const NAV: NavSection[] = [
     label: 'People',
     items: [
       { id: 'customers', label: 'Customers', path: '/customers', icon: Users },
-      { id: 'suppliers', label: 'Suppliers', path: '/suppliers', icon: Building2 },
+      { id: 'suppliers', label: 'Suppliers', path: '/suppliers', icon: Building2, adminOnly: true },
       { id: 'requests', label: 'Special orders', path: '/requests', icon: Bell },
-      { id: 'stock-alerts', label: 'Stock alerts', path: '/stock-alerts', icon: BellRing },
+      { id: 'stock-alerts', label: 'Stock alerts', path: '/stock-alerts', icon: BellRing, adminOnly: true },
     ],
   },
   {
