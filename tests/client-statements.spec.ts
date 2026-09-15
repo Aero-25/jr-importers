@@ -76,11 +76,19 @@ const invoices = [
     source: 'iq-import', order_id: null, created_at: '2025-11-14T10:00:00Z',
     iq_data: { DOCUMENT: 'IQ-9001', ACCNUM: 'CF0077', TOTAL: '4300.00', ORDERNUM: '17367', LONGDESC: 'Handsets for trawler crew' },
   },
-  // An imported credit note: a document with a negative total.
+  // An imported credit note: a document with a negative total. No tender on
+  // it in IQ, so the credit is still sitting on the account.
   {
     id: 503, invoice_number: 'IQ-9002', customer_id: customer.id, customer_name: customer.name,
-    items: [], total_amount: -900, status: 'paid', source: 'iq-import', order_id: null,
+    items: [], total_amount: -900, status: 'sent', source: 'iq-import', order_id: null,
     created_at: '2025-11-20T10:00:00Z', iq_data: { DOCUMENT: 'IQ-9002', FAULTDES: 'Returned faulty charger' },
+  },
+  // A credit note IQ recorded a tender on: the money was paid back out, so
+  // it moves the balance by nothing — credit note and refund, not a credit.
+  {
+    id: 505, invoice_number: 'IQ-9004', customer_id: customer.id, customer_name: customer.name,
+    items: [], total_amount: -300, status: 'paid', source: 'iq-import', order_id: null,
+    created_at: '2025-12-05T10:00:00Z', iq_data: { DOCUMENT: 'IQ-9004', PMNTMETHOD: 'CF 300.00 77', LONGDESC: 'Overcharged, refunded by EFT' },
   },
   // The common case: no note at all, just the buyer's order number, which on
   // most accounts is a bare number. It is still what their buyer matches on.
@@ -162,6 +170,10 @@ test('a client statement pulls every transaction on the account and carries the 
   const creditRow = page.getByRole('row').filter({ hasText: 'Returned faulty charger' });
   await expect(creditRow).toContainText('Credit note');
   await expect(creditRow).toContainText(/900[.,]00/);
+  // A refunded credit note shows the credit and the refund going back out.
+  const refundRow = page.getByRole('row').filter({ hasText: 'IQ-9004 refunded' });
+  await expect(refundRow).toContainText('Refund paid');
+  await expect(refundRow).toContainText(/300[.,]00/);
 
   // The IQ invoice is charged and settled, like any other paid document.
   await expect(page.getByRole('cell', { name: 'IQ-9001', exact: true })).toBeVisible();
@@ -174,10 +186,12 @@ test('a client statement pulls every transaction on the account and carries the 
   await expect(page.getByRole('cell', { name: 'INV-501 settled' })).toBeVisible();
   // INV-500 appears once — the ledger charge. The invoice row for the same
   // document is dropped, or the customer would be billed for it twice:
-  // 850 anchor + 4 300 + 1 250 IQ + 800 invoice + 2 700 till = 9 900.
+  // 850 anchor + 4 300 + 1 250 IQ + 300 refund out + 800 invoice + 2 700 till
+  // = 10 200. The refunded credit note adds 300 to each column and nothing
+  // to the balance.
   await expect(page.getByRole('cell', { name: 'INV-500', exact: true })).toHaveCount(1);
   const chargedTile = page.locator('div').filter({ hasText: /^Charged/ }).first();
-  await expect(chargedTile).toContainText(/9.900[.,]00/);
+  await expect(chargedTile).toContainText(/10.200[.,]00/);
 
   await expect(page.getByText(/2.500[.,]00 still to run on laybys/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'PDF', exact: true })).toBeVisible();

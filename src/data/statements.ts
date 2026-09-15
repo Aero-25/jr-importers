@@ -409,6 +409,29 @@ export function buildStatement(
         history,
       });
     }
+
+    // The mirror image for a credit note. A credit note that was paid back
+    // out — IQ recorded a tender on it, the shop refunded by EFT — is not
+    // credit sitting on the account. Without this line the statement carried
+    // every refunded credit note as money the customer could still draw on,
+    // and invented an opening balance for it to cancel against.
+    if (credit && invoice.status === 'paid') {
+      posting({
+        id: `invoice-${invoice.id}-refunded`,
+        date: toDateInput(invoice.paid_at ?? invoice.created_at),
+        at: invoice.paid_at ?? invoice.created_at,
+        type: 'Refund paid',
+        reference: `${reference} refunded`,
+        detail: invoice.payment_method ?? (history ? 'Paid out when issued' : ''),
+        charge: round2(-total),
+        payment: 0,
+        onAccount: true,
+        balance: null,
+        note: null,
+        source: 'invoice',
+        history,
+      });
+    }
   }
 
   // The anchor, once every IQ document is known. Dated the day before the
