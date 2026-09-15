@@ -4,7 +4,7 @@ import { Receipt, Search, UserSearch } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
 import type { CustomerRow } from '@/lib/database.types';
-import { useClientStatement, type StatementLine, type StatementRange } from '@/data/statements';
+import { lineDescription, statementDate, useClientStatement, type StatementLine, type StatementRange } from '@/data/statements';
 import { formatDate, money, toDateInput } from '@/lib/format';
 import {
   Badge,
@@ -68,21 +68,37 @@ export default function Statements() {
     setRange(presetRange(next));
   }
 
+  // The columns are the shop's IQ statement columns, in IQ's order and with
+  // IQ's type codes. Customers have reconciled against that layout for years;
+  // a rearranged one is a statement they have to learn to read again.
   const columns = useMemo<Column<StatementLine>[]>(
     () => [
       {
         key: 'date',
         header: 'Date',
-        width: '7.5rem',
-        render: (line) => <span className="text-sm">{formatDate(line.date)}</span>,
+        width: '5.5rem',
+        render: (line) => <span className="tabular text-sm">{statementDate(line.date)}</span>,
         sortValue: (line) => `${line.date}${line.at}`,
       },
       {
-        key: 'type',
-        header: 'Transaction',
+        key: 'reference',
+        header: 'Reference',
+        render: (line) => <span className="text-sm text-ink">{line.reference}</span>,
+        sortValue: (line) => line.reference,
+      },
+      {
+        key: 'code',
+        header: 'Type',
+        width: '3.5rem',
+        render: (line) => <span className="text-xs font-semibold text-ink-muted" title={line.type}>{line.code}</span>,
+        sortValue: (line) => line.code,
+      },
+      {
+        key: 'detail',
+        header: 'Description',
         render: (line) => (
           <div className="min-w-0">
-            <span className="text-ink">{line.type}</span>
+            <span className="text-sm text-ink">{lineDescription(line)}</span>
             {!line.onAccount && (
               <Badge tone="neutral" size="sm" className="ml-2 align-middle">
                 {/* The reason travels with the badge: "off account" on its own
@@ -90,37 +106,38 @@ export default function Statements() {
                 <span title={line.note ?? 'Outside the account balance.'}>Off account</span>
               </Badge>
             )}
-            {line.detail && (
-              <p className="truncate text-xs text-ink-subtle">{line.detail}</p>
-            )}
           </div>
         ),
-        sortValue: (line) => line.type,
-      },
-      {
-        key: 'reference',
-        header: 'Reference',
-        secondary: true,
-        render: (line) => <span className="text-xs text-ink-muted">{line.reference}</span>,
-        sortValue: (line) => line.reference,
+        sortValue: (line) => lineDescription(line),
       },
       {
         key: 'charge',
-        header: 'Charge',
+        header: 'Debit',
         align: 'right',
         render: (line) => (
-          <span className="tabular text-ink">{line.charge ? money(line.charge) : '—'}</span>
+          <span className="tabular text-ink">{line.charge ? money(line.charge) : ''}</span>
         ),
         sortValue: (line) => line.charge,
       },
       {
         key: 'payment',
-        header: 'Payment',
+        header: 'Credit',
         align: 'right',
         render: (line) => (
-          <span className="tabular text-success">{line.payment ? money(line.payment) : '—'}</span>
+          <span className="tabular text-ink">{line.payment ? money(line.payment) : ''}</span>
         ),
         sortValue: (line) => line.payment,
+      },
+      {
+        key: 'due',
+        header: 'Amount Due',
+        align: 'right',
+        render: (line) => (
+          <span className={cn('tabular', line.due ? 'font-medium text-warn' : 'text-ink-subtle')}>
+            {line.due ? money(line.due) : ''}
+          </span>
+        ),
+        sortValue: (line) => line.due ?? 0,
       },
       {
         key: 'balance',
@@ -137,7 +154,7 @@ export default function Statements() {
                   : 'text-ink-muted',
             )}
           >
-            {line.balance === null ? '—' : money(line.balance)}
+            {line.balance === null ? '' : money(line.balance)}
           </span>
         ),
         sortValue: (line) => line.balance ?? 0,

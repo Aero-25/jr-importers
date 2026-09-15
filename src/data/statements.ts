@@ -67,6 +67,44 @@ export interface StatementLine {
   source: 'ledger' | 'invoice' | 'layby' | 'refund';
   /** Came over from IQ, and so is reconciled into the opening-balance anchor. */
   history?: boolean;
+  /**
+   * The two-letter type the shop's IQ statements carried: IN invoice, PM
+   * payment, CN credit note, RF refund, OB opening balance, LB layby, LP layby
+   * instalment. Customers have read these codes for years.
+   */
+  code: string;
+  /** What is still unpaid on a charge line after payments are applied oldest-first. Null on other lines. */
+  due: number | null;
+}
+
+/**
+ * What the Description column prints. An invoice or credit note says what it
+ * was for; a payment or refund just says "Payment" or "Refund", exactly as the
+ * shop's IQ statements did — the method is on the receipt, not the statement.
+ */
+export function lineDescription(line: Pick<StatementLine, 'code' | 'type' | 'detail'>): string {
+  if (line.code === 'PM' || line.code === 'RF') return line.type;
+  return line.detail || line.type;
+}
+
+/** IQ's type code for a line, so the statement reads as the old ones did. */
+export function lineCode(type: string): string {
+  switch (type) {
+    case 'Invoice': case 'Bill': return 'IN';
+    case 'Payment': return 'PM';
+    case 'Credit Note': return 'CN';
+    case 'Refund': return 'RF';
+    case 'Opening balance': return 'OB';
+    case 'Layby opened': return 'LB';
+    case 'Layby instalment': return 'LP';
+    default: return type.slice(0, 2).toUpperCase();
+  }
+}
+
+/** `07/08/26` — the date form on the shop's IQ statements. */
+export function statementDate(date: string): string {
+  const [y = '', m = '', d = ''] = date.slice(0, 10).split('-');
+  return `${d}/${m}/${y.slice(2)}`;
 }
 
 export interface StatementAging {
@@ -121,8 +159,8 @@ const LEDGER_LABELS: Record<string, string> = {
   opening: 'Opening balance',
   invoice: 'Invoice',
   bill: 'Bill',
-  payment: 'Payment received',
-  credit_note: 'Credit note',
+  payment: 'Payment',
+  credit_note: 'Credit Note',
 };
 
 /** `'iq-import'` rows came over from IQ; see the opening-balance anchor below. */
@@ -276,18 +314,31 @@ export function statementParty(customer: CustomerRow): StatementParty {
  * account makes.
  */
 function ageOpenCharges(lines: StatementLine[], asAt: Date): StatementAging {
+  // A document settled against itself — an invoice and its own payment, a
+  // credit note and its own refund — is closed by that payment and takes no
+  // part in the allocation. Otherwise a till sale's cash would be spent on an
+  // older account invoice and the sale itself shown as owed.
+  const ids = new Set(lines.map((line) => line.id));
+  const paired = (line: StatementLine) =>
+    ids.has(`${line.id}-settled`) || ids.has(`${line.id}-refunded`) ||
+    line.id.endsWith('-settled') || line.id.endsWith('-refunded');
+  for (const line of lines) if (line.onAccount && line.charge > 0 && paired(line)) line.due = 0;
+
   const open = lines
-    .filter((line) => line.onAccount && line.charge > 0)
-    .map((line) => ({ date: line.date, left: line.charge }))
+    .filter((line) => line.onAccount && line.charge > 0 && !paired(line))
+    .map((line) => ({ line, date: line.date, left: line.charge }))
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
-  let credit = lines.reduce((sum, line) => sum + (line.onAccount ? line.payment : 0), 0);
+  let credit = lines.reduce((sum, line) => sum + (line.onAccount && !paired(line) ? line.payment : 0), 0);
   for (const charge of open) {
     if (credit <= 0) break;
     const used = Math.min(charge.left, credit);
     charge.left = round2(charge.left - used);
     credit = round2(credit - used);
   }
+  // The same allocation is what the "Amount Due" column prints beside each
+  // invoice: nothing once it is covered, the remainder while it is not.
+  for (const charge of open) charge.line.due = charge.left > 0.005 ? charge.left : 0;
 
   const aging: StatementAging = { current: 0, d30: 0, d60: 0, d90: 0 };
   for (const charge of open) {
@@ -335,7 +386,8 @@ export function buildStatement(
   const openings = sources.ledger.filter((row) => row.txn_type === 'opening');
   const cutover = openings.reduce((latest, row) => (row.txn_date > latest ? row.txn_date : latest), '');
   const anchor = { net: 0, first: '' };
-  const posting = (line: StatementLine) => {
+  const posting = (draft: Omit<StatementLine, 'code' | 'due'>) => {
+    const line: StatementLine = { ...draft, code: lineCode(draft.type), due: null };
     lines.push(line);
     if (line.source === 'invoice' && line.history && line.onAccount && line.date <= cutover) {
       anchor.net = round2(anchor.net + line.charge - line.payment);
@@ -346,7 +398,7 @@ export function buildStatement(
   for (const row of sources.ledger) {
     if (row.txn_type === 'opening') continue;
     const amount = toNumber(row.amount);
-    lines.push({
+    posting({
       id: `ledger-${row.id}`,
       date: row.txn_date,
       at: row.created_at ?? `${row.txn_date}T00:00:00`,
@@ -375,7 +427,7 @@ export function buildStatement(
       id: `invoice-${invoice.id}`,
       date: toDateInput(invoice.created_at),
       at: invoice.created_at,
-      type: credit ? 'Credit note' : 'Invoice',
+      type: credit ? 'Credit Note' : 'Invoice',
       reference,
       detail: invoiceDescription(invoice),
       charge: credit ? 0 : round2(total),
@@ -397,8 +449,8 @@ export function buildStatement(
         id: `invoice-${invoice.id}-settled`,
         date: toDateInput(invoice.paid_at ?? invoice.created_at),
         at: invoice.paid_at ?? invoice.created_at,
-        type: 'Payment received',
-        reference: `${reference} settled`,
+        type: 'Payment',
+        reference,
         detail: invoice.payment_method ?? (history ? 'Paid when invoiced' : ''),
         charge: 0,
         payment: round2(total),
@@ -420,8 +472,8 @@ export function buildStatement(
         id: `invoice-${invoice.id}-refunded`,
         date: toDateInput(invoice.paid_at ?? invoice.created_at),
         at: invoice.paid_at ?? invoice.created_at,
-        type: 'Refund paid',
-        reference: `${reference} refunded`,
+        type: 'Refund',
+        reference,
         detail: invoice.payment_method ?? (history ? 'Paid out when issued' : ''),
         charge: round2(-total),
         payment: 0,
@@ -441,7 +493,7 @@ export function buildStatement(
     const amount = round2(iqBalance - anchor.net);
     const date = anchor.first ? shiftDate(anchor.first, -1) : cutover;
     const stamp = formatDate(cutover);
-    lines.push({
+    posting({
       id: `opening-${openings.map((row) => row.id).join('-') || 'iq'}`,
       date,
       at: `${date}T00:00:00`,
@@ -467,7 +519,7 @@ export function buildStatement(
     const reference = laybyReference(layby);
     if (layby.status !== 'cancelled') laybyBalance = round2(laybyBalance + toNumber(layby.balance_amount));
 
-    lines.push({
+    posting({
       id: `layby-${layby.id}`,
       date: toDateInput(layby.created_at),
       at: layby.created_at,
@@ -483,7 +535,7 @@ export function buildStatement(
     });
 
     (layby.payments ?? []).forEach((payment, index) => {
-      lines.push({
+      posting({
         id: `layby-${layby.id}-payment-${index}`,
         date: toDateInput(payment.date),
         // A layby payment records only the day, so it would otherwise sort
@@ -506,7 +558,7 @@ export function buildStatement(
     // A pending or declined refund never left the drawer, so it is not yet a
     // transaction on the client. `refunds_status_check` allows exactly three.
     if (refund.status !== 'Approved') continue;
-    lines.push({
+    posting({
       id: `refund-${refund.id}`,
       date: toDateInput(refund.approved_at ?? refund.created_at),
       at: refund.approved_at ?? refund.created_at,

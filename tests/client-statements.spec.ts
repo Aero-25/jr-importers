@@ -167,23 +167,35 @@ test('a client statement pulls every transaction on the account and carries the 
   await expect(page.getByText('Galaxy A16 128GB x2, Screen protector')).toBeVisible();
   // A negative imported document is a credit note, and its money belongs in
   // the payments column — not a bill for minus nine hundred dollars.
+  // The columns and type codes are IQ's: a credit note is a CN line with the
+  // money in the Credit column, and a refund of it an RF line in Debit.
   const creditRow = page.getByRole('row').filter({ hasText: 'Returned faulty charger' });
-  await expect(creditRow).toContainText('Credit note');
+  await expect(creditRow).toContainText('CN');
   await expect(creditRow).toContainText(/900[.,]00/);
-  // A refunded credit note shows the credit and the refund going back out.
-  const refundRow = page.getByRole('row').filter({ hasText: 'IQ-9004 refunded' });
-  await expect(refundRow).toContainText('Refund paid');
+  const refundRow = page.getByRole('row').filter({ hasText: 'IQ-9004' }).filter({ hasText: 'RF' });
+  await expect(refundRow).toContainText('Refund');
   await expect(refundRow).toContainText(/300[.,]00/);
 
-  // The IQ invoice is charged and settled, like any other paid document.
-  await expect(page.getByRole('cell', { name: 'IQ-9001', exact: true })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'IQ-9001 settled' })).toBeVisible();
+  // The IQ invoice is charged (IN) and settled (PM), like any paid document,
+  // both lines carrying the invoice number as their reference.
+  const iqRows = page.getByRole('row').filter({ hasText: 'IQ-9001' });
+  await expect(iqRows).toHaveCount(2);
+  await expect(iqRows.filter({ hasText: 'PM' })).toContainText('Payment');
+  // Amount Due: a document settled by its own payment owes nothing; what is
+  // left — Receipt 91 and the open 900 credit — goes oldest-first across the
+  // rest. 1 400 covers the 850 anchor and 550 of IQ-9003, leaving 700 on it
+  // and all 800 of INV-500: together the 1 500 balance.
+  await expect(page.getByRole('row').filter({ hasText: 'IQ-9003' })).toContainText(/1.250[.,]00.*700[.,]00/);
+  await expect(page.getByRole('row').filter({ hasText: 'Invoice on account' })).toContainText(/800[.,]00.*800[.,]00/);
+  // Dates print the way IQ printed them.
+  await expect(page.getByRole('cell', { name: '14/11/25' }).first()).toBeVisible();
   // The anchor: IQ's 1 200 less the +350 the documents below account for.
-  const anchorRow = page.getByRole('row').filter({ hasText: 'Opening balance' });
+  const anchorRow = page.getByRole('row').filter({ hasText: 'previous system' });
+  await expect(anchorRow).toContainText('OB');
   await expect(anchorRow).toContainText(/850[.,]00/);
   await expect(anchorRow).toContainText(/1.200[.,]00 at 01 Jan 2026/);
   await expect(page.getByRole('cell', { name: 'LAY-0007' }).first()).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'INV-501 settled' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'INV-501' })).toHaveCount(2);
   // INV-500 appears once — the ledger charge. The invoice row for the same
   // document is dropped, or the customer would be billed for it twice:
   // 850 anchor + 4 300 + 1 250 IQ + 300 refund out + 800 invoice + 2 700 till

@@ -1,4 +1,4 @@
-import type { ClientStatement } from '@/data/statements';
+import { lineDescription, statementDate, type ClientStatement } from '@/data/statements';
 import { STORE } from './constants';
 import { formatDate, money } from './format';
 import {
@@ -27,14 +27,17 @@ const OVERDUE: [number, number, number] = [176, 32, 32];
 const BODY_BOTTOM = 226;
 
 /**
- * Table geometry, in mm from the left margin.
+ * Table geometry, in mm from the left margin — the columns of the shop's IQ
+ * statements, in the same order: Date, Reference, Type, Description, Debit,
+ * Credit, Amount Due, Balance. Customers reconciled against that layout for
+ * years, and a statement that moves the columns is one they have to relearn.
  *
- * Charges, payments and the balance are right-aligned to their x, so the text
- * to their left has to stop short of where the widest amount begins, not where
- * its anchor sits. AMOUNT_WIDTH is that reservation: without it a description
- * is trimmed to a column that does not exist and prints underneath the money.
+ * The money columns are right-aligned to their x, so the text to their left
+ * has to stop short of where the widest amount begins, not where its anchor
+ * sits. AMOUNT_WIDTH is that reservation: without it a description is trimmed
+ * to a column that does not exist and prints underneath the money.
  */
-const COL = { date: 2, reference: 24, description: 66, charges: 132, payments: 156 };
+const COL = { date: 2, reference: 18, type: 44, description: 54, debit: 108, credit: 130, due: 158 };
 const AMOUNT_WIDTH = 18;
 
 function amount(value: number): string {
@@ -160,9 +163,11 @@ export async function buildClientStatementPdf(statement: ClientStatement): Promi
     y += 4.8;
     doc.text('Date', left + COL.date, y);
     doc.text('Reference', left + COL.reference, y);
+    doc.text('Type', left + COL.type, y);
     doc.text('Description', left + COL.description, y);
-    doc.text('Charges', left + COL.charges, y, { align: 'right' });
-    doc.text('Payments', left + COL.payments, y, { align: 'right' });
+    doc.text('Debit', left + COL.debit, y, { align: 'right' });
+    doc.text('Credit', left + COL.credit, y, { align: 'right' });
+    doc.text('Amount Due', left + COL.due, y, { align: 'right' });
     doc.text('Balance', right - 2, y, { align: 'right' });
     y += 6;
     doc.setFont('helvetica', 'normal');
@@ -175,7 +180,7 @@ export async function buildClientStatementPdf(statement: ClientStatement): Promi
      stamping today's date on an opening line of zero reads as a transaction
      that happened today. */
   doc.setFont('helvetica', 'bold');
-  if (statement.from) doc.text(formatDate(statement.from), left + COL.date, y);
+  if (statement.from) doc.text(statementDate(statement.from), left + COL.date, y);
   doc.text('Balance brought forward', left + COL.reference, y);
   doc.text(amount(statement.openingBalance), right - 2, y, { align: 'right' });
   doc.setFont('helvetica', 'normal');
@@ -197,15 +202,19 @@ export async function buildClientStatementPdf(statement: ClientStatement): Promi
     striped = !striped;
 
     doc.setTextColor(...INK);
-    doc.text(formatDate(line.date), left + COL.date, y);
-    doc.text(fit(String(line.reference), COL.description - COL.reference - 3), left + COL.reference, y);
-    // Off-account lines are marked in the description rather than dropped: the
-    // customer's laybys and refunds are part of their history, they simply
-    // are not part of what the account balance says they owe.
-    const description = `${line.type}${line.detail ? ` — ${line.detail}` : ''}${line.onAccount ? '' : ' *'}`;
-    doc.text(fit(description, COL.charges - COL.description - AMOUNT_WIDTH), left + COL.description, y);
-    if (line.charge) doc.text(amount(line.charge), left + COL.charges, y, { align: 'right' });
-    if (line.payment) doc.text(amount(line.payment), left + COL.payments, y, { align: 'right' });
+    doc.text(statementDate(line.date), left + COL.date, y);
+    doc.text(fit(String(line.reference), COL.type - COL.reference - 2), left + COL.reference, y);
+    doc.text(line.code, left + COL.type, y);
+    // The description is what the document was for, falling back to the kind
+    // of document — "Invoice", "Payment" — exactly as IQ printed it. Off-
+    // account lines are marked rather than dropped: the customer's laybys and
+    // refunds are part of their history, they simply are not part of what the
+    // account balance says they owe.
+    const description = `${lineDescription(line)}${line.onAccount ? '' : ' *'}`;
+    doc.text(fit(description, COL.debit - COL.description - AMOUNT_WIDTH), left + COL.description, y);
+    if (line.charge) doc.text(amount(line.charge), left + COL.debit, y, { align: 'right' });
+    if (line.payment) doc.text(amount(line.payment), left + COL.credit, y, { align: 'right' });
+    if (line.due) doc.text(amount(line.due), left + COL.due, y, { align: 'right' });
     if (line.balance !== null) doc.text(amount(line.balance), right - 2, y, { align: 'right' });
     y += 5.6;
   }
