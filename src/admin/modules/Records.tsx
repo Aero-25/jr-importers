@@ -16,10 +16,12 @@ import {
   formatDate,
   formatDateTime,
   money,
+  percent,
   round2,
   toDateInput,
   toNumber,
   truncate,
+  vatFromInclusive,
 } from '@/lib/format';
 import {
   Badge,
@@ -257,11 +259,21 @@ function RecordDialog({
       ? ((record as AnyRow).items as LineItem[])
       : [],
   );
+  // Whether this document carries VAT at all. Commission is not the shop's own
+  // supply, so it is invoiced with none — and before this the 15% was worked
+  // out of the total regardless, printing tax that was never charged. Anything
+  // raised before the column existed, and everything from the till, charges VAT.
+  const [chargeVat, setChargeVat] = useState<boolean>(
+    () => isNew || (record as AnyRow).charge_vat !== false,
+  );
+
   const itemTotals = useMemo(() => {
     const total = round2(items.reduce((n, l) => n + (Number(l.line_total) || 0), 0));
-    const vat = round2((total * DEFAULT_VAT_RATE) / (1 + DEFAULT_VAT_RATE));
-    return { total, vat, subtotal: round2(total - vat) };
-  }, [items]);
+    // Zero-rated: the lines are VAT-inclusive either way, so the customer owes
+    // the same — the whole total is simply net.
+    const { net, vat } = vatFromInclusive(total, chargeVat ? DEFAULT_VAT_RATE : 0);
+    return { total, vat, subtotal: net };
+  }, [items, chargeVat]);
 
   const [form, setForm] = useState<Record<string, unknown>>(() => {
     const initial: Record<string, unknown> = {};
@@ -344,6 +356,7 @@ function RecordDialog({
         return;
       }
       values.items = items;
+      values.charge_vat = chargeVat;
       values.total_amount = itemTotals.total;
       values.vat_amount = itemTotals.vat;
       values.subtotal_amount = itemTotals.subtotal;
@@ -367,6 +380,30 @@ function RecordDialog({
     (field) =>
       (!spec.readOnly || field.type === 'readonly' || field.type === 'record') && !field.computed,
   );
+  // What the preview prints before anything is saved.
+  //
+  // Imported invoices can carry header totals and no itemised lines, so those
+  // totals stand until the lines are actually touched. Ticking VAT off is a
+  // change to the totals too, though, and it has no lines to recompute from —
+  // so the header total is re-split at the chosen rate instead.
+  const linesEdited =
+    !isNew && items !== record.items && (Array.isArray(record.items) || items.length > 0);
+  const vatToggled =
+    !isNew && Boolean(spec.lineItems) && chargeVat !== ((record as AnyRow).charge_vat !== false);
+  const headerSplit = vatFromInclusive(
+    isNew ? 0 : Number((record as AnyRow).total_amount ?? 0),
+    chargeVat ? DEFAULT_VAT_RATE : 0,
+  );
+  const pdfTotals = linesEdited
+    ? {
+        total_amount: itemTotals.total,
+        vat_amount: itemTotals.vat,
+        subtotal_amount: itemTotals.subtotal,
+      }
+    : vatToggled
+      ? { vat_amount: headerSplit.vat, subtotal_amount: headerSplit.net }
+      : {};
+
   const pdfRecord = isNew ? null : {
     ...record,
     ...Object.fromEntries(Object.entries(form).filter(([key]) => {
@@ -374,13 +411,8 @@ function RecordDialog({
       return !field || (field.type !== 'readonly' && !field.computed);
     })),
     items,
-    // Imported invoices can have header totals without itemised lines.
-    // Preserve those totals until the user actually changes the lines.
-    ...(items !== record.items && (Array.isArray(record.items) || items.length > 0) ? {
-      total_amount: itemTotals.total,
-      vat_amount: itemTotals.vat,
-      subtotal_amount: itemTotals.subtotal,
-    } : {}),
+    ...(spec.lineItems ? { charge_vat: chargeVat } : {}),
+    ...pdfTotals,
   };
 
   return (
@@ -450,7 +482,13 @@ function RecordDialog({
 
         {spec.lineItems && !spec.readOnly && (
           <div className="mt-4">
-            <LineItemsEditor items={items} onChange={setItems} totals={itemTotals} />
+            <LineItemsEditor
+              items={items}
+              onChange={setItems}
+              totals={itemTotals}
+              chargeVat={chargeVat}
+              onChargeVat={setChargeVat}
+            />
           </div>
         )}
 
@@ -808,10 +846,14 @@ function LineItemsEditor({
   items,
   onChange,
   totals,
+  chargeVat,
+  onChargeVat,
 }: {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
   totals: { total: number; vat: number; subtotal: number };
+  chargeVat: boolean;
+  onChargeVat: (charge: boolean) => void;
 }) {
   const [term, setTerm] = useState('');
   const lookup = products.useList(
@@ -985,8 +1027,20 @@ function LineItemsEditor({
             <dt className="text-ink-muted">Subtotal (excl VAT)</dt>
             <dd className="tabular w-24 text-ink">{money(totals.subtotal)}</dd>
           </div>
-          <div className="flex justify-end gap-6">
-            <dt className="text-ink-muted">VAT 15%</dt>
+          {/*
+            The tick sits with the figure it governs, because that is where the
+            question comes up: commission and anything else zero-rated is
+            invoiced with no VAT. Prices are VAT-inclusive, so unticking does
+            not change what the customer owes — the whole total becomes net.
+          */}
+          <div className="flex items-center justify-end gap-6">
+            <dt className="text-ink-muted">
+              <Checkbox
+                label={chargeVat ? `VAT ${percent(DEFAULT_VAT_RATE)}` : 'VAT — zero-rated'}
+                checked={chargeVat}
+                onChange={(e) => onChargeVat(e.target.checked)}
+              />
+            </dt>
             <dd className="tabular w-24 text-ink">{money(totals.vat)}</dd>
           </div>
           <div className="flex justify-end gap-6 font-semibold">

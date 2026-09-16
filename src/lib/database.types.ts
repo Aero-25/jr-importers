@@ -448,6 +448,12 @@ export type InvoiceRow = {
   items: LineItem[];
   subtotal_amount: number;
   vat_amount: number;
+  /**
+   * False on a zero-rated document — commission and the like. The lines are
+   * VAT-inclusive either way, so the total does not move: `vat_amount` is 0
+   * and `subtotal_amount` is the whole total.
+   */
+  charge_vat: boolean;
   total_amount: number;
   due_date: string | null;
   status: string;
@@ -620,6 +626,8 @@ export type QuoteRow = {
   items: LineItem[];
   subtotal_amount: number;
   vat_amount: number;
+  /** As on an invoice: false leaves the quote zero-rated. */
+  charge_vat: boolean;
   total_amount: number;
   status: string;
   valid_until: string | null;

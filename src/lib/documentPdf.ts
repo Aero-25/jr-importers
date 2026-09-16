@@ -30,6 +30,12 @@ interface DocumentSpec {
   subtotal: number;
   vat: number;
   total: number;
+  /**
+   * False on a zero-rated document. The VAT line still prints — at nil, and
+   * saying so — because a total with no tax line at all reads as an omission
+   * to the customer's accounts department.
+   */
+  chargeVat?: boolean;
   /** e.g. "Valid until 30/08/2026" on a quote, "Due 30/08/2026" on an invoice. */
   validityLine?: string | null;
   notes?: string | null;
@@ -229,7 +235,11 @@ async function buildDocumentPdf(spec: DocumentSpec, company: InvoiceCompany): Pr
     doc.setTextColor(...INK);
   };
   totalRow('Subtotal (Exclusive)', money(spec.subtotal).replace('N$ ', ''), footY + 12);
-  totalRow('VAT', money(spec.vat).replace('N$ ', ''), footY + 19);
+  totalRow(
+    spec.chargeVat === false ? 'VAT (zero-rated)' : 'VAT',
+    money(spec.vat).replace('N$ ', ''),
+    footY + 19,
+  );
   totalRow('Total', money(spec.total).replace('N$ ', ''), footY + 29, true);
 
   if (spec.notes) {
@@ -285,6 +295,7 @@ export async function buildQuotePdf(quote: QuoteRow): Promise<Blob> {
       subtotal: Number(quote.subtotal_amount ?? 0),
       vat: Number(quote.vat_amount ?? 0),
       total: Number(quote.total_amount ?? 0),
+      chargeVat: quote.charge_vat !== false,
       validityLine: quote.valid_until ? `Valid-until ${formatDate(quote.valid_until)}` : null,
       notes: quote.notes,
     },
@@ -338,6 +349,7 @@ export async function buildInvoiceRecordPdf(invoice: InvoiceRow): Promise<Blob> 
       subtotal: Number(invoice.subtotal_amount ?? 0),
       vat: Number(invoice.vat_amount ?? 0),
       total: Number(invoice.total_amount ?? 0),
+      chargeVat: invoice.charge_vat !== false,
       validityLine: invoice.due_date ? `Due ${formatDate(invoice.due_date)}` : null,
       poNumber: invoice.po_number ?? null,
       notes: invoice.notes ?? null,
