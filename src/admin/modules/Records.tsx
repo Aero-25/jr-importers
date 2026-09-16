@@ -904,21 +904,24 @@ function LineItemsEditor({
               key={`${line.product_id ?? 'custom'}-${index}`}
               className="flex flex-wrap items-end gap-2 rounded-lg border border-hairline px-3 py-2"
             >
-              {line.product_id ? (
-                <div className="min-w-[9rem] flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{line.name}</p>
-                  <p className="text-xs text-ink-subtle">{line.sku ?? '—'}</p>
-                </div>
-              ) : (
-                <Input
-                  placeholder="Describe the line…"
-                  value={line.name}
-                  onChange={(e) =>
-                    onChange(items.map((l, i) => (i === index ? { ...l, name: e.target.value } : l)))
-                  }
-                  containerClassName="min-w-[9rem] flex-1"
-                />
-              )}
+              {/*
+                Editable on catalogue lines too: the counter needs to say
+                "Commission — Erindi trade-in" on the document without that
+                rewording touching the product itself. Only the wording is
+                free — `product_id` and the SKU stay put, so stock and
+                margin still follow the catalogue entry.
+              */}
+              <Input
+                label={
+                  <span className="block truncate">
+                    {line.product_id ? `Description · ${line.sku ?? '—'}` : 'Description'}
+                  </span>
+                }
+                placeholder="Describe the line…"
+                value={line.name}
+                onChange={(e) => patch(index, { name: e.target.value })}
+                containerClassName="min-w-[9rem] flex-1"
+              />
               <Input
                 label="Qty"
                 type="number"
