@@ -25,6 +25,8 @@ export type FieldType =
   | 'record'
   /** Search-as-you-type customer picker. Fills name, email and customer_id. */
   | 'customer'
+  /** The repair an invoice settles. Picking one fills the customer and adds the repair line. */
+  | 'jobcard'
   /** Layby instalment history, with a control to take the next payment. */
   | 'payments'
   /** Evidence photographs, uploaded to storage and kept as an array of URLs. */
@@ -414,6 +416,13 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         extraKeys: ['customer_id'],
       },
       { key: 'customer_email', label: 'Email', type: 'email', inList: true, secondary: true },
+      {
+        key: 'job_card_id',
+        label: 'Job card',
+        type: 'jobcard',
+        wide: true,
+        hint: 'For a repair: pick the job card and the parts line and customer come across. The job card is then marked as invoiced.',
+      },
       {
         key: 'po_number',
         label: 'Customer PO number',

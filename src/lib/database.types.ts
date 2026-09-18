@@ -442,6 +442,8 @@ export type InvoiceRow = {
   id: number;
   /** Assigned by the database, in creation order. Never sent by the client. */
   invoice_number: string | null;
+  /** The repair this invoice settles, when it was raised for a job card. */
+  job_card_id: number | null;
   customer_id: string | null;
   customer_name: string | null;
   customer_email: string | null;

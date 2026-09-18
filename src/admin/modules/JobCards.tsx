@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
   Copy,
@@ -6,6 +7,7 @@ import {
   FileText,
   MessageCircle,
   Plus,
+  Receipt,
   Search,
   Smartphone,
 } from 'lucide-react';
@@ -27,6 +29,7 @@ import {
 } from '@/lib/constants';
 import { downloadJobCardPdf } from '@/lib/jobCardPdf';
 import { PdfActions } from '../components/PdfActions';
+import { invoiceForJobCard, raiseInvoiceForJobCard, repairCharge } from '@/data/jobCardInvoice';
 import { isSendableNumber } from '@/lib/phone';
 import { formatDate, formatDateTime, money, relativeTime, toNumber } from '@/lib/format';
 import {
@@ -246,6 +249,35 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
   );
 
   const [sending, setSending] = useState(false);
+  const navigate = useNavigate();
+
+  // The invoice raised for this repair, if there is one. A job card is
+  // invoiced once; after that the button becomes the way to the invoice.
+  const [invoice, setInvoice] = useState<{ id: number; invoice_number: string | null; status: string } | null>(null);
+  const [invoicing, setInvoicing] = useState(false);
+  useEffect(() => {
+    if (!saved) return;
+    let cancelled = false;
+    void invoiceForJobCard(saved.id).then((found) => { if (!cancelled) setInvoice(found); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [saved]);
+
+  async function invoiceRepair() {
+    if (!saved) return;
+    setInvoicing(true);
+    try {
+      const raised = await raiseInvoiceForJobCard({ ...saved, ...form, deposit: toNumber(form.deposit), cost: toNumber(form.cost) } as JobCardRow);
+      toast.success(
+        raised.existed ? 'Already invoiced' : 'Invoice raised',
+        `${raised.invoice_number ?? 'Invoice'} for job #${saved.job_number}. Opening it now.`,
+      );
+      navigate(`/invoices?open=${raised.id}`);
+    } catch (error) {
+      toast.error('Could not raise the invoice', error instanceof Error ? error.message : undefined);
+    } finally {
+      setInvoicing(false);
+    }
+  }
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -427,6 +459,26 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
                     onClick={() => setQuoteOpen(true)}
                   >
                     Send quote for approval
+                  </Button>
+                )}
+                {invoice ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<Receipt className="h-4 w-4" />}
+                    onClick={() => navigate(`/invoices?open=${invoice.id}`)}
+                  >
+                    Invoiced · {invoice.invoice_number ?? `#${invoice.id}`}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    icon={<Receipt className="h-4 w-4" />}
+                    loading={invoicing}
+                    onClick={() => void invoiceRepair()}
+                    title={`Raises an invoice with a PARTS line of ${money(repairCharge({ ...saved, ...form, deposit: toNumber(form.deposit), cost: toNumber(form.cost) } as JobCardRow).amount)}`}
+                  >
+                    Invoice this repair
                   </Button>
                 )}
               </div>

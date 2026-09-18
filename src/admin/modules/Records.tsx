@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FileText, Plus, Search, Trash2 } from 'lucide-react';
 import type { createResource } from '@/data/crud';
 import { supabase } from '@/lib/supabase';
@@ -10,7 +10,8 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import { customers, suppliers } from '@/data/resources';
 import { uploadDamagePhoto } from '@/data/storage';
 import { products } from '@/data/products';
-import type { DamageReportRow, InvoiceRow, LineItem, QuoteRow } from '@/lib/database.types';
+import type { DamageReportRow, InvoiceRow, JobCardRow, LineItem, QuoteRow } from '@/lib/database.types';
+import { PARTS_SKU, fetchPartsProduct, repairLine } from '@/data/jobCardInvoice';
 import {
   DEFAULT_VAT_RATE,
   formatDate,
@@ -81,6 +82,23 @@ function RecordsModule({ spec }: { spec: RecordSpec }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<AnyRow | 'new' | null>(null);
+
+  // Another screen can hand over a record to open — the job card that just
+  // raised its invoice sends the person here with ?open=<id>. Read once,
+  // then cleared so a refresh does not reopen it.
+  const [params, setParams] = useSearchParams();
+  const openId = params.get('open');
+  useEffect(() => {
+    if (!openId) return;
+    let cancelled = false;
+    void supabase.from(spec.table).select('*').eq('id', openId).maybeSingle().then(({ data }) => {
+      if (cancelled) return;
+      if (data) setEditing(data as AnyRow);
+      setParams((current) => { current.delete('open'); return current; }, { replace: true });
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId, spec.table]);
 
   // Filtering changes what "page 3" means, so it starts again from the top.
   function searchFor(term: string) {
@@ -259,6 +277,25 @@ function RecordDialog({
       ? ((record as AnyRow).items as LineItem[])
       : [],
   );
+  // A repair picked onto this document. The customer comes across only when
+  // the invoice has none yet — picking a job card onto an account invoice
+  // must not overwrite the account — and the PARTS line is added once.
+  async function linkJobCard(job: JobCardRow) {
+    setForm((current) => {
+      const hasCustomer = String(current.customer_name ?? '').trim().length > 0;
+      return hasCustomer
+        ? current
+        : { ...current, customer_id: job.customer_id, customer_name: job.customer_name, customer_email: job.customer_email ?? '' };
+    });
+    if (items.some((line) => line.sku === PARTS_SKU)) return;
+    try {
+      const parts = await fetchPartsProduct();
+      setItems((current) => (current.some((line) => line.sku === PARTS_SKU) ? current : [...current, repairLine(job, parts)]));
+    } catch (error) {
+      toast.error('Could not add the repair line', error instanceof Error ? error.message : undefined);
+    }
+  }
+
   // Whether this document carries VAT at all. Commission is not the shop's own
   // supply, so it is invoiced with none — and before this the 15% was worked
   // out of the total regardless, printing tax that was never charged. Anything
@@ -332,6 +369,8 @@ function RecordDialog({
         values[field.key] = Array.isArray(raw) ? raw : [];
       else if (field.type === 'money' || field.type === 'number')
         values[field.key] = raw === '' ? null : toNumber(raw as string);
+      else if (field.type === 'jobcard')
+        values[field.key] = raw === '' || raw == null ? null : Number(raw);
       else values[field.key] = String(raw ?? '').trim() || null;
 
       // A field left blank means two different things, and sending null for
@@ -473,6 +512,7 @@ function RecordDialog({
               value={form[field.key]}
               onChange={(value) => set(field.key, value)}
               onPatch={(patch) => setForm((current) => ({ ...current, ...patch }))}
+              onJobCard={(job) => void linkJobCard(job)}
               recordId={isNew ? null : ((record as AnyRow).id as number)}
               disabled={spec.readOnly}
               autoFocus={index === 0 && !spec.readOnly}
@@ -533,6 +573,7 @@ function FieldControl({
   recordId,
   disabled,
   autoFocus,
+  onJobCard,
 }: {
   field: FieldSpec;
   value: unknown;
@@ -543,6 +584,8 @@ function FieldControl({
   onPatch?: (patch: Record<string, unknown>) => void;
   /** The saved row's id, or null while the record is still being created. */
   recordId?: number | null;
+  /** A job card was picked: the dialog adds the repair line to the document. */
+  onJobCard?: (job: JobCardRow) => void;
 }) {
   const wide = field.wide ? 'sm:col-span-2' : undefined;
   const common = { label: field.label, hint: field.hint, required: field.required, disabled };
@@ -635,6 +678,20 @@ function FieldControl({
           disabled={disabled}
           containerClassName={wide}
           onPick={(picked) => onPatch?.(picked)}
+        />
+      );
+
+    case 'jobcard':
+      return (
+        <JobCardPicker
+          field={field}
+          value={value == null || value === '' ? null : Number(value)}
+          disabled={disabled}
+          containerClassName={wide}
+          onPick={(job) => {
+            onPatch?.({ job_card_id: job?.id ?? null });
+            if (job) onJobCard?.(job);
+          }}
         />
       );
 
@@ -1341,6 +1398,11 @@ function CustomerPicker({
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
 
+  // The name can be set from outside — a job card picked onto the invoice
+  // brings its customer with it — and the box has to show it, not the last
+  // thing typed here.
+  useEffect(() => { setTerm(value); }, [value]);
+
   useEffect(() => {
     const q = term.trim();
     if (!open || q.length < 2) { setResults([]); setBusy(false); return; }
@@ -1408,6 +1470,127 @@ function CustomerPicker({
                   <span className="text-sm font-medium text-ink">{String(c.name ?? '—')}</span>
                   <span className="text-xs text-ink-muted">
                     {[c.account_code, c.phone, c.email].filter(Boolean).join('  ·  ') || 'no contact details'}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Search-as-you-type job card picker for an invoice.
+ *
+ * Shows the linked job card by number and handset once picked, with a way to
+ * unlink it. Searches by job number, customer, handset or IMEI — whatever the
+ * person at the counter has in front of them.
+ */
+function JobCardPicker({
+  field,
+  value,
+  disabled,
+  containerClassName,
+  onPick,
+}: {
+  field: FieldSpec;
+  value: number | null;
+  disabled?: boolean;
+  containerClassName?: string;
+  onPick: (job: JobCardRow | null) => void;
+}) {
+  const [term, setTerm] = useState('');
+  const [results, setResults] = useState<JobCardRow[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [linked, setLinked] = useState<JobCardRow | null>(null);
+
+  // What is linked already, so an existing invoice shows its repair.
+  useEffect(() => {
+    if (value == null) { setLinked(null); return; }
+    if (linked?.id === value) return;
+    let cancelled = false;
+    void supabase.from('job_cards').select('*').eq('id', value).maybeSingle().then(({ data }) => {
+      if (!cancelled) setLinked((data as JobCardRow | null) ?? null);
+    });
+    return () => { cancelled = true; };
+  }, [value, linked?.id]);
+
+  useEffect(() => {
+    const q = term.trim();
+    if (!open || q.length < 1) { setResults([]); setBusy(false); return; }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setBusy(true);
+      const like = `%${q.replace(/[%,]/g, '')}%`;
+      const filters = [`customer_name.ilike.${like}`, `handset_type.ilike.${like}`, `imei.ilike.${like}`, `customer_phone.ilike.${like}`];
+      if (/^d+$/.test(q)) filters.push(`job_number.eq.${q}`);
+      void supabase
+        .from('job_cards')
+        .select('*')
+        .or(filters.join(','))
+        .order('created_at', { ascending: false })
+        .limit(15)
+        .then(({ data }) => {
+          if (cancelled) return;
+          setResults((data ?? []) as JobCardRow[]);
+          setBusy(false);
+        });
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [term, open]);
+
+  if (linked) {
+    const what = [linked.handset_type, linked.fault].filter(Boolean).join(' · ');
+    return (
+      <div className={containerClassName}>
+        <p className="text-sm font-medium text-ink">{field.label}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-3 rounded-lg border border-hairline bg-raised px-3 py-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-ink">Job #{linked.job_number} — {linked.customer_name}</p>
+            <p className="truncate text-xs text-ink-muted">{what || 'No handset recorded'} · {linked.status}</p>
+          </div>
+          {!disabled && (
+            <Button size="sm" variant="ghost" onClick={() => { setLinked(null); onPick(null); }}>
+              Unlink
+            </Button>
+          )}
+        </div>
+        {field.hint && <p className="mt-1 text-xs text-ink-muted">{field.hint}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className={containerClassName}>
+      <Input
+        label={field.label}
+        hint={field.hint}
+        disabled={disabled}
+        value={term}
+        placeholder="Search by job number, customer, handset or IMEI"
+        onChange={(e: ChangeEvent<HTMLInputElement>) => { setTerm(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && term.trim().length >= 1 && (
+        <div className="relative">
+          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-line bg-surface shadow-lg">
+            {busy && <li className="px-3 py-2 text-sm text-ink-muted">Searching…</li>}
+            {!busy && results.length === 0 && (
+              <li className="px-3 py-2 text-sm text-ink-muted">No job card matches that.</li>
+            )}
+            {results.map((job) => (
+              <li key={job.id}>
+                <button
+                  type="button"
+                  className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-surface-sunken"
+                  onClick={() => { setLinked(job); setTerm(''); setOpen(false); onPick(job); }}
+                >
+                  <span className="text-sm font-medium text-ink">Job #{job.job_number} — {job.customer_name}</span>
+                  <span className="text-xs text-ink-muted">
+                    {[job.handset_type, job.fault, job.status, formatDate(job.created_at)].filter(Boolean).join('  ·  ')}
                   </span>
                 </button>
               </li>
