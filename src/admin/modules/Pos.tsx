@@ -25,6 +25,8 @@ import {
   usePettyCash,
   usePosSearch,
   useShiftSales,
+  tenderSummary,
+  type Tender,
 } from '@/data/till';
 import { useOfflineSales } from '@/data/offlineSales';
 import { useQuery } from '@tanstack/react-query';
@@ -48,6 +50,7 @@ import {
   Input,
   Modal,
   Notice,
+  Select,
   StockBadge,
   useToast,
 } from '@/ui';
@@ -189,6 +192,7 @@ export default function Pos() {
     paymentMethod: string,
     tendered: number,
     customer: { id?: string | null; name?: string | null; phone?: string | null } | null,
+    payments: Tender[] | null = null,
   ) {
     setSelling(true);
     try {
@@ -197,6 +201,7 @@ export default function Pos() {
         discount: toNumber(discount),
         paymentMethod,
         amountTendered: tendered,
+        payments,
         cashierName: cashier,
         shiftId: shift.data?.id ?? null,
         customer: customer ?? undefined,
@@ -806,6 +811,7 @@ function TenderDialog({
     method: string,
     tendered: number,
     customer: { id?: string | null; name?: string | null; phone?: string | null } | null,
+    payments?: Tender[] | null,
   ) => void;
   busy: boolean;
 }) {
@@ -814,6 +820,32 @@ function TenderDialog({
   // how a card sale landed in the cash column and left the drawer short.
   const [method, setMethod] = useState<string | null>(null);
   const [tendered, setTendered] = useState('');
+
+  // A sale paid more than one way: part cash, the rest on card is the usual
+  // shape. Each tender is its own line; the sale completes only when the
+  // lines add up to the total, and change is worked out on the cash line.
+  const [split, setSplit] = useState(false);
+  const [tenders, setTenders] = useState<Array<{ method: string; amount: string }>>([
+    { method: 'Cash', amount: '' },
+    { method: 'Card', amount: '' },
+  ]);
+  const tenderRows = tenders.map((t) => ({ method: t.method, amount: round2(toNumber(t.amount)) }));
+  const tenderTotal = round2(tenderRows.reduce((sum, t) => sum + t.amount, 0));
+  const remaining = round2(total - tenderTotal);
+  const splitCash = round2(tenderRows.filter((t) => t.method === 'Cash').reduce((sum, t) => sum + t.amount, 0));
+  const splitValid = split && Math.abs(remaining) < 0.005 && tenderRows.every((t) => t.method && t.amount > 0);
+  function patchTender(index: number, values: Partial<{ method: string; amount: string }>) {
+    setTenders((current) => current.map((t, i) => (i === index ? { ...t, ...values } : t)));
+  }
+  // "Rest" fills a line with what is still to pay, so the common two-way
+  // split is one number typed, not two.
+  function fillRemainder(index: number) {
+    setTenders((current) => {
+      const others = current.reduce((sum, t, i) => sum + (i === index ? 0 : toNumber(t.amount)), 0);
+      const left = round2(total - others);
+      return current.map((t, i) => (i === index ? { ...t, amount: left > 0 ? String(left) : '' } : t));
+    });
+  }
 
   // Account sale is the default: the shop knows its customers, and their
   // cellphone number is their account number. How the money arrives — cash,
@@ -849,17 +881,24 @@ function TenderDialog({
   const accountLookupPending = mode === 'account' && digits.length >= 6 && account.isLoading;
 
   async function confirm() {
+    // The method the sale is booked under, and how the money was tendered.
+    // For a split the method is the readable summary and the tenders are
+    // the truth the cash-up counts by.
+    const payments = split ? tenderRows : null;
+    const bookedMethod = split ? tenderSummary(tenderRows) : method!;
+    const bookedTendered = split ? (toNumber(tendered) || splitCash) : (toNumber(tendered) || total);
+
     if (mode === 'walkin') {
-      onConfirm(method!, toNumber(tendered) || total, null);
+      onConfirm(bookedMethod, bookedTendered, null, payments);
       return;
     }
 
     if (matched) {
-      onConfirm(method!, toNumber(tendered) || total, {
+      onConfirm(bookedMethod, bookedTendered, {
         id: matched.id,
         name: matched.name,
         phone: matched.phone ?? phone.trim(),
-      });
+      }, payments);
       return;
     }
 
@@ -878,13 +917,14 @@ function TenderDialog({
     } catch {
       // Offline or refused — the order still records name and number.
     }
-    onConfirm(method!, toNumber(tendered) || total, { id, name, phone: phone.trim() });
+    onConfirm(bookedMethod, bookedTendered, { id, name, phone: phone.trim() }, payments);
   }
 
   const value = toNumber(tendered);
-  const change = round2(value - total);
-  const isCash = method === 'Cash';
-  const methodMissing = method === null;
+  // On a split the cash tendered is measured against the cash part only.
+  const change = round2(value - (split ? splitCash : total));
+  const isCash = split ? splitCash > 0 : method === 'Cash';
+  const methodMissing = split ? !splitValid : method === null;
   const short = isCash && value > 0 && change < 0;
 
   // Quick-tender buttons: the notes a customer actually hands over.
@@ -914,6 +954,7 @@ function TenderDialog({
             variant="success"
             loading={busy}
             disabled={short || methodMissing || accountIncomplete || accountLookupPending}
+            title={split && !splitValid ? `${money(Math.abs(remaining))} ${remaining > 0 ? 'still to allocate' : 'over the total'}` : undefined}
             onClick={() => void confirm()}
           >
             Complete sale
@@ -987,10 +1028,10 @@ function TenderDialog({
               <button
                 key={m}
                 type="button"
-                onClick={() => setMethod(m)}
+                onClick={() => { setMethod(m); setSplit(false); }}
                 className={cn(
                   'rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors',
-                  method === m
+                  !split && method === m
                     ? 'border-brand-600 bg-brand-600 text-white'
                     : 'border-hairline text-ink hover:border-brand-400 hover:bg-raised',
                 )}
@@ -998,13 +1039,79 @@ function TenderDialog({
                 {m}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => { setSplit(true); setMethod(null); setTendered(''); }}
+              className={cn(
+                'col-span-3 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors',
+                split
+                  ? 'border-brand-600 bg-brand-600 text-white'
+                  : 'border-dashed border-hairline text-ink hover:border-brand-400 hover:bg-raised',
+              )}
+            >
+              Split payment — more than one way
+            </button>
           </div>
-          {methodMissing && (
+          {!split && methodMissing && (
             <p className="mt-1.5 text-xs text-ink-muted">
               Choose how the money arrived before completing the sale.
             </p>
           )}
         </div>
+
+        {split && (
+          <div className="space-y-2 rounded-xl border border-hairline p-3">
+            {tenders.map((t, index) => (
+              <div key={index} className="flex items-end gap-2">
+                <Select
+                  label={index === 0 ? 'Paid by' : undefined}
+                  aria-label={`Tender ${index + 1} method`}
+                  value={t.method}
+                  onChange={(e) => patchTender(index, { method: e.target.value })}
+                  containerClassName="flex-1"
+                >
+                  {PAYMENT_METHODS.filter((m) => m !== 'DPO Online' && m !== 'Layby').map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </Select>
+                <Input
+                  label={index === 0 ? 'Amount' : undefined}
+                  aria-label={`Tender ${index + 1} amount`}
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  value={t.amount}
+                  onChange={(e) => patchTender(index, { amount: e.target.value })}
+                  containerClassName="w-32"
+                />
+                <Button size="sm" variant="ghost" title="Fill with what is still to pay" onClick={() => fillRemainder(index)}>
+                  Rest
+                </Button>
+                {tenders.length > 2 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<Trash2 className="h-4 w-4" />}
+                    aria-label="Remove this tender"
+                    onClick={() => setTenders((current) => current.filter((_, i) => i !== index))}
+                  />
+                )}
+              </div>
+            ))}
+            <div className="flex items-center justify-between pt-1">
+              <Button size="sm" variant="secondary" onClick={() => setTenders((c) => [...c, { method: 'EFT', amount: '' }])}>
+                Add another
+              </Button>
+              <p className={cn('tabular text-sm font-semibold', Math.abs(remaining) < 0.005 ? 'text-success' : 'text-warn')}>
+                {Math.abs(remaining) < 0.005
+                  ? 'Adds up'
+                  : remaining > 0
+                    ? `${money(remaining)} still to pay`
+                    : `${money(-remaining)} over`}
+              </p>
+            </div>
+          </div>
+        )}
 
         {isCash && (
           <>

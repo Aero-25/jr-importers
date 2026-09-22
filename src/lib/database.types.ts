@@ -201,6 +201,8 @@ export type OrderRow = {
   vat_amount: number | null;
   total_amount: number;
   payment_method: string | null;
+  /** Tender breakdown on a sale paid more than one way; null when paid a single way. */
+  payments: Array<{ method: string; amount: number }> | null;
   payment_reference: string | null;
   dpo_trans_ref: string | null;
   status: string;

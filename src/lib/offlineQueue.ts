@@ -24,6 +24,8 @@ export interface QueuedSale {
   discount: number;
   paymentMethod: string;
   amountTendered?: number;
+  /** Tender breakdown when the sale was paid more than one way. */
+  payments?: Array<{ method: string; amount: number }> | null;
   customer?: { id?: string | null; name?: string | null; phone?: string | null };
   cashierName: string;
   shiftId: number | null;

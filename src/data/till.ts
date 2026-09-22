@@ -8,7 +8,7 @@ import type {
   ShiftStockLine,
   TillShiftRow,
 } from '@/lib/database.types';
-import { DEFAULT_VAT_RATE, round2, vatFromInclusive } from '@/lib/format';
+import { DEFAULT_VAT_RATE, amount, round2, vatFromInclusive } from '@/lib/format';
 import { keys } from './keys';
 
 /** Everything the cash-up report needs, computed server-side. */
@@ -373,11 +373,25 @@ export function useAmendCashUp() {
 
 /* ── Sales ───────────────────────────────────────────────────────────────── */
 
+/** One tender on a sale paid more than one way. */
+export interface Tender {
+  method: string;
+  amount: number;
+}
+
+/** "Cash 3,000.00 + Card 6,000.00" — what a split sale's payment method reads as. */
+export function tenderSummary(payments: Tender[]): string {
+  return payments.map((p) => `${p.method} ${amount(p.amount)}`).join(' + ');
+}
+
 export interface PosSaleInput {
   items: LineItem[];
   discount: number;
+  /** The single method, or for a split the readable summary of the tenders. */
   paymentMethod: string;
   amountTendered?: number;
+  /** Set only when the sale was paid more than one way. Sums to the total. */
+  payments?: Tender[] | null;
   customer?: { id?: string | null; name?: string | null; phone?: string | null };
   cashierName: string;
   shiftId: number | null;
@@ -417,6 +431,7 @@ export function useCompleteSale() {
           total_amount: total,
           coupon_discount: discount || null,
           payment_method: input.paymentMethod,
+          payments: input.payments?.length ? input.payments : null,
           delivery_method: 'Collection',
           status: 'Paid',
           paid_at: new Date().toISOString(),
