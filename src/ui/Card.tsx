@@ -112,7 +112,7 @@ export function StatTile({
       <p className="tabular mt-2 font-display text-2xl font-semibold text-ink">{value}</p>
       <div className="mt-1 flex items-center gap-2">
         {delta && (
-          <span className={cn('tabular text-xs font-medium', deltaTone)}>
+          <span className={cn('tabular shrink-0 whitespace-nowrap text-xs font-medium', deltaTone)}>
             {delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : '■'} {delta.value}
           </span>
         )}

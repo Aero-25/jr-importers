@@ -1,8 +1,9 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 import { isConfigured } from '@/lib/supabase';
+import { markStaffDevice } from '@/lib/staffDevice';
 import { LoadingScreen, Notice } from '@/ui';
 import { AdminShell } from './components/AdminShell';
 import { SignIn } from './components/SignIn';
@@ -26,6 +27,7 @@ const Reports = lazy(() => import('./modules/Reports'));
 const Alerts = lazy(() => import('./modules/Alerts'));
 const ImportIQ = lazy(() => import('./modules/ImportIQ'));
 const Faults = lazy(() => import('./modules/Faults'));
+const Analytics = lazy(() => import('./modules/Analytics'));
 
 const ADMIN_ONLY_PATHS = [
   '/invoices/statements',
@@ -40,6 +42,7 @@ const ADMIN_ONLY_PATHS = [
   '/errors',
   '/reports',
   '/import',
+  '/analytics',
 ];
 
 function NotPermitted() {
@@ -55,6 +58,13 @@ function NotPermitted() {
 export function AdminApp() {
   const { ready, isAuthenticated, isStaff, isAdmin, profile } = useAuth();
   const location = useLocation();
+
+  // Staff checking a price on the website are not visitors. The console and
+  // the shop share an origin, so flagging the browser here keeps it out of
+  // the visitor count even after its owner signs out.
+  useEffect(() => {
+    if (isStaff) markStaffDevice();
+  }, [isStaff]);
 
   if (!isConfigured) {
     return (
@@ -145,6 +155,7 @@ export function AdminApp() {
               <Route path="/activity" element={<Activity />} />
               <Route path="/finance" element={<Finance />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/analytics" element={<Analytics />} />
               <Route path="/import" element={<ImportIQ />} />
               <Route path="/errors" element={<Faults />} />
             </>

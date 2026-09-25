@@ -941,6 +941,16 @@ export type Database = {
       };
       resolve_client_error: { Args: { p_id: number }; Returns: Json };
       sales_analysis: { Args: { p_from: string; p_to: string }; Returns: Json };
+      /**
+       * Counts one storefront page view. Open to anonymous shoppers; the
+       * first view of a session carries where they came from in `p_landing`.
+       */
+      record_site_visit: {
+        Args: { p_session: string; p_visitor: string; p_path: string; p_landing?: Json | null };
+        Returns: undefined;
+      };
+      /** Visitors, sources, pages and places for the last `p_days` days. Admin only. */
+      site_analytics: { Args: { p_days?: number }; Returns: Json };
       generate_alerts: { Args: Record<PropertyKey, never>; Returns: number };
       acknowledge_alert: { Args: { p_id: number }; Returns: Json };
       amend_cash_up: {

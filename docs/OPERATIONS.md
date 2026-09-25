@@ -58,6 +58,27 @@ blocked this. All write paths were verified end-to-end via `.tooling/func.js`.
   `doc_type` + `doc_id`). Fixed a latent bug where the invoice form matched customers
   with `parseInt` on a UUID (so every invoice showed "Cash Customer").
 
+### Website analytics
+
+**Analytics** in the console (managers only) shows how many people visit the
+website, where they came from (Google, WhatsApp, Facebook, a tagged link…), which
+pages they open, their town and country, and their device.
+
+- The storefront counts its own visits (`src/lib/visitTracker.ts`) into
+  `site_sessions` / `site_page_views` through `record_site_visit()`;
+  `site_analytics()` builds the report. Both come from
+  `supabase/migrations/20260925000000_site_analytics.sql`, which must be applied
+  before the screen shows anything.
+- Town and country come from Cloudflare via the worker's `/api/geo` endpoint
+  (`_worker.js`). No IP address is stored.
+- Only the live address in `SITE_URL` is counted — previews, local builds and the
+  test suite are not. Staff are left out: anyone signed in with a staff role, and
+  any browser that has signed in to the console.
+- Visits older than 13 months are removed nightly by the `jr-prune-site-analytics`
+  pg_cron job.
+- To see a post, broadcast or flyer on its own line, tag the link you share:
+  `https://jrimporters.com/?utm_source=facebook&utm_campaign=spring-sale`.
+
 ## Admin access
 
 Admin status is granted by a row in `public.users` with `role` in

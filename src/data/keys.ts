@@ -16,6 +16,8 @@ export const keys = {
   // Derived views that do not map 1:1 onto a table.
   dashboard: (range: string): unknown[] => ['dashboard', range],
   productFacets: (): unknown[] => ['products', 'facets'],
+  /** Website visitors over the last `days` days. */
+  siteAnalytics: (days: number): unknown[] => ['site_analytics', days],
   openTill: (): unknown[] => ['till_shifts', 'open'],
   /** One client's whole history — ledger, invoices, laybys and refunds. */
   statement: (customerId: string, range?: unknown): unknown[] =>

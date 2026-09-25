@@ -45,6 +45,19 @@ export default {
       });
     }
 
+    // The storefront's visit counter asks this once per session. Cloudflare
+    // has already placed the connection; handing back the town and country
+    // means the database never needs to see — or store — an IP address.
+    if (url.pathname === '/api/geo' && request.method === 'GET') {
+      const cf = request.cf || {};
+      const response = jsonResponse(request, {
+        country: sanitizeText(cf.country, 2) || null,
+        city: sanitizeText(cf.city, 80) || null
+      });
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
+    }
+
     if (url.pathname === '/api/dpo-create-token' && request.method === 'POST') {
       return handleCreateToken(request, env);
     }

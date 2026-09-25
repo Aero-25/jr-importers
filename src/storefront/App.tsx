@@ -6,6 +6,7 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { RepairsBand } from './components/RepairsBand';
 import { ScrollToTop } from './components/ScrollToTop';
+import { TrackVisits } from './components/TrackVisits';
 
 // Route-level splitting: the landing page must not carry the checkout form or
 // the account screens in its first byte.
@@ -55,6 +56,7 @@ export function ShopApp() {
   return (
     <div className="coastline-shop flex min-h-screen flex-col">
       <ScrollToTop />
+      <TrackVisits />
       <Header />
 
       <main id="main" className={`relative z-10 flex-1 ${location.pathname === '/' ? 'coast-home-main' : 'coast-inner-main'}`}>
