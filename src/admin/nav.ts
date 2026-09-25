@@ -58,7 +58,6 @@ export const NAV: NavSection[] = [
     label: 'Sell',
     items: [
       { id: 'dashboard', label: 'Dashboard', path: '/', icon: BarChart3 },
-      { id: 'analytics', label: 'Analytics', path: '/analytics', icon: Globe, adminOnly: true },
       { id: 'alerts', label: 'Needs attention', path: '/alerts', icon: BellRing },
       { id: 'pos', label: 'POS Terminal', path: '/pos', icon: Store },
       { id: 'cash-ups', label: 'Cash ups', path: '/cash-ups', icon: Banknote },
@@ -145,6 +144,7 @@ export const NAV: NavSection[] = [
       { id: 'errors', label: 'Faults', path: '/errors', icon: Siren, adminOnly: true },
       { id: 'import', label: 'Import from IQ', path: '/import', icon: DatabaseZap, adminOnly: true },
       { id: 'settings', label: 'Settings', path: '/settings', icon: Settings, adminOnly: true },
+      { id: 'analytics', label: 'Analytics', path: '/analytics', icon: Globe, adminOnly: true },
     ],
   },
 ];
