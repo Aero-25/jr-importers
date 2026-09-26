@@ -839,6 +839,11 @@ export type Database = {
         Args: { p_order_id: string };
         Returns: Json;
       };
+      /** Raises a CRN credit note against an invoice. Invoices are never deleted. */
+      credit_invoice: {
+        Args: { p_invoice_id: number; p_reason?: string | null };
+        Returns: Json;
+      };
       /** Releases reservations older than the 30-minute hold; returns the count. */
       expire_stale_reservations: {
         Args: Record<PropertyKey, never>;

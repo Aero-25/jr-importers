@@ -96,6 +96,14 @@ export interface RecordSpec {
   pdf?: 'quote' | 'invoice' | 'damage_report';
   /** A related screen, offered next to the module's own action. */
   companion?: { label: string; path: string };
+  /**
+   * The record cannot be deleted, and the dialog offers no Delete button.
+   * A tax invoice is the case: it is numbered out of a gapless series and
+   * is what the VAT return is built from, so it is credited, never removed.
+   * The database refuses the delete either way — this keeps the console
+   * from offering something that can only fail.
+   */
+  neverDelete?: boolean;
 }
 
 /** What a claim is against. Mirrors the check constraint on the table. */
@@ -391,6 +399,9 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     table: 'invoices',
     resource: resources.invoices,
     searchColumns: ['invoice_number', 'customer_name', 'customer_email', 'po_number'],
+    // A tax invoice is numbered out of a gapless series and is what the VAT
+    // return is built from. It is credited, never removed.
+    neverDelete: true,
     lineItems: true,
     pdf: 'invoice',
     // What a customer asks for after their invoices: the whole account, not

@@ -262,6 +262,7 @@ function RecordDialog({
   onClose: () => void;
 }) {
   const toast = useToast();
+  const qc = useQueryClient();
   const resource = spec.resource as unknown as Resource;
   const create = resource.useCreate();
   const update = resource.useUpdate();
@@ -269,6 +270,38 @@ function RecordDialog({
 
   const isNew = record === 'new';
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmCredit, setConfirmCredit] = useState(false);
+  const [crediting, setCrediting] = useState(false);
+
+  /**
+   * Credits an invoice: a CRN document carrying the same lines at negative
+   * value, pointing at the invoice it reverses. An invoice is never deleted
+   * — it is numbered out of a gapless series and the VAT return is built
+   * from it — so this is the way back from one raised in error.
+   */
+  async function creditInvoice() {
+    if (isNew) return;
+    setCrediting(true);
+    try {
+      const { data, error } = await supabase.rpc('credit_invoice', {
+        p_invoice_id: (record as AnyRow).id as number,
+        p_reason: null,
+      });
+      if (error) throw new Error(error.message);
+      const result = data as { ok?: boolean; message?: string } | null;
+      if (!result?.ok) throw new Error(result?.message ?? 'The credit note could not be raised.');
+      toast.success('Credit note raised', result.message);
+      void qc.invalidateQueries({ queryKey: keys.table('invoices') });
+      void qc.invalidateQueries({ queryKey: keys.table('orders') });
+      void qc.invalidateQueries({ queryKey: keys.table('products') });
+      onClose();
+    } catch (error) {
+      toast.error('Could not credit the invoice', error instanceof Error ? error.message : undefined);
+    } finally {
+      setCrediting(false);
+      setConfirmCredit(false);
+    }
+  }
 
   // Document lines, for specs that carry them. Prices are VAT-inclusive, so
   // the money fields are derived here and never typed.
@@ -466,13 +499,23 @@ function RecordDialog({
             <Button onClick={onClose}>Close</Button>
           ) : (
             <>
-              {!isNew && (
+              {!isNew && !spec.neverDelete && (
                 <Button
                   variant="danger"
                   className="mr-auto"
                   onClick={() => setConfirmDelete(true)}
                 >
                   Delete
+                </Button>
+              )}
+              {!isNew && spec.pdf === 'invoice' && (
+                <Button
+                  variant="danger"
+                  className="mr-auto"
+                  loading={crediting}
+                  onClick={() => setConfirmCredit(true)}
+                >
+                  Credit this invoice
                 </Button>
               )}
               <Button variant="ghost" onClick={onClose}>
@@ -560,6 +603,16 @@ function RecordDialog({
         message="This cannot be undone. If the record is referenced elsewhere, deactivate it instead."
         confirmLabel="Delete"
         loading={remove.isPending}
+      />
+
+      <ConfirmDialog
+        open={confirmCredit}
+        onClose={() => setConfirmCredit(false)}
+        onConfirm={() => void creditInvoice()}
+        title="Credit this invoice?"
+        message="A credit note is raised against it, carrying the same lines at negative value. Both documents stay on the record and the pair nets to nothing. If this was a counter sale, the stock comes back and the sale is cancelled."
+        confirmLabel="Raise the credit note"
+        loading={crediting}
       />
     </>
   );
