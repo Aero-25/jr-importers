@@ -140,8 +140,12 @@ function OrderDialog({ order, onClose }: { order: OrderRow | null; onClose: () =
     if (!order) return;
     try {
       // Cancelling has to hand the units back before the status flips, or the
-      // stock stays reserved against an order nobody will ever fulfil.
-      const releaseStock = next === 'Cancelled' && order.stock_reserved && !order.stock_returned;
+      // stock stays held against an order nobody will ever fulfil. Not gated
+      // on `stock_reserved`: a counter sale is paid the moment it is rung up,
+      // so its units are sold rather than reserved, and gating on that flag
+      // is what let a cancelled sale keep the handset. `release_order_stock`
+      // is idempotent — `stock_returned` is the guard against releasing twice.
+      const releaseStock = next === 'Cancelled' && !order.stock_returned;
       await updateOrder.mutateAsync({ id: order.id, values: { status: next }, releaseStock });
       toast.success('Order updated', `Status is now ${next}.`);
       onClose();
