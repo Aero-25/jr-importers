@@ -384,6 +384,10 @@ export type TillShiftRow = {
   variance_accepted_by: string | null;
   variance_accepted_reason: string | null;
   variance_accepted_at: string | null;
+  /** The card machine's own total for the shift, off the swipe slip. */
+  counted_card: number | null;
+  /** Slip total less the card takings the till recorded. */
+  card_variance: number | null;
   original_denominations: DenominationCounts | null;
   original_counted: number | null;
   closed_by: string | null;

@@ -1,23 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ChangeEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, Download, MessageCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { keys } from '@/data/keys';
 import type { DenominationCounts, ShiftStockLine, TillShiftRow } from '@/lib/database.types';
-import { useCloseTill, type CashUp } from '@/data/till';
+import { useCashUp, useCloseTill, type CashUp } from '@/data/till';
 import { useAuth } from '@/auth/AuthProvider';
 import { downloadCashUpPdf, shareCashUp } from '@/lib/cashUpPdf';
 import { useCashUpFile } from '../hooks/useCashUpFile';
-import { money } from '@/lib/format';
+import { money, round2, toNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
-import { Badge, Button, Modal, Notice, Textarea, useToast } from '@/ui';
+import { Badge, Button, Input, Modal, Notice, Textarea, useToast } from '@/ui';
 import { DenominationCounter, denominationTotal } from '../components/DenominationCounter';
 
-type Step = 'cash' | 'phones' | 'unbalanced' | 'done';
+type Step = 'cash' | 'card' | 'phones' | 'unbalanced' | 'done';
 
 /**
  * Closing a shift, in the order the work actually happens: count the drawer,
- * count the phones, then read the reconciliation.
+ * check the card machine against what the till rang up, count the phones,
+ * then read the reconciliation.
  *
  * The phone count is advisory by design — it is recorded and any discrepancy
  * is flagged on the report, but it never writes to stock. A miscount at the
@@ -42,6 +43,7 @@ export function CloseTillDialog({
   const [step, setStep] = useState<Step>('cash');
   const [counts, setCounts] = useState<DenominationCounts>({});
   const [countedPhones, setCountedPhones] = useState<Record<number, string>>({});
+  const [cardSlip, setCardSlip] = useState('');
   const [notes, setNotes] = useState('');
   const [report, setReport] = useState<CashUp | null>(null);
   const [acceptReason, setAcceptReason] = useState('');
@@ -64,6 +66,15 @@ export function CloseTillDialog({
   });
 
   const counted = denominationTotal(counts);
+  const slip = toNumber(cardSlip);
+
+  // What the till has rung up on card so far, read while the shift is still
+  // open so the cashier can compare the slip before committing to a close.
+  const preview = useCashUp(open ? shift.id : null);
+  const cardExpected = preview.data?.card_sales ?? 0;
+  const cardDifference = round2(slip - cardExpected);
+  // Compulsory: the box must have been filled in, even with a zero.
+  const cardCounted = cardSlip.trim() !== '';
 
   const stockLines = useMemo<ShiftStockLine[]>(
     () =>
@@ -97,6 +108,7 @@ export function CloseTillDialog({
         stockCount: stockLines,
         closedBy,
         notes: notes.trim() || undefined,
+        countedCard: slip,
         acceptVariance,
       });
       setReport(summary);
@@ -132,6 +144,7 @@ export function CloseTillDialog({
     setStep('cash');
     setCounts({});
     setCountedPhones({});
+    setCardSlip('');
     setNotes('');
     setReport(null);
     setAcceptReason('');
@@ -152,10 +165,12 @@ export function CloseTillDialog({
       title={
         step === 'cash'
           ? 'Close till — count the drawer'
-          : step === 'phones'
-            ? 'Close till — count the phones'
+          : step === 'card'
+            ? 'Close till — the card machine'
+            : step === 'phones'
+              ? 'Close till — count the phones'
             : step === 'unbalanced'
-              ? 'The drawer does not balance'
+              ? 'These counts do not agree'
               : `Cash up — shift #${report?.shift_id}`
       }
       description={
@@ -193,8 +208,25 @@ export function CloseTillDialog({
               Cancel
             </Button>
             <Button
-              onClick={() => setStep('phones')}
+              onClick={() => setStep('card')}
               disabled={counted <= 0}
+              iconRight={<ArrowRight className="h-4 w-4" />}
+            >
+              Next: the card machine
+            </Button>
+          </>
+        ) : step === 'card' ? (
+          <>
+            <Button
+              variant="ghost"
+              icon={<ArrowLeft className="h-4 w-4" />}
+              onClick={() => setStep('cash')}
+            >
+              Back
+            </Button>
+            <Button
+              onClick={() => setStep('phones')}
+              disabled={!cardCounted}
               iconRight={<ArrowRight className="h-4 w-4" />}
             >
               Next: count phones
@@ -205,7 +237,7 @@ export function CloseTillDialog({
             <Button
               variant="ghost"
               icon={<ArrowLeft className="h-4 w-4" />}
-              onClick={() => setStep('cash')}
+              onClick={() => setStep('card')}
             >
               Back
             </Button>
@@ -243,6 +275,60 @@ export function CloseTillDialog({
           </Notice>
           <DenominationCounter counts={counts} onChange={setCounts} />
         </>
+      )}
+
+      {step === 'card' && (
+        <div className="space-y-4">
+          <Notice tone="info" className="mb-1">
+            Close the batch on the card machine and print the slip. Its total
+            should be what the till rang up on card — if the two disagree, a
+            sale went through on the wrong tender or a slip is missing.
+          </Notice>
+
+          <div className="rounded-2xl border border-hairline">
+            <Line label="Card takings on the till" value={money(cardExpected)} bold />
+          </div>
+
+          <Input
+            label="Card machine total (from the swipe slip)"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            value={cardSlip}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => setCardSlip(event.target.value)}
+            hint="Required. Enter 0 if there were no card sales."
+            data-autofocus
+          />
+
+          {cardCounted && (
+            <div
+              className={cn(
+                'flex items-start gap-3 rounded-2xl px-5 py-4 text-white',
+                Math.abs(cardDifference) < 0.005
+                  ? 'bg-success'
+                  : cardDifference < 0
+                    ? 'bg-danger'
+                    : 'bg-warn',
+              )}
+            >
+              {Math.abs(cardDifference) < 0.005 ? (
+                <Check aria-hidden className="mt-0.5 h-5 w-5 shrink-0" />
+              ) : (
+                <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0" />
+              )}
+              <div className="min-w-0">
+                <p className="tabular font-display text-2xl font-bold">
+                  {Math.abs(cardDifference) < 0.005
+                    ? 'The machine agrees'
+                    : `${money(Math.abs(cardDifference))} ${cardDifference < 0 ? 'short on the slip' : 'over on the slip'}`}
+                </p>
+                <p className="text-sm text-white/85">
+                  Till {money(cardExpected)} · Slip {money(slip)}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {step === 'phones' && (
@@ -349,27 +435,52 @@ export function CloseTillDialog({
 
       {step === 'unbalanced' && report && (
         <div className="space-y-4">
-          <div
-            className={cn(
-              'flex items-start gap-3 rounded-2xl px-5 py-4 text-white',
-              report.variance < 0 ? 'bg-danger' : 'bg-warn',
-            )}
-          >
-            <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0" />
-            <div className="min-w-0">
-              <p className="tabular font-display text-2xl font-bold">
-                {money(Math.abs(report.variance))} {report.variance < 0 ? 'short' : 'over'}
-              </p>
-              <p className="text-sm text-white/85">
-                Expected {money(report.expected_cash)} · Counted {money(report.counted_cash)}
-              </p>
+          {/* Either count can be the one that is out, and the screen has to
+              say which — "does not balance" over a drawer that is fine sends
+              the cashier to recount the wrong thing. */}
+          {Math.abs(report.variance) >= 0.005 && (
+            <div
+              className={cn(
+                'flex items-start gap-3 rounded-2xl px-5 py-4 text-white',
+                report.variance < 0 ? 'bg-danger' : 'bg-warn',
+              )}
+            >
+              <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="min-w-0">
+                <p className="tabular font-display text-2xl font-bold">
+                  Drawer {money(Math.abs(report.variance))} {report.variance < 0 ? 'short' : 'over'}
+                </p>
+                <p className="text-sm text-white/85">
+                  Expected {money(report.expected_cash)} · Counted {money(report.counted_cash)}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
-          <Notice tone="warn" title="The till stays open until the drawer agrees">
-            Your count has been saved. Recount the drawer — a note in the wrong pile is the usual
-            reason — and the expected figure is checked again when you close.
-            {!isAdmin && ' If it is genuinely short or over, a manager has to sign the difference off.'}
+          {Math.abs(report.card_variance ?? 0) >= 0.005 && (
+            <div
+              className={cn(
+                'flex items-start gap-3 rounded-2xl px-5 py-4 text-white',
+                (report.card_variance ?? 0) < 0 ? 'bg-danger' : 'bg-warn',
+              )}
+            >
+              <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="min-w-0">
+                <p className="tabular font-display text-2xl font-bold">
+                  Card slip {money(Math.abs(report.card_variance ?? 0))}{' '}
+                  {(report.card_variance ?? 0) < 0 ? 'short' : 'over'}
+                </p>
+                <p className="text-sm text-white/85">
+                  Till {money(report.card_sales)} · Slip {money(report.counted_card ?? 0)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <Notice tone="warn" title="The till stays open until both counts agree">
+            Your counts have been saved. Recount whichever is out — a note in the wrong pile, or a
+            sale rung up on the wrong tender — and they are checked again when you close.
+            {!isAdmin && ' If a difference is genuine, a manager has to sign it off.'}
           </Notice>
 
           {isAdmin && (
@@ -478,6 +589,23 @@ export function CashUpSummary({ report }: { report: CashUp }) {
             )}
             <Line label="Expected" value={money(report.expected_cash)} bold />
             <Line label="Counted" value={money(report.counted_cash)} bold />
+            {report.counted_card !== null && report.counted_card !== undefined && (
+              <>
+                <Line label="Card on the till" value={money(report.card_sales)} />
+                <Line label="Card machine slip" value={money(report.counted_card)} />
+                <Line
+                  label={
+                    Math.abs(report.card_variance ?? 0) < 0.005
+                      ? 'Card agrees'
+                      : (report.card_variance ?? 0) < 0
+                        ? 'Slip short by'
+                        : 'Slip over by'
+                  }
+                  value={money(Math.abs(report.card_variance ?? 0))}
+                  bold
+                />
+              </>
+            )}
           </dl>
         </section>
       </div>

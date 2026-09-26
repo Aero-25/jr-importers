@@ -45,6 +45,10 @@ export interface CashUp {
   expected_cash: number;
   counted_cash: number;
   variance: number;
+  /** The card machine's own total, off the swipe slip. Null until it is entered. */
+  counted_card: number | null;
+  /** Slip total less what the till rang up on card. Null until the slip is entered. */
+  card_variance: number | null;
   /** What the float should be restored to. From the `till_float_target` setting. */
   float_target: number;
   /** What stays in the drawer. Capped at the counted cash on a thin day. */
@@ -148,9 +152,19 @@ export interface CloseOutcome {
   closed: boolean;
 }
 
-/** A drawer balances when counted and expected agree to the cent. */
+/** The drawer balances when counted and expected agree to the cent. */
 export function drawerBalances(summary: CashUp): boolean {
   return Math.abs(summary.variance) < 0.005;
+}
+
+/** The card machine agrees with what the till rang up on card. */
+export function cardAgrees(summary: CashUp): boolean {
+  return Math.abs(summary.card_variance ?? 0) < 0.005;
+}
+
+/** Nothing to explain: both counts agree. */
+export function countsAgree(summary: CashUp): boolean {
+  return drawerBalances(summary) && cardAgrees(summary);
 }
 
 /**
@@ -179,11 +193,13 @@ export function useCloseTill() {
       stockCount: ShiftStockLine[];
       closedBy: string;
       notes?: string;
-      /** A manager's reason for closing on a drawer that does not balance. */
+      /** The card machine's total for the shift, off the swipe slip. */
+      countedCard: number;
+      /** A manager's reason for closing on a count that does not agree. */
       acceptVariance?: string;
     }
   >({
-    mutationFn: async ({ shift, counts, counted, stockCount, closedBy, notes, acceptVariance }) => {
+    mutationFn: async ({ shift, counts, counted, stockCount, closedBy, notes, countedCard, acceptVariance }) => {
       const variance = stockCount.reduce((n, line) => n + Math.abs(line.variance), 0);
 
       const { error: saveError } = await supabase
@@ -194,6 +210,7 @@ export function useCloseTill() {
           closing_stock_count: stockCount,
           stock_variance_total: variance,
           closed_by: closedBy,
+          counted_card: countedCard,
           notes: notes ?? null,
         })
         .eq('id', shift.id);
@@ -202,7 +219,7 @@ export function useCloseTill() {
       // Ask the server for the reconciliation, then persist its numbers.
       const summary = await fetchCashUp(shift.id);
 
-      const balanced = drawerBalances(summary);
+      const balanced = countsAgree(summary);
       const reason = acceptVariance?.trim() || null;
       if (!balanced && !reason) return { summary, closed: false };
 
@@ -212,6 +229,8 @@ export function useCloseTill() {
           closing_time: new Date().toISOString(),
           expected_cash: summary.expected_cash,
           cash_variance: summary.variance,
+          counted_card: countedCard,
+          card_variance: summary.card_variance ?? 0,
           total_sales: summary.total_sales,
           cash_sales: summary.cash_sales,
           card_sales: round2(summary.card_sales + summary.eft_sales + summary.other_sales),

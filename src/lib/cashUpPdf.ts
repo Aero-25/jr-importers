@@ -159,6 +159,21 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
     money(Math.abs(report.variance)),
     { bold: true, colour: short ? RED : over ? RED : GREEN },
   );
+
+  // The card machine is the other place the day's money sits. Printed even
+  // when it agrees: a cash-up that only mentions the card when something is
+  // wrong leaves the reader unsure it was checked at all.
+  if (report.counted_card !== null && report.counted_card !== undefined) {
+    const cardOff = Math.abs(report.card_variance ?? 0) >= 0.005;
+    y += 3;
+    row('Card on the till', money(report.card_sales));
+    row('Card machine slip', money(report.counted_card));
+    row(
+      cardOff ? ((report.card_variance ?? 0) < 0 ? 'SLIP SHORT' : 'SLIP OVER') : 'CARD AGREES',
+      money(Math.abs(report.card_variance ?? 0)),
+      { bold: true, colour: cardOff ? RED : GREEN },
+    );
+  }
   if ((short || over) && report.variance_accepted_reason) {
     // A drawer cannot be closed short or over without a manager's say-so,
     // so a difference on a closed shift always has a name and a reason.
