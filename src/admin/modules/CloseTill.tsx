@@ -503,27 +503,45 @@ export function CloseTillDialog({
 
 /** The reconciliation, on screen. Same numbers the PDF carries. */
 export function CashUpSummary({ report }: { report: CashUp }) {
-  const short = report.variance < -0.005;
-  const over = report.variance > 0.005;
+  // A shift that is still open has not been counted yet. Reading its
+  // untouched drawer as a shortfall — "TILL IS SHORT N$3,905" against a
+  // counted zero — describes a theft that has not happened, and it is the
+  // first thing anyone opening the report sees.
+  const open = (report.status ?? '').toLowerCase() === 'open';
+  const short = !open && report.variance < -0.005;
+  const over = !open && report.variance > 0.005;
 
   return (
     <div className="space-y-5">
       <div
         className={cn(
           'rounded-2xl p-5 text-white',
-          short || over ? 'bg-danger' : 'bg-success',
+          open ? 'bg-brand-600' : short || over ? 'bg-danger' : 'bg-success',
         )}
       >
         <p className="text-2xs font-bold uppercase tracking-[0.14em] text-white/75">
-          {short ? 'Till is short' : over ? 'Till is over' : 'Till balanced'}
+          {open
+            ? 'Shift still open — not counted yet'
+            : short
+              ? 'Till is short'
+              : over
+                ? 'Till is over'
+                : 'Till balanced'}
         </p>
         <p className="tabular font-display text-4xl font-bold">
-          {money(Math.abs(report.variance))}
+          {money(open ? report.expected_cash : Math.abs(report.variance))}
         </p>
         <p className="tabular mt-1 text-sm text-white/85">
-          Expected {money(report.expected_cash)} · Counted {money(report.counted_cash)}
+          {open ? (
+            <>Expected in the drawer so far · counted at close</>
+          ) : (
+            <>Expected {money(report.expected_cash)} · Counted {money(report.counted_cash)}</>
+          )}
         </p>
-        {(short || over) && report.variance_accepted_reason && (
+        {/* A signed-off difference is shown whenever there is one: it is the
+            explanation for the figures above, and hiding it behind the same
+            condition as the banner loses it the moment the banner changes. */}
+        {report.variance_accepted_reason && (
           <p className="mt-1 text-sm text-white/90">
             Accepted{report.variance_accepted_by ? ` by ${report.variance_accepted_by}` : ''}:{' '}
             {report.variance_accepted_reason}

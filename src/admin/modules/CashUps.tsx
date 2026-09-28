@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, Download, MessageCircle, PencilLine } from 'lucide-react';
+import { AlertTriangle, Download, Lock, MessageCircle, PencilLine } from 'lucide-react';
 import type { TillShiftRow } from '@/lib/database.types';
 import { useAmendCashUp, useCashUp, useShifts } from '@/data/till';
 import { downloadCashUpPdf, shareCashUp } from '@/lib/cashUpPdf';
@@ -21,7 +21,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import type { DenominationCounts } from '@/lib/database.types';
 import { DenominationCounter, denominationTotal } from '../components/DenominationCounter';
 import { ModuleHeader } from '../components/AdminShell';
-import { CashUpSummary } from './CloseTill';
+import { CashUpSummary, CloseTillDialog } from './CloseTill';
 
 /**
  * Shift history.
@@ -164,10 +164,14 @@ export default function CashUps() {
 
 function CashUpDialog({ shift, onClose }: { shift: TillShiftRow; onClose: () => void }) {
   const toast = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
   const report = useCashUp(shift.id);
   const [sharing, setSharing] = useState(false);
   const [amending, setAmending] = useState(false);
+  // Closing the till has only ever been reachable from the POS screen. This
+  // is where people come to read the cash up, so it is where they look for
+  // the way to finish it.
+  const [closing, setClosing] = useState(false);
   const cashUpFile = useCashUpFile(report.data);
 
   async function share() {
@@ -214,6 +218,11 @@ function CashUpDialog({ shift, onClose }: { shift: TillShiftRow; onClose: () => 
               Amend count
             </Button>
           )}
+          {shift.status === 'Open' && (
+            <Button icon={<Lock className="h-4 w-4" />} onClick={() => setClosing(true)}>
+              Close this till
+            </Button>
+          )}
           <Button
             variant="success"
             icon={<MessageCircle className="h-4 w-4" />}
@@ -240,6 +249,13 @@ function CashUpDialog({ shift, onClose }: { shift: TillShiftRow; onClose: () => 
       {amending && (
         <AmendDialog shift={shift} onClose={() => setAmending(false)} />
       )}
+
+      <CloseTillDialog
+        open={closing}
+        onClose={() => { setClosing(false); onClose(); }}
+        shift={shift}
+        closedBy={profile?.full_name ?? profile?.email ?? 'Staff'}
+      />
 
       {report.isLoading ? (
         <LoadingScreen label="Building the cash up…" />
