@@ -49,6 +49,10 @@ export interface CashUp {
   counted_card: number | null;
   /** Slip total less what the till rang up on card. Null until the slip is entered. */
   card_variance: number | null;
+  /** Why the slip and the till differ. Null when they agree. */
+  card_variance_reason: string | null;
+  /** Who gave that reason. */
+  card_variance_by: string | null;
   /** What the float should be restored to. From the `till_float_target` setting. */
   float_target: number;
   /** What stays in the drawer. Capped at the counted cash on a thin day. */
@@ -195,11 +199,17 @@ export function useCloseTill() {
       notes?: string;
       /** The card machine's total for the shift, off the swipe slip. */
       countedCard: number;
+      /**
+       * Why the slip differs from the till's card takings. Required when
+       * they differ — a card difference is ordinary, an unexplained one is
+       * not — but it needs no manager, unlike a drawer that is out.
+       */
+      cardReason?: string;
       /** A manager's reason for closing on a count that does not agree. */
       acceptVariance?: string;
     }
   >({
-    mutationFn: async ({ shift, counts, counted, stockCount, closedBy, notes, countedCard, acceptVariance }) => {
+    mutationFn: async ({ shift, counts, counted, stockCount, closedBy, notes, countedCard, cardReason, acceptVariance }) => {
       const variance = stockCount.reduce((n, line) => n + Math.abs(line.variance), 0);
 
       const { error: saveError } = await supabase
@@ -219,7 +229,10 @@ export function useCloseTill() {
       // Ask the server for the reconciliation, then persist its numbers.
       const summary = await fetchCashUp(shift.id);
 
-      const balanced = countsAgree(summary);
+      // The drawer is what stops a close: money is missing and a manager has
+      // to say why. A card difference only has to be explained, and the
+      // explanation was given on the card screen.
+      const balanced = drawerBalances(summary);
       const reason = acceptVariance?.trim() || null;
       if (!balanced && !reason) return { summary, closed: false };
 
@@ -231,6 +244,7 @@ export function useCloseTill() {
           cash_variance: summary.variance,
           counted_card: countedCard,
           card_variance: summary.card_variance ?? 0,
+          card_variance_reason: cardAgrees(summary) ? null : (cardReason?.trim() || null),
           total_sales: summary.total_sales,
           cash_sales: summary.cash_sales,
           card_sales: round2(summary.card_sales + summary.eft_sales + summary.other_sales),
@@ -245,7 +259,13 @@ export function useCloseTill() {
       if (closeError) throw new Error(closeError.message);
 
       return {
-        summary: { ...summary, variance_accepted_reason: balanced ? null : reason, variance_accepted_by: balanced ? null : closedBy },
+        summary: {
+          ...summary,
+          variance_accepted_reason: balanced ? null : reason,
+          variance_accepted_by: balanced ? null : closedBy,
+          card_variance_reason: cardAgrees(summary) ? null : (cardReason?.trim() || null),
+          card_variance_by: cardAgrees(summary) ? null : closedBy,
+        },
         closed: true,
       };
     },

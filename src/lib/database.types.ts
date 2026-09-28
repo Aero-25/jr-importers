@@ -388,6 +388,10 @@ export type TillShiftRow = {
   counted_card: number | null;
   /** Slip total less the card takings the till recorded. */
   card_variance: number | null;
+  /** Why the slip and the till differ; required to close when they do. */
+  card_variance_reason: string | null;
+  card_variance_by: string | null;
+  card_variance_at: string | null;
   original_denominations: DenominationCounts | null;
   original_counted: number | null;
   closed_by: string | null;

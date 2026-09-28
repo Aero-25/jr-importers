@@ -173,6 +173,19 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
       money(Math.abs(report.card_variance ?? 0)),
       { bold: true, colour: cardOff ? RED : GREEN },
     );
+    if (cardOff && report.card_variance_reason) {
+      // A card slip rarely matches to the cent, so the reason is the part of
+      // this block worth reading — print it, not just the number.
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8);
+      doc.setTextColor(...GREY);
+      const who = report.card_variance_by ? ` (${report.card_variance_by})` : '';
+      const lines = doc.splitTextToSize(`${report.card_variance_reason}${who}`, right - left);
+      doc.text(lines, left, y);
+      y += lines.length * 3.8 + 1;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...INK);
+    }
   }
   if ((short || over) && report.variance_accepted_reason) {
     // A drawer cannot be closed short or over without a manager's say-so,

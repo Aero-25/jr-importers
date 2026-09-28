@@ -44,6 +44,7 @@ export function CloseTillDialog({
   const [counts, setCounts] = useState<DenominationCounts>({});
   const [countedPhones, setCountedPhones] = useState<Record<number, string>>({});
   const [cardSlip, setCardSlip] = useState('');
+  const [cardReason, setCardReason] = useState('');
   const [notes, setNotes] = useState('');
   const [report, setReport] = useState<CashUp | null>(null);
   const [acceptReason, setAcceptReason] = useState('');
@@ -75,6 +76,10 @@ export function CloseTillDialog({
   const cardDifference = round2(slip - cardExpected);
   // Compulsory: the box must have been filled in, even with a zero.
   const cardCounted = cardSlip.trim() !== '';
+  const cardOff = cardCounted && Math.abs(cardDifference) >= 0.005;
+  // A difference is ordinary — the batch settles late, a tip goes on the
+  // machine — but it is never left unexplained.
+  const cardReady = cardCounted && (!cardOff || cardReason.trim().length >= 5);
 
   const stockLines = useMemo<ShiftStockLine[]>(
     () =>
@@ -109,6 +114,7 @@ export function CloseTillDialog({
         closedBy,
         notes: notes.trim() || undefined,
         countedCard: slip,
+        cardReason: cardReason.trim() || undefined,
         acceptVariance,
       });
       setReport(summary);
@@ -145,6 +151,7 @@ export function CloseTillDialog({
     setCounts({});
     setCountedPhones({});
     setCardSlip('');
+    setCardReason('');
     setNotes('');
     setReport(null);
     setAcceptReason('');
@@ -226,7 +233,7 @@ export function CloseTillDialog({
             </Button>
             <Button
               onClick={() => setStep('phones')}
-              disabled={!cardCounted}
+              disabled={!cardReady}
               iconRight={<ArrowRight className="h-4 w-4" />}
             >
               Next: count phones
@@ -327,6 +334,17 @@ export function CloseTillDialog({
                 </p>
               </div>
             </div>
+          )}
+
+          {cardOff && (
+            <Textarea
+              label="Why do they differ?"
+              value={cardReason}
+              onChange={(event) => setCardReason(event.target.value)}
+              placeholder="e.g. last sale settled after the batch closed"
+              hint="Required. Kept on the shift and printed on the cash-up."
+              rows={2}
+            />
           )}
         </div>
       )}
@@ -622,6 +640,12 @@ export function CashUpSummary({ report }: { report: CashUp }) {
                   value={money(Math.abs(report.card_variance ?? 0))}
                   bold
                 />
+                {report.card_variance_reason && (
+                  <div className="col-span-full pt-1 text-xs text-ink-muted">
+                    {report.card_variance_reason}
+                    {report.card_variance_by ? ` — ${report.card_variance_by}` : ''}
+                  </div>
+                )}
               </>
             )}
           </dl>

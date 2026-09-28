@@ -87,10 +87,11 @@ async function mockTill(page: Page, role: 'cashier' | 'admin') {
   return { updates };
 }
 
-/** The card screen: enter the slip total and move on. */
-async function enterCardSlip(page: Page, total: string) {
+/** The card screen: enter the slip total, explain any difference, move on. */
+async function enterCardSlip(page: Page, total: string, reason?: string) {
   await page.getByRole('button', { name: 'Next: the card machine' }).click();
   await page.getByLabel('Card machine total (from the swipe slip)').fill(total);
+  if (reason) await page.getByLabel('Why do they differ?').fill(reason);
   await page.getByRole('button', { name: 'Next: count phones' }).click();
 }
 
@@ -176,38 +177,38 @@ test('the card machine total is compulsory, and is checked against the till', as
   await expect(page.getByText('Card takings on the till')).toBeVisible();
   await expect(page.getByText(/2.000[.,]00/).first()).toBeVisible();
 
-  // A slip that disagrees says so, and by how much.
+  // A slip that disagrees says so, and by how much — and asks why before it
+  // will let the cashier move on.
   await page.getByLabel('Card machine total (from the swipe slip)').fill('1850');
   await expect(page.getByText(/150[.,]00 short on the slip/)).toBeVisible();
+  await expect(next).toBeDisabled();
+  await page.getByLabel('Why do they differ?').fill('Last sale settled after the batch closed');
   await expect(next).toBeEnabled();
 
-  // And one that agrees says that too.
+  // One that agrees says that too, and asks for nothing.
   await page.getByLabel('Card machine total (from the swipe slip)').fill('2000');
   await expect(page.getByText('The machine agrees')).toBeVisible();
+  await expect(page.getByLabel('Why do they differ?')).toHaveCount(0);
+  await expect(next).toBeEnabled();
 });
 
-test('a card slip that does not agree stops the close, and a manager can sign it off', async ({ page }) => {
-  const { updates } = await mockTill(page, 'admin');
+test('a cashier closes on a card slip that differs, once she has said why', async ({ page }) => {
+  // No manager: a card slip rarely matches to the cent, and hunting for one
+  // every night over a late settlement is not a control, it is an obstacle.
+  const { updates } = await mockTill(page, 'cashier');
   await page.goto('/admin/#/pos');
   await page.getByRole('button', { name: 'Close till' }).click();
   // The drawer is right; only the card machine is out.
   await page.getByLabel('Number of N$100 pieces').fill('15');
-  await enterCardSlip(page, '1850');
+  await enterCardSlip(page, '1850', 'Last sale settled after the batch closed');
   await page.getByRole('button', { name: 'Close the till' }).click();
-
-  await expect(page.getByRole('heading', { name: 'These counts do not agree' })).toBeVisible();
-  await expect(page.getByText(/Card slip N\$ 150[.,]00 short/)).toBeVisible();
-  // The drawer balanced, so it is not blamed.
-  await expect(page.getByText(/Drawer N\$/)).toHaveCount(0);
-  expect(updates.some((u) => u.status === 'Closed')).toBe(false);
-
-  await page.getByLabel('Manager: reason for accepting the difference').fill('One slip not batched; bank to follow up');
-  await page.getByRole('button', { name: 'Accept the difference and close' }).click();
 
   await expect(page.getByRole('heading', { name: /Cash up — shift #41/ })).toBeVisible();
   const close = updates.find((u) => u.status === 'Closed');
   expect(close).toBeDefined();
   expect(close!.card_variance).toBe(-150);
+  expect(close!.card_variance_reason).toBe('Last sale settled after the batch closed');
   expect(close!.cash_variance).toBe(0);
-  expect(close!.variance_accepted_reason).toBe('One slip not batched; bank to follow up');
+  // Nothing to accept: the drawer balanced.
+  expect(close!.variance_accepted_reason).toBeNull();
 });
