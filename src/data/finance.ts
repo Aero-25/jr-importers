@@ -18,6 +18,27 @@ export interface VatReturn {
   expenses_inc: number;
   input_vat: number;
   payable: number;
+  /** How many documents the output side was built from. */
+  document_count: number;
+  /**
+   * Approved refunds sitting in the refunds register. A refund reaches a VAT
+   * return by crediting the invoice, so these are NOT added to the figures —
+   * they are reported so an unexpected one cannot pass unnoticed.
+   */
+  refunds_recorded: number;
+}
+
+/** One document on the VAT listing, in the columns IQ printed. */
+export interface VatTransaction {
+  tx_date: string;
+  reference: string;
+  description: string;
+  /** The net, before VAT. Negative on a credit note. */
+  excl: number;
+  vat: number;
+  incl: number;
+  doc_type: string;
+  status: string;
 }
 
 export interface StockValuation {
@@ -61,6 +82,25 @@ export function useVatReturn(from: string, to: string) {
   return useQuery<VatReturn, Error>({
     queryKey: keys.dashboard(`vat-${from}-${to}`),
     queryFn: () => callReport<VatReturn>('vat_return', { p_from: from, p_to: to }),
+  });
+}
+
+/**
+ * The VAT transaction listing behind the return.
+ *
+ * A return is a handful of totals; this is what those totals are made of, and
+ * what gets checked line by line against the filing. Rows come back oldest
+ * first with credit notes negative, exactly as IQ printed them.
+ */
+export function useVatTransactions(from: string, to: string, enabled = true) {
+  return useQuery<VatTransaction[], Error>({
+    queryKey: keys.dashboard(`vat-lines-${from}-${to}`),
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('vat_transactions', { p_from: from, p_to: to });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as VatTransaction[];
+    },
   });
 }
 

@@ -19,6 +19,12 @@ export const keys = {
   /** Website visitors over the last `days` days. */
   siteAnalytics: (days: number): unknown[] => ['site_analytics', days],
   openTill: (): unknown[] => ['till_shifts', 'open'],
+  /**
+   * Commission billed against each shift. Derived from the invoices, not held
+   * on the shift row — but kept under `till_shifts` so closing a till
+   * refreshes it along with the rest of the cash-up screen.
+   */
+  shiftCommission: (): unknown[] => ['till_shifts', 'commission'],
   /** One client's whole history — ledger, invoices, laybys and refunds. */
   statement: (customerId: string, range?: unknown): unknown[] =>
     range === undefined ? ['statement', customerId] : ['statement', customerId, range],

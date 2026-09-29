@@ -824,7 +824,21 @@ export type Database = {
     // `{ [_ in never]: never }` is the empty-record shape supabase-js's
     // GenericSchema constraint accepts. `Record<string, never>` does not — it
     // makes every lookup resolve to `never` and silently untypes the client.
-    Views: { [_ in never]: never };
+    Views: {
+      /**
+       * Commission billed against each till shift, by its SVC-COMMISSION
+       * line. Recomputed from the documents on every read, so an invoice
+       * corrected after the till closed cannot leave a stale figure behind.
+       */
+      till_shift_commission: {
+        Row: {
+          shift_id: number;
+          commission_sales: number;
+          commission_count: number;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
       is_admin: {
         Args: Record<PropertyKey, never>;
@@ -933,6 +947,20 @@ export type Database = {
       /* Finance. Reports are computed server-side so the figure a manager reads
          and the figure the books hold cannot drift apart. */
       vat_return: { Args: { p_from: string; p_to: string }; Returns: Json };
+      /** The listing behind the return: one row per document, IQ's columns. */
+      vat_transactions: {
+        Args: { p_from: string; p_to: string };
+        Returns: Array<{
+          tx_date: string;
+          reference: string;
+          description: string;
+          excl: number;
+          vat: number;
+          incl: number;
+          doc_type: string;
+          status: string;
+        }>;
+      };
       stock_valuation: { Args: { p_dead_days?: number }; Returns: Json };
       debtors_ageing: { Args: Record<PropertyKey, never>; Returns: Json };
       supplier_recon: { Args: { p_from: string; p_to: string }; Returns: Json };

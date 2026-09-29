@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, LockOpen, Receipt, TrendingDown, Users, Warehouse } from 'lucide-react';
+import { Download, Lock, LockOpen, Receipt, TrendingDown, Users, Warehouse } from 'lucide-react';
 import {
   useClosePeriod,
   useDebtorsAgeing,
@@ -8,8 +8,10 @@ import {
   useStockValuation,
   useSupplierRecon,
   useVatReturn,
+  useVatTransactions,
 } from '@/data/finance';
 import { formatDate, money, moneyCompact } from '@/lib/format';
+import { downloadCsv, toCsv } from '@/lib/csv';
 import { cn } from '@/lib/cn';
 import { Badge, Button, Input, Modal, Notice, Skeleton, StatTile, Textarea, useToast } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
@@ -24,12 +26,25 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof Receipt }> = [
   { id: 'periods', label: 'Period close', icon: Lock },
 ];
 
-/** First and last day of the month n months back, as ISO dates. */
+/**
+ * First and last day of the month n months back, as ISO dates.
+ *
+ * Formatted from the local calendar parts, not through `toISOString()`: that
+ * converts to UTC first, and Namibia is two hours ahead of it, so the first of
+ * the month came back as the last day of the month before. A VAT period an
+ * inch out at each end pulls in a day that belongs to the previous return and
+ * drops the day that closes this one.
+ */
+function isoDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function monthRange(monthsBack = 0): { from: string; to: string } {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
   const to = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 0);
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  return { from: isoDate(from), to: isoDate(to) };
 }
 
 export default function Finance() {
@@ -128,8 +143,11 @@ function VatPanel() {
             <Block
               title="Output VAT — what you collected"
               rows={[
-                ['Sales including VAT', money(vat.data.sales_inc)],
-                ['Less refunds', `− ${money(vat.data.refunds_inc)}`],
+                [
+                  `Invoices including VAT (${vat.data.document_count})`,
+                  money(vat.data.sales_inc),
+                ],
+                ['Less credit notes', `− ${money(vat.data.refunds_inc)}`],
                 ['Net sales', money(vat.data.net_sales_inc)],
               ]}
               total={['Output VAT', money(vat.data.output_vat)]}
@@ -143,8 +161,136 @@ function VatPanel() {
               total={['Input VAT', money(vat.data.input_vat)]}
             />
           </div>
+
+          {vat.data.refunds_recorded > 0 && (
+            <Notice tone="warn" title="Refunds recorded outside a credit note">
+              {money(vat.data.refunds_recorded)} of approved refunds sits in the refunds register
+              for this period. A refund reaches a VAT return by crediting the invoice, so these
+              are not in the figures above. Credit the invoices they belong to.
+            </Notice>
+          )}
+
+          <VatListing from={from} to={to} outputVat={vat.data.output_vat} />
         </>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * The transaction listing behind the return.
+ *
+ * The return is five totals; this is the document-by-document listing those
+ * totals are made of, in the columns IQ printed — TxDate, Reference,
+ * Description, Amount, VatAmount. It is what gets checked line by line against
+ * a filing, so it carries its own total and says plainly whether that total
+ * agrees with the return above it.
+ */
+function VatListing({ from, to, outputVat }: { from: string; to: string; outputVat: number }) {
+  const lines = useVatTransactions(from, to);
+  const rows = lines.data ?? [];
+
+  const totalExcl = rows.reduce((n, r) => n + Number(r.excl), 0);
+  const totalVat = rows.reduce((n, r) => n + Number(r.vat), 0);
+  const totalIncl = rows.reduce((n, r) => n + Number(r.incl), 0);
+  // Rounded to the cent before comparing: a column of numerics summed in
+  // JavaScript will not land exactly on the server's figure otherwise.
+  const agrees = Math.abs(Math.round(totalVat * 100) / 100 - outputVat) < 0.011;
+
+  function exportCsv() {
+    // IQ's own columns and order, so the two files can be put side by side.
+    const csv = toCsv(
+      ['TxDate', 'Reference', 'Description', 'Amount', 'VatAmount'],
+      rows.map((r) => [r.tx_date, r.reference, r.description, r.excl, r.vat]),
+    );
+    downloadCsv(`vat-${from}-to-${to}.csv`, csv);
+  }
+
+  return (
+    <section className="rounded-2xl border border-hairline bg-surface">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-5 py-4">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-ink">Transaction listing</h3>
+          <p className="text-xs text-ink-muted">
+            {rows.length} document{rows.length === 1 ? '' : 's'} · every invoice and credit note in
+            the period
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          icon={<Download className="h-4 w-4" />}
+          onClick={exportCsv}
+          disabled={rows.length === 0}
+        >
+          Export CSV
+        </Button>
+      </header>
+
+      {lines.isLoading ? (
+        <div className="p-5">
+          <Skeleton className="h-40 rounded-xl" />
+        </div>
+      ) : lines.error ? (
+        <div className="p-5">
+          <Notice tone="danger" title="Could not build the listing">
+            {lines.error.message}
+          </Notice>
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="p-5 text-sm text-ink-muted">No documents in this period.</p>
+      ) : (
+        <>
+          {!agrees && (
+            <div className="p-5 pb-0">
+              <Notice tone="danger" title="The listing does not agree with the return">
+                The rows below add to {money(totalVat)} of VAT, but the return above says{' '}
+                {money(outputVat)}. Do not file until they agree.
+              </Notice>
+            </div>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[46rem] text-sm">
+              <thead>
+                <tr className="border-b border-hairline text-2xs uppercase tracking-[0.12em] text-ink-subtle">
+                  <th className="px-5 py-2.5 text-left font-bold">TxDate</th>
+                  <th className="px-3 py-2.5 text-left font-bold">Reference</th>
+                  <th className="px-3 py-2.5 text-left font-bold">Description</th>
+                  <th className="px-3 py-2.5 text-right font-bold">Amount</th>
+                  <th className="px-5 py-2.5 text-right font-bold">VatAmount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.reference} className="border-b border-hairline/60 last:border-0">
+                    <td className="whitespace-nowrap px-5 py-2 text-ink-muted">
+                      {formatDate(r.tx_date)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 font-medium text-ink">
+                      {r.reference}
+                    </td>
+                    <td className="px-3 py-2 text-ink-muted">{r.description}</td>
+                    <td className="tabular whitespace-nowrap px-3 py-2 text-right">
+                      {money(r.excl)}
+                    </td>
+                    <td className="tabular whitespace-nowrap px-5 py-2 text-right">
+                      {money(r.vat)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-hairline font-bold text-ink">
+                  <td className="px-5 py-3" colSpan={3}>
+                    Total · {money(totalIncl)} including VAT
+                  </td>
+                  <td className="tabular px-3 py-3 text-right">{money(totalExcl)}</td>
+                  <td className="tabular px-5 py-3 text-right">{money(totalVat)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </>
+      )}
     </section>
   );
 }

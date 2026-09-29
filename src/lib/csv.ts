@@ -148,3 +148,33 @@ export function parseAmount(raw: string | undefined): number {
   if (!Number.isFinite(value)) return 0;
   return negative ? -value : value;
 }
+
+/**
+ * Write rows out as a CSV file the spreadsheet will open cleanly.
+ *
+ * Fields are quoted whenever they hold a delimiter, a quote or a newline, and
+ * embedded quotes are doubled, so a customer called `Roadwing "RW" CC` cannot
+ * shift every column after it. The BOM is there because Excel otherwise reads
+ * a UTF-8 file as the system codepage and mangles anything non-ASCII.
+ */
+export function toCsv(headers: string[], rows: Array<Array<string | number>>): string {
+  const cell = (value: string | number) => {
+    const text = String(value ?? '');
+    return /["\n\r,]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  return [headers, ...rows].map((row) => row.map(cell).join(',')).join('\r\n');
+}
+
+/** Hand the browser a CSV to save. */
+export function downloadCsv(filename: string, csv: string): void {
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Revoking immediately can cancel the download in Safari; a tick is enough.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}

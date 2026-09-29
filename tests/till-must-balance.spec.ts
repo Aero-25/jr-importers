@@ -145,6 +145,22 @@ test('a manager can accept the difference, but only with a reason', async ({ pag
   await expect(page.getByText(/Accepted by Test Manager: N\$80 given as change/)).toBeVisible();
 });
 
+test('a manager may answer briefly; the till never holds out for a longer reason', async ({ page }) => {
+  // A manager standing at a drawer that is N$38 out writes "NA" and goes
+  // home. The shop wanted the answer recorded, not graded — and a till that
+  // will not close over a two-letter reason is an obstacle, not a control.
+  const { updates } = await mockTill(page, 'admin');
+  await countShortDrawer(page);
+
+  const accept = page.getByRole('button', { name: 'Accept the difference and close' });
+  await page.getByLabel('Manager: reason for accepting the difference').fill('NA');
+  await expect(accept).toBeEnabled();
+  await accept.click();
+
+  await expect.poll(() => updates.some((u) => u.status === 'Closed')).toBe(true);
+  expect(updates.find((u) => u.status === 'Closed')!.variance_accepted_reason).toBe('NA');
+});
+
 test('a balanced drawer closes without any of that', async ({ page }) => {
   const { updates } = await mockTill(page, 'cashier');
   await page.goto('/admin/#/pos');

@@ -78,8 +78,10 @@ export function CloseTillDialog({
   const cardCounted = cardSlip.trim() !== '';
   const cardOff = cardCounted && Math.abs(cardDifference) >= 0.005;
   // A difference is ordinary — the batch settles late, a tip goes on the
-  // machine — but it is never left unexplained.
-  const cardReady = cardCounted && (!cardOff || cardReason.trim().length >= 5);
+  // machine — but it is never left unexplained. Anything the cashier writes
+  // counts: the point is that a person stopped and answered, not that the
+  // answer reached some word count.
+  const cardReady = cardCounted && (!cardOff || cardReason.trim() !== '');
 
   const stockLines = useMemo<ShiftStockLine[]>(
     () =>
@@ -201,7 +203,7 @@ export function CloseTillDialog({
             {isAdmin && (
               <Button
                 variant="danger"
-                disabled={acceptReason.trim().length < 5}
+                disabled={acceptReason.trim() === ''}
                 loading={closeTill.isPending}
                 onClick={() => void submit(acceptReason)}
               >

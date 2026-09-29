@@ -27,6 +27,13 @@ export interface CashUp {
   eft_sales: number;
   other_sales: number;
   total_sales: number;
+  /**
+   * Of the total above, what was commission earned rather than goods sold
+   * (the SVC-COMMISSION line). Reported, never subtracted here: a commission
+   * taken in cash is still cash in the drawer and must still be counted.
+   */
+  commission_sales: number;
+  commission_count: number;
   transaction_count: number;
   /** Of the totals above, the part that came from invoices raised in the shift. */
   invoice_sales: number;
@@ -88,6 +95,31 @@ export function useOpenShift(tillId = 1) {
         .maybeSingle();
       if (error) throw new Error(error.message);
       return data;
+    },
+  });
+}
+
+/**
+ * Commission billed against each shift, keyed by shift id.
+ *
+ * Read from the `till_shift_commission` view rather than a column on the
+ * shift, so a commission invoice corrected after the till closed is reflected
+ * straight away — the same reason the cash-up report is re-derived on open
+ * rather than read back from what was written at close.
+ */
+export function useCommissionByShift() {
+  return useQuery<Record<number, number>, Error>({
+    queryKey: keys.shiftCommission(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('till_shift_commission')
+        .select('shift_id, commission_sales');
+      if (error) throw new Error(error.message);
+      const byShift: Record<number, number> = {};
+      for (const row of data ?? []) {
+        byShift[Number(row.shift_id)] = Number(row.commission_sales ?? 0);
+      }
+      return byShift;
     },
   });
 }

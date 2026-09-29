@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { AlertTriangle, Download, Lock, MessageCircle, PencilLine } from 'lucide-react';
 import type { TillShiftRow } from '@/lib/database.types';
-import { useAmendCashUp, useCashUp, useShifts } from '@/data/till';
+import { useAmendCashUp, useCashUp, useCommissionByShift, useShifts } from '@/data/till';
 import { downloadCashUpPdf, shareCashUp } from '@/lib/cashUpPdf';
 import { useCashUpFile } from '../hooks/useCashUpFile';
 import { formatDateTime, money } from '@/lib/format';
 import {
   Badge,
   Button,
+  Checkbox,
   DataTable,
   LoadingScreen,
   Modal,
@@ -33,12 +34,24 @@ import { CashUpSummary, CloseTillDialog } from './CloseTill';
  */
 export default function CashUps() {
   const shifts = useShifts();
+  const commissions = useCommissionByShift();
   const [selected, setSelected] = useState<TillShiftRow | null>(null);
+  const [withCommission, setWithCommission] = useState(false);
 
   const rows = shifts.data ?? [];
   const closed = rows.filter((s) => s.status === 'Closed');
   const offCount = closed.filter((s) => Math.abs(Number(s.cash_variance ?? 0)) > 0.005).length;
-  const takings = closed.reduce((n, s) => n + Number(s.total_sales ?? 0), 0);
+
+  // Commission is earned, not taken over the counter. A single property
+  // commission dwarfs a month of phones and cables, so it is left out of
+  // takings by default and the shop can tick it back in to see the lot.
+  const commission = commissions.data ?? {};
+  const commissionOn = (s: TillShiftRow) => Number(commission[s.id] ?? 0);
+  const sales = (s: TillShiftRow) =>
+    Number(s.total_sales ?? 0) - (withCommission ? 0 : commissionOn(s));
+
+  const takings = closed.reduce((n, s) => n + sales(s), 0);
+  const commissionTotal = closed.reduce((n, s) => n + commissionOn(s), 0);
 
   const columns: Column<TillShiftRow>[] = [
     {
@@ -68,10 +81,20 @@ export default function CashUps() {
     },
     {
       key: 'sales',
-      header: 'Sales',
+      header: withCommission ? 'Sales' : 'Sales (excl. commission)',
       align: 'right',
-      render: (s) => <span className="tabular font-medium">{money(s.total_sales)}</span>,
-      sortValue: (s) => Number(s.total_sales ?? 0),
+      render: (s) => {
+        const earned = commissionOn(s);
+        return (
+          <div className="min-w-0">
+            <p className="tabular font-medium">{money(sales(s))}</p>
+            {!withCommission && earned > 0 && (
+              <p className="tabular text-xs text-ink-subtle">+ {money(earned)} commission</p>
+            )}
+          </div>
+        );
+      },
+      sortValue: (s) => sales(s),
     },
     {
       key: 'petty',
@@ -133,13 +156,33 @@ export default function CashUps() {
       <div className="space-y-5 p-6">
         <div className="grid gap-3 sm:grid-cols-3">
           <StatTile label="Shifts recorded" value={rows.length} />
-          <StatTile label="Takings (closed shifts)" value={money(takings)} tone="brand" />
+          <StatTile
+            label={withCommission ? 'Takings (closed shifts)' : 'Shop takings (closed shifts)'}
+            value={money(takings)}
+            tone="brand"
+            sub={
+              commissionTotal > 0
+                ? withCommission
+                  ? `Includes ${money(commissionTotal)} commission`
+                  : `Excludes ${money(commissionTotal)} commission`
+                : undefined
+            }
+          />
           <StatTile
             label="Shifts that did not balance"
             value={offCount}
             tone={offCount > 0 ? 'danger' : 'success'}
           />
         </div>
+
+        {commissionTotal > 0 && (
+          <Checkbox
+            label="Include commission earnings"
+            hint="Commission is earned, not taken over the counter. The drawer is counted the same either way."
+            checked={withCommission}
+            onChange={(event) => setWithCommission(event.target.checked)}
+          />
+        )}
 
         <div className="overflow-hidden rounded-2xl border border-hairline bg-surface">
           <DataTable
