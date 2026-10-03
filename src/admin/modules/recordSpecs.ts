@@ -452,7 +452,7 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         label: 'Paid by',
         type: 'select',
         options: PAYMENT_METHODS,
-        hint: 'How it was settled. Marking an invoice paid puts it on the open shift cash-up; Cash is what the drawer is counted against.',
+        hint: 'How it was settled. Marking an invoice paid puts the money on the cash-up of the till that is open — or on the next shift to open, if none is. Cash is what the drawer is counted against.',
       },
       {
         key: 'notes',

@@ -30,8 +30,11 @@ export default function Dispatch() {
     {
       key: 'ref',
       header: 'Reference',
+      // The invoice number where one has been issued, as on Orders.
       render: (order) => (
-        <span className="font-mono text-xs">{order.id.slice(0, 8).toUpperCase()}</span>
+        <span className="font-mono text-xs">
+          {order.invoice_number ?? order.id.slice(0, 8).toUpperCase()}
+        </span>
       ),
       width: '9rem',
     },

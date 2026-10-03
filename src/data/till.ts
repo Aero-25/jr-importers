@@ -11,6 +11,44 @@ import type {
 import { DEFAULT_VAT_RATE, amount, round2, vatFromInclusive } from '@/lib/format';
 import { keys } from './keys';
 
+/** One invoice on a cash-up: raised in this shift, settled in it, or both. */
+export interface CashUpInvoice {
+  id: number;
+  invoice_number: string | null;
+  doc_type: string;
+  customer_name: string | null;
+  total_amount: number;
+  status: string;
+  payment_method: string | null;
+  raised_here: boolean;
+  settled_here: boolean;
+  raised_shift_id: number | null;
+  settled_shift_id: number | null;
+  created_at: string;
+  paid_at: string | null;
+}
+
+/**
+ * What happened to an invoice in this shift, in the cashier's words. Shared
+ * by the screen and the PDF so the two never describe a document differently.
+ */
+export function cashUpInvoiceNote(inv: CashUpInvoice, shiftId: number): string {
+  if (inv.doc_type === 'credit_note') return 'Credit note';
+  if (inv.status !== 'paid') return 'Owed';
+
+  const paidBy = inv.payment_method ? `Paid · ${inv.payment_method}` : 'Paid';
+  if (inv.settled_here) {
+    if (inv.raised_here) return paidBy;
+    return inv.raised_shift_id
+      ? `${paidBy} · raised on shift #${inv.raised_shift_id}`
+      : `${paidBy} · raised with no till open`;
+  }
+  // Raised here, paid elsewhere: the money is on another cash-up, or on none yet.
+  return inv.settled_shift_id && inv.settled_shift_id !== shiftId
+    ? `Settled on shift #${inv.settled_shift_id}`
+    : 'Paid · not yet on a cash up';
+}
+
 /** Everything the cash-up report needs, computed server-side. */
 export interface CashUp {
   ok: boolean;
@@ -38,9 +76,23 @@ export interface CashUp {
   /** Of the totals above, the part that came from invoices raised in the shift. */
   invoice_sales: number;
   invoice_count: number;
-  /** The part of that still owed — sold, but no money taken for it yet. */
+  /** The part of that not settled in this shift — still owed, or paid in a later one. */
   invoice_unpaid: number;
   invoice_unpaid_count: number;
+  /**
+   * Money taken against invoices in this shift, whichever shift raised them.
+   * Already inside the tender totals above.
+   */
+  invoice_paid?: number;
+  invoice_paid_count?: number;
+  /**
+   * Of that, what settled a sale from an earlier shift. The tender lines add
+   * up to total sales plus this figure, which is why the report names it.
+   */
+  invoice_paid_earlier?: number;
+  invoice_paid_earlier_count?: number;
+  /** Every console invoice raised or settled in this shift, by number. */
+  invoices?: CashUpInvoice[];
   /** Layby instalments taken in this shift. Already inside the tender totals. */
   layby_payments: number;
   layby_payment_count: number;

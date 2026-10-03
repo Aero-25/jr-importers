@@ -4,11 +4,11 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Check, Download, MessageCircle } 
 import { supabase } from '@/lib/supabase';
 import { keys } from '@/data/keys';
 import type { DenominationCounts, ShiftStockLine, TillShiftRow } from '@/lib/database.types';
-import { useCashUp, useCloseTill, type CashUp } from '@/data/till';
+import { cashUpInvoiceNote, useCashUp, useCloseTill, type CashUp } from '@/data/till';
 import { useAuth } from '@/auth/AuthProvider';
 import { downloadCashUpPdf, shareCashUp } from '@/lib/cashUpPdf';
 import { useCashUpFile } from '../hooks/useCashUpFile';
-import { money, round2, toNumber } from '@/lib/format';
+import { formatDate, money, round2, toNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Badge, Button, Input, Modal, Notice, Textarea, useToast } from '@/ui';
 import { DenominationCounter, denominationTotal } from '../components/DenominationCounter';
@@ -592,8 +592,16 @@ export function CashUpSummary({ report }: { report: CashUp }) {
             )}
             {report.invoice_unpaid > 0 && (
               <Line
-                label={`— still owed (${report.invoice_unpaid_count})`}
+                label={`— not settled in this shift (${report.invoice_unpaid_count})`}
                 value={money(report.invoice_unpaid)}
+              />
+            )}
+            {/* Money in today against a sale made on another day. It is inside
+                the tender lines and not inside total sales, so it is named. */}
+            {(report.invoice_paid_earlier ?? 0) > 0 && (
+              <Line
+                label={`+ invoices settled from earlier shifts (${report.invoice_paid_earlier_count ?? 0})`}
+                value={money(report.invoice_paid_earlier)}
               />
             )}
             {report.layby_payment_count > 0 && (
@@ -653,6 +661,39 @@ export function CashUpSummary({ report }: { report: CashUp }) {
           </dl>
         </section>
       </div>
+
+      {(report.invoices ?? []).length > 0 && (
+        <section>
+          <h3 className="mb-2 text-2xs font-bold uppercase tracking-[0.14em] text-ink-subtle">
+            Invoices on this shift
+          </h3>
+          {/* By number, so a document can be found on the report rather than
+              inferred from a total. Raised here, settled here, or both. */}
+          <ul className="divide-y divide-hairline/70 rounded-xl border border-hairline">
+            {(report.invoices ?? []).map((inv) => (
+              <li key={inv.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-ink">
+                    <span className="font-mono text-xs">{inv.invoice_number ?? `#${inv.id}`}</span>
+                    {inv.customer_name ? ` · ${inv.customer_name}` : ''}
+                  </p>
+                  <p className="truncate text-xs text-ink-muted">
+                    {cashUpInvoiceNote(inv, report.shift_id)} · {formatDate(inv.created_at)}
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    'tabular shrink-0 font-semibold',
+                    inv.status === 'paid' ? 'text-ink' : 'text-ink-muted',
+                  )}
+                >
+                  {money(inv.total_amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section>
         <h3 className="mb-2 text-2xs font-bold uppercase tracking-[0.14em] text-ink-subtle">

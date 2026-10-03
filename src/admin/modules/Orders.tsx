@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Receipt, Search } from 'lucide-react';
 import type { OrderRow } from '@/lib/database.types';
 import { orderItems, useOrders, useUpdateOrder } from '@/data/orders';
 import { ORDER_STATUSES } from '@/lib/constants';
@@ -10,6 +11,7 @@ import {
   DataTable,
   Input,
   Modal,
+  Notice,
   Select,
   StatusBadge,
   type Column,
@@ -17,6 +19,15 @@ import {
 } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
 import { PdfActions } from '../components/PdfActions';
+
+/**
+ * The number a sale is known by: its tax invoice once one has been issued,
+ * which is what the customer holds and what the books show. The order id is
+ * only for a sale that has no invoice yet.
+ */
+export function orderReference(order: Pick<OrderRow, 'id' | 'invoice_number'>): string {
+  return order.invoice_number ?? order.id.slice(0, 8).toUpperCase();
+}
 
 export default function Orders() {
   const [search, setSearch] = useState('');
@@ -29,10 +40,8 @@ export default function Orders() {
     {
       key: 'ref',
       header: 'Reference',
-      render: (order) => (
-        <span className="font-mono text-xs">{order.id.slice(0, 8).toUpperCase()}</span>
-      ),
-      sortValue: (order) => order.id,
+      render: (order) => <span className="font-mono text-xs">{orderReference(order)}</span>,
+      sortValue: (order) => orderReference(order),
       width: '9rem',
     },
     {
@@ -93,7 +102,7 @@ export default function Orders() {
             label="Search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Name, email, phone, waybill…"
+            placeholder="Invoice no., name, email, phone, waybill…"
             leading={<Search className="h-4 w-4" />}
             containerClassName="min-w-64 flex-1"
           />
@@ -130,11 +139,16 @@ export default function Orders() {
 
 function OrderDialog({ order, onClose }: { order: OrderRow | null; onClose: () => void }) {
   const toast = useToast();
+  const navigate = useNavigate();
   const updateOrder = useUpdateOrder();
   const [confirmCancel, setConfirmCancel] = useState(false);
 
   if (!order) return null;
   const items = orderItems(order);
+  // A sale raised as an invoice at the console. The invoice is the record and
+  // this order follows it, so its status is not changed from here: a status
+  // set on the order would be overwritten the next time the invoice is saved.
+  const invoiced = Boolean(order.invoice_id);
 
   async function changeStatus(next: string) {
     if (!order) return;
@@ -159,25 +173,41 @@ function OrderDialog({ order, onClose }: { order: OrderRow | null; onClose: () =
       <Modal
         open
         onClose={onClose}
-        title={`Order ${order.id.slice(0, 8).toUpperCase()}`}
+        title={`Order ${orderReference(order)}`}
         description={formatDateTime(order.created_at)}
         size="lg"
         footer={
-          <>
-            <Button variant="danger" onClick={() => setConfirmCancel(true)}>
-              Cancel order
+          invoiced ? (
+            <Button
+              variant="secondary"
+              icon={<Receipt className="h-4 w-4" />}
+              onClick={() => navigate(`/invoices?open=${order.invoice_id}`)}
+            >
+              Open the invoice
             </Button>
-            <Select
-              value={order.status}
-              onChange={(e) => void changeStatus(e.target.value)}
-              options={ORDER_STATUSES.map((s) => ({ value: s, label: s }))}
-              containerClassName="w-48"
-              aria-label="Change order status"
-            />
-          </>
+          ) : (
+            <>
+              <Button variant="danger" onClick={() => setConfirmCancel(true)}>
+                Cancel order
+              </Button>
+              <Select
+                value={order.status}
+                onChange={(e) => void changeStatus(e.target.value)}
+                options={ORDER_STATUSES.map((s) => ({ value: s, label: s }))}
+                containerClassName="w-48"
+                aria-label="Change order status"
+              />
+            </>
+          )
         }
       >
         <div className="space-y-5">
+          {invoiced && (
+            <Notice tone="info" title={`Raised as invoice ${order.invoice_number ?? ''}`.trim()}>
+              This sale was invoiced at the console, and the invoice is the record. Change its
+              status, lines or payment there — or credit it — and this order follows.
+            </Notice>
+          )}
           <PdfActions key={order.id} document={{ kind: 'order', record: order }} />
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <Detail label="Customer" value={order.customer_name} />

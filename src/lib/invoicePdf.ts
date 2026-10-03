@@ -98,8 +98,11 @@ export function invoiceNumber(order: Pick<OrderRow, 'id' | 'created_at'>): strin
  * than the real number but better than none.
  */
 export async function resolveInvoiceNumber(
-  order: Pick<OrderRow, 'id' | 'created_at'>,
+  order: Pick<OrderRow, 'id' | 'created_at'> & Partial<Pick<OrderRow, 'invoice_number'>>,
 ): Promise<string> {
+  // The register writes the number back onto the sale, so an order read
+  // from the list already knows it and no round trip is needed.
+  if (order.invoice_number) return order.invoice_number;
   try {
     const { data } = await supabase
       .from('invoices')

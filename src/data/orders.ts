@@ -27,7 +27,8 @@ export function useOrders(filters: OrderFilters = {}) {
       const term = filters.search?.trim().replace(/[,()]/g, ' ').trim();
       if (term) {
         query = query.or(
-          ['customer_name', 'customer_email', 'customer_phone', 'payment_reference', 'waybill_number']
+          // The invoice number first: it is what a customer quotes.
+          ['invoice_number', 'customer_name', 'customer_email', 'customer_phone', 'payment_reference', 'waybill_number']
             .map((column) => `${column}.ilike.%${term}%`)
             .join(','),
         );

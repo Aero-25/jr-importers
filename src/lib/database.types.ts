@@ -220,6 +220,13 @@ export type OrderRow = {
   paid_at: string | null;
   delivery_notes: string | null;
   till_shift_id: number | null;
+  /**
+   * Set when this order mirrors an invoice raised at the console. The invoice
+   * is the record; the order follows it and is not edited from Orders.
+   */
+  invoice_id: number | null;
+  /** The tax invoice number for this sale, whichever side raised it first. */
+  invoice_number: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -478,8 +485,10 @@ export type InvoiceRow = {
   doc_type: string | null;
   /** 'iq-import' marks history brought across from IQ Retail. */
   source: string | null;
-  /** The shift this invoice was settled in. Stamped when status becomes paid. */
+  /** The shift this invoice was raised in: the cash-up that counts it as a sale. */
   till_shift_id: number | null;
+  /** The shift it was settled in: the cash-up whose drawer carries the money. Null while unpaid. */
+  paid_till_shift_id: number | null;
   payment_method: string | null;
   /** The POS/checkout order this invoice was raised from, when there is one. */
   order_id: string | null;

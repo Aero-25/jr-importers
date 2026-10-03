@@ -1,7 +1,7 @@
-import type { CashUp } from '@/data/till';
+import { cashUpInvoiceNote, type CashUp } from '@/data/till';
 import { supabase } from './supabase';
 import { STORE } from './constants';
-import { formatDateTime, money } from './format';
+import { formatDate, formatDateTime, money } from './format';
 
 const INK: [number, number, number] = [13, 38, 63];
 const GREY: [number, number, number] = [110, 122, 143];
@@ -122,7 +122,15 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
   // in expected cash, so the cashier is not left hunting for money that was
   // never taken.
   if (report.invoice_unpaid > 0) {
-    row(`   still owed  (${report.invoice_unpaid_count})`, money(report.invoice_unpaid));
+    row(`   not settled in this shift  (${report.invoice_unpaid_count})`, money(report.invoice_unpaid));
+  }
+  // Money in today against a sale made on another day. It is inside the
+  // tender lines and not inside total sales, which is why it is named.
+  if ((report.invoice_paid_earlier ?? 0) > 0) {
+    row(
+      `+ invoices settled from earlier shifts  (${report.invoice_paid_earlier_count ?? 0})`,
+      money(report.invoice_paid_earlier),
+    );
   }
   // Instalments are already inside the tender lines above; shown separately so
   // the cashier can see how much of the day came off laybys rather than sales.
@@ -134,6 +142,35 @@ export async function buildCashUpPdf(report: CashUp): Promise<Blob> {
     row('Net takings', money(report.total_sales - report.refunds), { bold: true });
   }
   y += 3;
+
+  /* Invoices, by number. A document has to be findable on the report. */
+  const invoices = report.invoices ?? [];
+  if (invoices.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('INVOICES ON THIS SHIFT', left, y);
+    y += 5.6;
+    for (const inv of invoices) {
+      if (y > 276) {
+        doc.addPage();
+        y = 18;
+      }
+      const number = inv.invoice_number ?? `#${inv.id}`;
+      const who = inv.customer_name ? ` · ${inv.customer_name}` : '';
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.6);
+      doc.setTextColor(...INK);
+      doc.text(`${number}${who}`.slice(0, 64), left, y);
+      doc.text(money(inv.total_amount), right, y, { align: 'right' });
+      y += 3.8;
+      doc.setFontSize(7.8);
+      doc.setTextColor(...GREY);
+      doc.text(`${cashUpInvoiceNote(inv, report.shift_id)} · ${formatDate(inv.created_at)}`, left + 3, y);
+      doc.setTextColor(...INK);
+      y += 4.8;
+    }
+    y += 3;
+  }
 
   /* Drawer */
   doc.setFont('helvetica', 'bold');
@@ -409,6 +446,15 @@ function summaryText(report: CashUp): string {
     '',
     `Sales: ${money(report.total_sales)} (${report.transaction_count} txns)`,
     `Cash: ${money(report.cash_sales)} · Card: ${money(report.card_sales)} · EFT: ${money(report.eft_sales)}`,
+    // The documents by number, so the owner can see an invoice on the day
+    // without opening the PDF.
+    ...((report.invoices ?? []).length > 0
+      ? [
+          `Invoices: ${(report.invoices ?? [])
+            .map((inv) => `${inv.invoice_number ?? `#${inv.id}`} ${money(inv.total_amount)}`)
+            .join(', ')}`,
+        ]
+      : []),
     `Petty cash out: ${money(report.petty_cash)}`,
     '',
     `Expected: ${money(report.expected_cash)}`,
