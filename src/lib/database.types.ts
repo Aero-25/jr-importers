@@ -716,6 +716,14 @@ export type JobCardRow = {
   /** Dot indices such as `1-2-5-8-9`, or a PIN. Never sent to the guest page. */
   pattern_pin: string | null;
   deposit: number;
+  /** How the deposit was paid. Null until one is taken. */
+  deposit_method: string | null;
+  /**
+   * The shift the deposit was taken in, stamped once when it is first
+   * entered. This is what puts the money on a cash up.
+   */
+  deposit_till_shift_id: number | null;
+  deposit_taken_at: string | null;
   cost: number;
   handling_fee: number;
   checks: JobCardChecks;

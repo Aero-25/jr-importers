@@ -26,6 +26,7 @@ import {
   JOB_CARD_QUOTE_THRESHOLD,
   JOB_CARD_STATUSES,
   JOB_CARD_STATUS_TONE,
+  PAYMENT_METHODS,
 } from '@/lib/constants';
 import { downloadJobCardPdf } from '@/lib/jobCardPdf';
 import { PdfActions } from '../components/PdfActions';
@@ -208,6 +209,7 @@ const BLANK = {
   physical_condition: '',
   pattern_pin: '',
   deposit: '',
+  deposit_method: 'Cash',
   cost: '',
   technician: '',
   status: 'Awaiting acceptance',
@@ -241,6 +243,7 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
           physical_condition: card.physical_condition ?? '',
           pattern_pin: card.pattern_pin ?? '',
           deposit: String(card.deposit ?? ''),
+          deposit_method: card.deposit_method ?? 'Cash',
           cost: String(card.cost ?? ''),
           technician: card.technician ?? '',
           status: card.status,
@@ -299,6 +302,9 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
       physical_condition: form.physical_condition.trim() || null,
       pattern_pin: form.pattern_pin.trim() || null,
       deposit: toNumber(form.deposit),
+      // Only meaningful when there is a deposit; the trigger clears it and
+      // the shift stamp together if the deposit is taken back off.
+      deposit_method: toNumber(form.deposit) > 0 ? form.deposit_method : null,
       cost: toNumber(form.cost),
       handling_fee: JOB_CARD_HANDLING_FEE,
       checks,
@@ -598,7 +604,23 @@ function JobCardDialog({ card, onClose }: { card: JobCardRow | 'new'; onClose: (
                 step="0.01"
                 value={form.deposit}
                 onChange={(e) => set('deposit', e.target.value)}
+                hint="Taken now, at the counter. It reaches today's cash up."
               />
+              {/* How the deposit was paid decides which column of the cash
+                  up it lands in, so it is asked for the moment one is taken. */}
+              {toNumber(form.deposit) > 0 && (
+                <Select
+                  label="Deposit paid by"
+                  value={form.deposit_method}
+                  onChange={(e) => set('deposit_method', e.target.value)}
+                >
+                  {PAYMENT_METHODS.map((method) => (
+                    <option key={method} value={method}>
+                      {method}
+                    </option>
+                  ))}
+                </Select>
+              )}
               <Input
                 label="Cost (N$)"
                 type="number"
