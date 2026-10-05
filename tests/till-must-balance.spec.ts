@@ -161,6 +161,32 @@ test('a manager may answer briefly; the till never holds out for a longer reason
   expect(updates.find((u) => u.status === 'Closed')!.variance_accepted_reason).toBe('NA');
 });
 
+test('reopening the dialog starts at the drawer, however it was dismissed', async ({ page }) => {
+  // Abandoning a close half-way used to leave the dialog standing on
+  // whichever step it reached, so the next person to open it was handed the
+  // phone count and thought the cash counter had vanished.
+  await mockTill(page, 'cashier');
+  await page.goto('/admin/#/pos');
+
+  await page.getByRole('button', { name: 'Close till' }).click();
+  await expect(page.getByRole('heading', { name: 'Close till — count the drawer' })).toBeVisible();
+  await page.getByLabel('Number of N$100 pieces').fill('15');
+  await page.getByRole('button', { name: 'Next: the card machine' }).click();
+  await page.getByLabel('Card machine total (from the swipe slip)').fill('2000');
+  await page.getByRole('button', { name: 'Next: count phones' }).click();
+  await expect(page.getByRole('heading', { name: 'Close till — count the phones' })).toBeVisible();
+
+  // Walk away from it.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading', { name: 'Close till — count the phones' })).toHaveCount(0);
+
+  // Opening it again is a fresh count, back at the drawer.
+  await page.getByRole('button', { name: 'Close till' }).click();
+  await expect(page.getByRole('heading', { name: 'Close till — count the drawer' })).toBeVisible();
+  // And the old count is not still sitting in the boxes.
+  await expect(page.getByLabel('Number of N$100 pieces')).toHaveValue('');
+});
+
 test('a balanced drawer closes without any of that', async ({ page }) => {
   const { updates } = await mockTill(page, 'cashier');
   await page.goto('/admin/#/pos');

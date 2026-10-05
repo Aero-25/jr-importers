@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, Download, MessageCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -147,6 +147,23 @@ export function CloseTillDialog({
       setSharing(false);
     }
   }
+
+  // Opening is always a fresh count. Dismissing the dialog on any step but
+  // the last calls onClose straight through, which closes it without
+  // clearing anything — so a close-till abandoned at the phones step
+  // reopened at the phones step, with the old counts still in the boxes,
+  // and the drawer counter looked like it had vanished.
+  useEffect(() => {
+    if (!open) return;
+    setStep('cash');
+    setCounts({});
+    setCountedPhones({});
+    setCardSlip('');
+    setCardReason('');
+    setNotes('');
+    setReport(null);
+    setAcceptReason('');
+  }, [open]);
 
   function finish() {
     setStep('cash');
