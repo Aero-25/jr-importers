@@ -46,9 +46,17 @@ export function useAvailableUnits(lines: LineItem[]) {
     () => [...new Set(lines.map((l) => l.product_id).filter((id): id is number => Boolean(id)))],
     [lines],
   );
+  // The handsets this document has already picked. They are sold, so they are
+  // not "available" any more — but a document has to show what it says it
+  // sold, or an invoice reads as though it names no handset at all while the
+  // one still on the shelf sits there greyed out beside it.
+  const picked = useMemo(
+    () => [...new Set(lines.flatMap(chosenImeis).filter((v) => v.length > 0))],
+    [lines],
+  );
   const [units, setUnits] = useState<Record<number, ImeiUnit[]>>({});
   const [loading, setLoading] = useState(false);
-  const key = productIds.join(',');
+  const key = `${productIds.join(',')}|${picked.join(',')}`;
 
   useEffect(() => {
     if (productIds.length === 0) {
@@ -57,11 +65,14 @@ export function useAvailableUnits(lines: LineItem[]) {
     }
     let cancelled = false;
     setLoading(true);
-    void supabase
+    const query = supabase
       .from('product_imeis')
       .select('product_id, imei, color, serial_number')
-      .in('product_id', productIds)
-      .eq('status', 'available')
+      .in('product_id', productIds);
+    void (picked.length > 0
+      ? query.or(`status.eq.available,imei.in.(${picked.join(',')})`)
+      : query.eq('status', 'available')
+    )
       .order('imei')
       .then(({ data }) => {
         if (cancelled) return;
