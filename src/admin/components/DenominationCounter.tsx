@@ -10,9 +10,10 @@ import { money, round2 } from '@/lib/format';
  */
 // Includes the N$30 and N$60 commemoratives, which do circulate here.
 export const NAD_NOTES = [200, 100, 60, 50, 30, 20, 10] as const;
-// Cents are not counted: the shop rounds to the dollar, so a cents column just
-// adds fields nobody fills in and slows the count down.
-export const NAD_COINS = [5, 1] as const;
+// Coins down to five cents. The drawer really does hold them, and a count
+// that stops at the dollar can never agree with a till that sells at 3,552.12
+// — the shortfall just reappears as an unexplained variance every evening.
+export const NAD_COINS = [5, 1, 0.5, 0.1, 0.05] as const;
 
 export type DenominationCounts = Record<string, number>;
 
@@ -28,7 +29,8 @@ export function denominationTotal(counts: DenominationCounts): number {
   );
 }
 
-const label = (face: number) => `N$${face}`;
+// Under a dollar reads as cents: "50c", not "N$0.5".
+const label = (face: number) => (face < 1 ? `${Math.round(face * 100)}c` : `N$${face}`);
 
 /**
  * Counts a cash drawer piece by piece.
@@ -58,6 +60,8 @@ export function DenominationCounter({
   const set = (face: number, value: string) => {
     const qty = Math.max(0, Math.floor(Number(value) || 0));
     const next = { ...counts };
+    // The key is the face value as written — "0.05" for a five-cent piece.
+    // public.denomination_total() accepts a decimal key, so the two agree.
     if (qty === 0) delete next[String(face)];
     else next[String(face)] = qty;
     onChange(next);
