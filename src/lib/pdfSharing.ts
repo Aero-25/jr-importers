@@ -4,6 +4,7 @@ import { supabase } from './supabase';
 import { STORE } from './constants';
 import { formatDate } from './format';
 import { isSendableNumber, whatsappNumber } from './phone';
+import { sharedDocumentPath } from './storagePaths';
 
 export type PdfDocument =
   | { kind: 'invoice'; record: InvoiceRow }
@@ -138,7 +139,7 @@ export async function publishSharedPdf(document: PdfDocument): Promise<string> {
   // 'invoices' also carries statements: it is the folder staff may write to
   // for anything that goes out to a customer about what they were charged.
   const folder = document.kind === 'jobcard' ? 'jobcards' : document.kind === 'damage' ? 'damage' : 'invoices';
-  const path = `${folder}/${document.kind}/${crypto.randomUUID()}.pdf`;
+  const path = sharedDocumentPath(folder, `${document.kind}.pdf`);
   const { error } = await supabase.storage.from('Images').upload(path, blob, {
     contentType: 'application/pdf', upsert: false,
   });

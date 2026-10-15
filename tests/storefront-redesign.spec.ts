@@ -36,7 +36,11 @@ async function mockShop(page: Page) {
   await page.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method())) {
+    // PostgREST calls a function with POST, so the read-only colour lookup
+    // arrives looking like a write. It is on the storefront's critical path
+    // and must not be counted as one.
+    const readOnlyRpc = url.pathname === '/rest/v1/rpc/product_variant_colours';
+    if (!readOnlyRpc && !['GET', 'HEAD', 'OPTIONS'].includes(request.method())) {
       writes.push(`${request.method()} ${url.pathname}`);
       await route.fulfill({ status: 403, json: { message: 'Writes are blocked by storefront QA.' } });
       return;
@@ -80,8 +84,14 @@ async function mockShop(page: Page) {
       if (order.startsWith('name.')) selected.sort((a, b) => a.name.localeCompare(b.name));
       rows = selected.slice(0, Number(url.searchParams.get('limit') ?? 300));
     }
-    if (table === 'product_imeis' && url.searchParams.get('product_id') === 'eq.901') {
-      rows = [{ color: 'Black' }, { color: 'Black' }, { color: 'Blue' }];
+    // The storefront asks product_variant_colours() for the colours it may
+    // offer, rather than reading product_imeis: the unit table carries the
+    // IMEI next to the colour and is no longer readable by the public.
+    if (table === 'product_variant_colours') {
+      const body = JSON.parse(request.postData() ?? '{}') as { p_product_id?: number };
+      rows = body.p_product_id === 901
+        ? [{ color: 'Black', available: 2 }, { color: 'Blue', available: 1 }]
+        : [];
     }
     const singular = (request.headers().accept ?? '').includes('vnd.pgrst.object');
     await route.fulfill({

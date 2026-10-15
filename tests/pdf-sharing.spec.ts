@@ -153,7 +153,12 @@ for (const table of Object.keys(fixtures)) {
     expect(handoff).toMatch(/^https:\/\/wa.me\/264816720024\?text=/);
     expect(uploads).toHaveLength(1);
     const published = uploads[0]!;
-    expect(published.url).toMatch(/\/[0-9a-f-]{36}\.pdf$/);
+    // The folder is public, so the random segment in the path is the only
+    // thing standing between one customer and another's paperwork. The file
+    // name itself is deliberately readable — it is what the recipient saves.
+    expect(published.url).toMatch(
+      /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[^/]+\.pdf$/,
+    );
     expect(decodeURIComponent(handoff!)).toContain(
       published.url.replace('/storage/v1/object/', '/storage/v1/object/public/'),
     );

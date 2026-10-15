@@ -2,6 +2,7 @@ import { cashUpInvoiceNote, type CashUp } from '@/data/till';
 import { supabase } from './supabase';
 import { STORE } from './constants';
 import { formatDate, formatDateTime, money } from './format';
+import { sharedDocumentPath } from './storagePaths';
 
 const INK: [number, number, number] = [13, 38, 63];
 const GREY: [number, number, number] = [110, 122, 143];
@@ -516,11 +517,11 @@ export async function prepareCashUpFile(report: CashUp): Promise<File> {
 /** Publishes the report and returns a WhatsApp deep link carrying its URL. */
 export async function cashUpWhatsAppLink(report: CashUp, existing?: Blob): Promise<string> {
   const blob = existing ?? (await buildCashUpPdf(report));
-  const path = `cashups/${cashUpFileName(report)}`;
+  const path = sharedDocumentPath('cashups', cashUpFileName(report));
 
   const { error } = await supabase.storage
     .from('Images')
-    .upload(path, blob, { contentType: 'application/pdf', upsert: true });
+    .upload(path, blob, { contentType: 'application/pdf', upsert: false });
   if (error) throw new Error(`Could not upload the report: ${error.message}`);
 
   const { data } = supabase.storage.from('Images').getPublicUrl(path);

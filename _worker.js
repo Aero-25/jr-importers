@@ -253,13 +253,43 @@ async function callDpoApi(xmlPayload) {
   return dpoResponse.text();
 }
 
-// The DPO CompanyToken is a merchant credential and belongs server-side.
-// Prefer the DPO_COMPANY_TOKEN secret (set via the Pages dashboard or
-// `wrangler pages secret put DPO_COMPANY_TOKEN`); the client-supplied value
-// remains only as a compatibility fallback until every deployed client stops
-// sending it.
-function resolveCompanyToken(env, body) {
-  return sanitizeText(env?.DPO_COMPANY_TOKEN, 120) || sanitizeText(body.companyToken, 120);
+// The DPO CompanyToken is the merchant credential: it is what tells DPO whose
+// account a payment page belongs to. It is NEVER read from the request body.
+//
+// It used to be, as a "compatibility fallback", and that turned these two
+// endpoints into an open façade on the shop's merchant account — anyone could
+// POST a token, an amount and a RedirectURL of their choosing and be handed a
+// genuine secure.3gdirectpay.com page in JR Importers' name that sent the payer
+// somewhere else afterwards. The token was shipped in the browser bundle, so it
+// was never a secret to begin with.
+//
+// Set DPO_COMPANY_TOKEN as a Pages secret (dashboard, or `wrangler pages secret
+// put DPO_COMPANY_TOKEN`) and rotate the value with DPO. The constant below is
+// only so that card payments keep working until that is done; it stays inside
+// the Worker, which Cloudflare runs rather than serves.
+const DPO_COMPANY_TOKEN_FALLBACK = '8D3DA73D-9D7F-4E09-96D4-3D44E7A83EA3';
+
+function resolveCompanyToken(env) {
+  return sanitizeText(env?.DPO_COMPANY_TOKEN, 120) || DPO_COMPANY_TOKEN_FALLBACK;
+}
+
+// Where DPO sends the payer when they are done. A payment page that returns the
+// customer to somebody else's site is the whole value of being able to forge
+// one, so these may only ever point back at this site.
+function sanitizeReturnUrl(value) {
+  const raw = sanitizeText(value, 500);
+  if (!raw) {
+    return '';
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return '';
+  }
+
+  return isAllowedOrigin(parsed.origin) ? parsed.toString() : '';
 }
 
 // Create Token Handler
@@ -275,14 +305,22 @@ async function handleCreateToken(request, env) {
       return jsonResponse(request, { error: parseError }, 400);
     }
 
-    const companyToken = resolveCompanyToken(env, body);
+    const companyToken = resolveCompanyToken(env);
     const amount = normalizeAmount(body.amount);
     const currency = normalizeCurrency(body.currency);
     const services = normalizeServices(body.services);
+    const redirectUrl = sanitizeReturnUrl(body.redirectURL);
+    const backUrl = sanitizeReturnUrl(body.backURL);
 
     if (!companyToken || !amount || !currency) {
       return jsonResponse(request, {
-        error: 'Missing or invalid required fields: companyToken, amount, currency'
+        error: 'Missing or invalid required fields: amount, currency'
+      }, 400);
+    }
+
+    if (!redirectUrl || !backUrl) {
+      return jsonResponse(request, {
+        error: 'redirectURL and backURL must point back at this site'
       }, 400);
     }
 
@@ -294,8 +332,8 @@ async function handleCreateToken(request, env) {
         <PaymentAmount>${escapeXml(amount)}</PaymentAmount>
         <PaymentCurrency>${escapeXml(currency)}</PaymentCurrency>
         <CompanyRef>${escapeXml(sanitizeText(body.companyRef, 100))}</CompanyRef>
-        <RedirectURL>${escapeXml(sanitizeText(body.redirectURL, 500))}</RedirectURL>
-        <BackURL>${escapeXml(sanitizeText(body.backURL, 500))}</BackURL>
+        <RedirectURL>${escapeXml(redirectUrl)}</RedirectURL>
+        <BackURL>${escapeXml(backUrl)}</BackURL>
         <CompanyRefUnique>0</CompanyRefUnique>
         <PTL>24</PTL>
         <customerEmail>${escapeXml(sanitizeText(body.customerEmail, 160))}</customerEmail>
@@ -354,7 +392,7 @@ async function handleVerifyToken(request, env) {
       return jsonResponse(request, { error: parseError }, 400);
     }
 
-    const companyToken = resolveCompanyToken(env, body);
+    const companyToken = resolveCompanyToken(env);
     const transactionToken = sanitizeText(body.transactionToken, 160);
 
     if (!companyToken || !transactionToken) {

@@ -881,6 +881,19 @@ export type Database = {
         Args: { p_code: string };
         Returns: Json;
       };
+      /**
+       * The colours a shopper can pick, without publishing the IMEI beside
+       * them; see 20261015010000.
+       */
+      product_variant_colours: {
+        Args: { p_product_id: number };
+        Returns: Array<{ color: string | null; available: number }>;
+      };
+      /** Binds an existing staff record to a login an admin has created. */
+      link_staff_login: {
+        Args: { p_email: string };
+        Returns: Json;
+      };
       /** Added by the stock-integrity migration; see 20260806000000. */
       reserve_order_stock: {
         Args: { p_order_id: string };

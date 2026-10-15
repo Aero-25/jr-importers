@@ -2,13 +2,15 @@
  * DPO card payments, through the site's own Worker endpoints.
  *
  * The Worker (`/api/dpo-create-token`, `/api/dpo-verify-token`) wraps DPO's
- * XML API; this module wraps the Worker for the storefront. The company token
- * and service type mirror the legacy pages — they are publishable identifiers,
- * not secrets: DPO authorises the merchant by them, money only ever moves
- * toward the merchant account.
+ * XML API; this module wraps the Worker for the storefront.
+ *
+ * The CompanyToken is not sent from here. It is the merchant credential — it
+ * is what tells DPO whose account a payment page belongs to — and it used to
+ * be a constant in this file, which meant it was in every browser bundle and
+ * anyone could drive the shop's merchant account with it. The Worker now holds
+ * it server-side and ignores whatever a caller sends.
  */
 
-const COMPANY_TOKEN = '8D3DA73D-9D7F-4E09-96D4-3D44E7A83EA3';
 const SERVICE_TYPE = '3854';
 const CURRENCY = 'NAD';
 
@@ -30,7 +32,6 @@ export async function createDpoPayment(options: {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      companyToken: COMPANY_TOKEN,
       amount: options.amount.toFixed(2),
       currency: CURRENCY,
       companyRef: options.reference,
@@ -83,7 +84,7 @@ export async function verifyDpoPayment(transactionToken: string): Promise<DpoVer
   const response = await fetch('/api/dpo-verify-token', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ companyToken: COMPANY_TOKEN, transactionToken }),
+    body: JSON.stringify({ transactionToken }),
   });
 
   const data = (await response.json()) as {

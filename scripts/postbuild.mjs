@@ -86,11 +86,17 @@ async function run() {
   ];
   for (const f of staticFiles) await copyIn(f);
 
-  // Park the legacy admin out of the way (keep it reachable as a backup).
-  if (existsSync(path.join(root, 'admin.html'))) {
-    await fs.copyFile(path.join(root, 'admin.html'), path.join(dist, 'admin-legacy.html'));
-    log('legacy admin -> /admin-legacy.html');
-  }
+  // The legacy admin is NOT published.
+  //
+  // It used to be copied to /admin-legacy.html as a backup, which put an
+  // unmaintained 892KB admin console on the open internet with the shop's
+  // EmailJS key, service id and template ids inline — enough for anyone who
+  // opened the page to send mail from the shop's own templates. The React
+  // console at /admin replaced it months ago.
+  //
+  // admin.html is still in the repository, so the backup has not been lost:
+  // restoring it is this copyFile and a rotated EmailJS key.
+  log('skipped: admin.html (legacy console is no longer published)');
 
   // 5) SPA fallback for the storefront.
   //

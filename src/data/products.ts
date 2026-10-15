@@ -291,8 +291,14 @@ export interface Variants {
  *
  * Phones are stocked as individual units, each with its own IMEI and colour,
  * so the colours a customer can pick are whatever is physically on the shelf —
- * not a list typed on the product. RLS only exposes `available` IMEIs to the
- * public, which is exactly the set this needs.
+ * not a list typed on the product.
+ *
+ * This asks `product_variant_colours` rather than reading `product_imeis`. The
+ * unit table used to be readable by the public so that this query could work,
+ * which meant the IMEI of every handset in the shop was readable too: row-level
+ * security filters rows, not columns, so there was no way to publish the colour
+ * without publishing the serial number beside it. The question the storefront
+ * actually has is "which colours can I pick", so that is what it now asks.
  *
  * Falls back to `products.stock` for anything not yet booked in by IMEI, so
  * accessories and un-serialised stock keep working unchanged.
@@ -303,14 +309,12 @@ export function useVariants(product: PublicProductRow | null | undefined) {
     enabled: Boolean(product?.id),
     staleTime: 15_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('product_imeis')
-        .select('color')
-        .eq('product_id', product!.id)
-        .eq('status', 'available');
+      const { data, error } = await supabase.rpc('product_variant_colours', {
+        p_product_id: product!.id,
+      });
       if (error) throw new Error(error.message);
 
-      const rows = data ?? [];
+      const rows = (data ?? []) as ColourVariant[];
       if (rows.length === 0) {
         // Not serialised — the count lives on the product row. Read it live
         // rather than trusting the caller's copy: the compare page passes
@@ -325,17 +329,14 @@ export function useVariants(product: PublicProductRow | null | undefined) {
         return { serialised: false, variants: [], available: live?.stock ?? product!.stock };
       }
 
-      const counts = new Map<string | null, number>();
-      for (const row of rows) {
-        const key = row.color?.trim() || null;
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
+      // Already one row per colour with its count; the server groups it.
+      const variants = [...rows].sort((a, b) => (a.color ?? '').localeCompare(b.color ?? ''));
 
-      const variants = [...counts.entries()]
-        .map(([color, available]) => ({ color, available }))
-        .sort((a, b) => (a.color ?? '').localeCompare(b.color ?? ''));
-
-      return { serialised: true, variants, available: rows.length };
+      return {
+        serialised: true,
+        variants,
+        available: variants.reduce((n, row) => n + row.available, 0),
+      };
     },
   });
 }

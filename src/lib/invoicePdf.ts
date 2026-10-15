@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { STORE } from './constants';
 import { formatDate, money, round2 } from './format';
 import { whatsappNumber } from './phone';
+import { sharedDocumentPath } from './storagePaths';
 
 const INK: [number, number, number] = [13, 38, 63];
 const GREY: [number, number, number] = [110, 122, 143];
@@ -366,11 +367,11 @@ export async function invoiceWhatsAppLink(order: OrderRow): Promise<string> {
   const company = await loadInvoiceCompany();
   const issued = await resolveInvoiceNumber(order);
   const blob = await buildInvoicePdf(order, company, issued);
-  const path = `invoices/${invoiceFileName(order, issued)}`;
+  const path = sharedDocumentPath('invoices', invoiceFileName(order, issued));
 
   const { error } = await supabase.storage
     .from('Images')
-    .upload(path, blob, { contentType: 'application/pdf', upsert: true });
+    .upload(path, blob, { contentType: 'application/pdf', upsert: false });
   if (error) throw new Error(`Could not publish the invoice: ${error.message}`);
 
   const { data } = supabase.storage.from('Images').getPublicUrl(path);
@@ -392,11 +393,11 @@ export async function invoiceMailtoLink(order: OrderRow): Promise<string> {
   const company = await loadInvoiceCompany();
   const issued = await resolveInvoiceNumber(order);
   const blob = await buildInvoicePdf(order, company, issued);
-  const path = `invoices/${invoiceFileName(order, issued)}`;
+  const path = sharedDocumentPath('invoices', invoiceFileName(order, issued));
 
   await supabase.storage
     .from('Images')
-    .upload(path, blob, { contentType: 'application/pdf', upsert: true });
+    .upload(path, blob, { contentType: 'application/pdf', upsert: false });
   const { data } = supabase.storage.from('Images').getPublicUrl(path);
 
   const subject = `${company.legalName} — Tax Invoice ${issued}`;
