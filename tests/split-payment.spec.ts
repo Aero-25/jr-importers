@@ -46,7 +46,7 @@ async function mockTill(page: Page) {
     if (table === 'till_shifts') return reply([shift]);
     // The exact barcode/SKU lookup carries `sku.eq.`; the mock answers it
     // only for the real SKU, so a name search still shows the grid.
-    if (table === 'products') {
+    if (table === 'products_staff') {
       const q = decodeURIComponent(url.search);
       const exact = q.includes('sku.eq.');
       return reply(exact ? (q.includes('SAM-A56-128') ? [product] : []) : [product]);

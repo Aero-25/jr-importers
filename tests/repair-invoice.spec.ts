@@ -45,7 +45,7 @@ async function mockShop(page: Page) {
 
     if (table === 'users') return reply([{ id: 'test-admin', role: 'admin', active: true, full_name: 'Test admin' }]);
     if (table === 'job_cards') return reply([job]);
-    if (table === 'products') return reply([parts]);
+    if (table === 'products_staff') return reply([parts]);
     if (table === 'invoices' && request.method() === 'POST') {
       const body = JSON.parse(request.postData() ?? '{}') as Record<string, unknown>;
       const row = { id: 700, invoice_number: 'INV12150', ...body };
