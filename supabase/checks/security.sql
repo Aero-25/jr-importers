@@ -1,7 +1,8 @@
 -- Security check: is a signed-in customer still just a customer?
 --
--- Paste this whole file into the Supabase SQL editor and read the result. Every
--- row must say PASS. It runs inside a transaction that rolls back, so it writes
+-- Paste this whole file into the Supabase SQL editor and read the result. It is
+-- three independent blocks, each rolled back, so the editor shows three result
+-- grids. Every row of every grid must say PASS. It runs inside a transaction that rolls back, so it writes
 -- nothing: it creates one order, attacks it, and throws the order away.
 --
 -- Each case is something that was actually possible against the live database
@@ -203,4 +204,196 @@ from storage.objects where bucket_id = 'Images'
 reset role;
 select n, attack, result from t order by n;
 
+rollback;
+
+-- ===========================================================================
+-- Part two: an email address is not a proof of identity.
+--
+-- Email confirmation is off on this project, so anybody may sign up with an
+-- address they do not own. These two blocks check that the database does not
+-- care — and that the controls added in 20261015020000 actually do something.
+-- Every row must say PASS.
+-- ===========================================================================
+
+-- Email confirmation is OFF (mailer_autoconfirm = true), so anyone may sign up
+-- with an address they do not own and be instantly confirmed. Several policies
+-- still trust the email claim. What does that get a stranger?
+begin;
+create temp table t(n int, attack text, result text);
+grant all on t to authenticated;
+
+-- Pick a real customer who has orders, and a real invoiced account.
+create temp table victim as
+select lower(o.customer_email) as email, count(*) as orders
+from public.orders o
+where coalesce(o.customer_email,'') <> ''
+group by 1 order by 2 desc limit 1;
+grant all on victim to authenticated;
+
+-- A brand-new account: a uid nobody has, claiming the victim's address.
+select set_config('request.jwt.claims',
+  (select json_build_object('sub','00000000-0000-0000-0000-0000000000ff',
+                            'email', email, 'role','authenticated')::text
+   from victim), true);
+set local role authenticated;
+
+insert into t select 1, 'stranger who signed up as ' || (select email from victim)
+                        || ' reads their orders',
+  case when count(*) = 0 then 'PASS (none visible)'
+       else 'FAIL (' || count(*) || ' orders visible)' end
+from public.orders;
+
+insert into t select 2, 'and their customer record',
+  case when count(*) = 0 then 'PASS (none visible)'
+       else 'FAIL (' || count(*) || ' visible)' end
+from public.customers;
+
+do $$
+declare v_ok boolean;
+begin
+  select bool_or(public.owns_order(o.id)) into v_ok from public.orders o;
+  insert into t select 3, 'and owns_order() accepts them',
+    case when v_ok is not true then 'PASS (refused)' else 'FAIL (accepted)' end;
+exception when others then
+  insert into t select 3, 'and owns_order() accepts them', 'PASS (' || sqlerrm || ')';
+end $$;
+
+reset role;
+select n, attack, result from t order by n;
+rollback;
+
+-- Do the new controls actually do anything, and does the shop still work?
+begin;
+create temp table t(n int, check_name text, result text);
+grant all on t to anon, authenticated;
+
+-- Block somebody.
+insert into public.blocked_users (email, reason, active)
+values ('nuisance@example.com', 'test', true);
+
+-- An order that belongs to a real customer, for the ownership checks.
+insert into public.orders (id, user_id, customer_name, customer_email, customer_phone,
+                           items, subtotal, subtotal_amount, vat_amount, total_amount,
+                           payment_method, status, delivery_method, stock_reserved, stock_returned)
+values ('22222222-2222-2222-2222-222222222222',
+        'dd7907f6-e057-46d8-b17c-b591e4bc401b', 'Kurt Sauerwein',
+        'ksauerwein12@gmail.com', '0810000000',
+        '[]'::jsonb, 100, 86.96, 13.04, 100, 'Card', 'Pending', 'Collect', false, false);
+
+set local role authenticated;
+
+------------------------------------------------------------------ the blocklist
+set local request.jwt.claims =
+  '{"sub":"00000000-0000-0000-0000-00000000beef","email":"nuisance@example.com","role":"authenticated"}';
+
+do $$ begin
+  insert into public.orders (user_id, customer_name, customer_email, customer_phone,
+                             items, subtotal, subtotal_amount, vat_amount, total_amount,
+                             payment_method, status, delivery_method)
+  values ('00000000-0000-0000-0000-00000000beef', 'Nuisance', 'nuisance@example.com',
+          '0810000001', '[]'::jsonb, 10, 8.7, 1.3, 10, 'Card', 'Pending', 'Collect');
+  insert into t select 1, 'a blocked customer can still order', 'FAIL (allowed)';
+exception when others then
+  insert into t select 1, 'a blocked customer can still order', 'PASS (' || sqlerrm || ')';
+end $$;
+
+do $$ begin
+  insert into public.messages (name, email, message)
+  values ('Nuisance', 'nuisance@example.com', 'hello');
+  insert into t select 2, 'a blocked customer can still use the contact form', 'FAIL (allowed)';
+exception when others then
+  insert into t select 2, 'a blocked customer can still use the contact form',
+    'PASS (' || sqlerrm || ')';
+end $$;
+
+----------------------------------------------------------------- the throttle
+set local role anon;
+set local request.jwt.claims = '{}';
+
+do $$
+declare i integer; v_sent integer := 0;
+begin
+  for i in 1..9 loop
+    begin
+      insert into public.messages (name, email, message)
+      values ('Flooder', 'flood@example.com', 'msg ' || i);
+      v_sent := v_sent + 1;
+    exception when others then
+      exit;
+    end;
+  end loop;
+  insert into t select 3, 'the contact form throttles a flood',
+    case when v_sent between 1 and 5 then 'PASS (stopped after ' || v_sent || ')'
+         else 'FAIL (' || v_sent || ' got through)' end;
+end $$;
+
+-- Read back as the owner: messages are admin-only to read, by design, so anon
+-- cannot see what it just wrote.
+reset role;
+insert into t select 4, 'an ordinary enquiry still gets through (must still work)',
+  case when count(*) between 1 and 5 then 'PASS (' || count(*) || ' stored)'
+       else 'FAIL (' || count(*) || ')' end
+from public.messages where email = 'flood@example.com';
+set local role anon;
+
+------------------------------------------------------- ownership and the till
+set local role authenticated;
+
+-- The customer whose order it is.
+set local request.jwt.claims =
+  '{"sub":"dd7907f6-e057-46d8-b17c-b591e4bc401b","email":"ksauerwein12@gmail.com","role":"authenticated"}';
+do $$
+declare v jsonb;
+begin
+  v := public.reserve_order_stock('22222222-2222-2222-2222-222222222222');
+  insert into t select 5, 'a shopper can reserve their own order (must still work)',
+    case when coalesce(v->>'ok','') = 'true' then 'PASS' else 'FAIL (' || coalesce(v->>'message','?') || ')' end;
+exception when others then
+  insert into t select 5, 'a shopper can reserve their own order (must still work)',
+    'FAIL (' || sqlerrm || ')';
+end $$;
+
+-- A stranger must not be able to.
+set local request.jwt.claims =
+  '{"sub":"00000000-0000-0000-0000-0000000000aa","email":"stranger@example.com","role":"authenticated"}';
+do $$
+declare v jsonb;
+begin
+  v := public.reserve_order_stock('22222222-2222-2222-2222-222222222222');
+  insert into t select 6, 'a stranger can reserve somebody else''s order',
+    case when coalesce(v->>'ok','') = 'false' then 'PASS (refused)' else 'FAIL (allowed)' end;
+exception when others then
+  insert into t select 6, 'a stranger can reserve somebody else''s order', 'PASS (' || sqlerrm || ')';
+end $$;
+
+------------------------------------------------------------ the staff product view
+set local request.jwt.claims =
+  '{"sub":"d235f065-753e-4ad2-a677-2380752624a9","email":"info@jrimporters.com","role":"authenticated"}';
+insert into t select 7, 'an admin still reads cost prices (must still work)',
+  case when count(*) > 0 then 'PASS (' || count(*) || ' rows)' else 'FAIL' end
+from public.products_staff where cost_price is not null;
+
+set local request.jwt.claims =
+  '{"sub":"dd7907f6-e057-46d8-b17c-b591e4bc401b","email":"ksauerwein12@gmail.com","role":"authenticated"}';
+do $$
+declare v_n integer;
+begin
+  select count(*) into v_n from public.products_staff;
+  insert into t select 8, 'a customer reads the staff product view',
+    case when v_n = 0 then 'PASS (empty)' else 'FAIL (' || v_n || ' rows)' end;
+exception when others then
+  insert into t select 8, 'a customer reads the staff product view', 'PASS (' || sqlerrm || ')';
+end $$;
+
+---------------------------------------------------------------- the audit trail
+reset role;
+update public.invoices set customer_name = customer_name || ' (audit probe)'
+ where id = (select id from public.invoices order by id desc limit 1);
+
+insert into t select 9, 'a change to an invoice is written to the audit log',
+  case when count(*) > 0 then 'PASS' else 'FAIL (nothing logged)' end
+from public.activity_log
+where entity = 'invoices' and created_at > now() - interval '1 minute';
+
+select n, check_name, result from t order by n;
 rollback;
