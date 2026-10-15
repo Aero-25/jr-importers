@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ProductRow } from '@/lib/database.types';
+import type { PublicProductRow } from '@/lib/database.types';
 
 const STORAGE_KEY = 'jr-compare-v1';
 
 /** Three columns is what a phone screen can hold side by side. */
 export const COMPARE_LIMIT = 3;
 
-function read(): ProductRow[] {
+function read(): PublicProductRow[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
-      (item): item is ProductRow =>
+      (item): item is PublicProductRow =>
         typeof item === 'object' && item !== null && 'id' in item && 'name' in item,
     );
   } catch {
@@ -21,7 +21,7 @@ function read(): ProductRow[] {
   }
 }
 
-function write(items: ProductRow[]) {
+function write(items: PublicProductRow[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   } catch {
@@ -30,10 +30,10 @@ function write(items: ProductRow[]) {
 }
 
 /** Notifies every `useCompare()` on the page, header badge included. */
-const listeners = new Set<(items: ProductRow[]) => void>();
-let current: ProductRow[] = typeof window === 'undefined' ? [] : read();
+const listeners = new Set<(items: PublicProductRow[]) => void>();
+let current: PublicProductRow[] = typeof window === 'undefined' ? [] : read();
 
-function commit(next: ProductRow[]) {
+function commit(next: PublicProductRow[]) {
   current = next;
   write(next);
   listeners.forEach((listener) => listener(next));
@@ -50,7 +50,7 @@ export type CompareToggle = 'added' | 'removed' | 'full';
  * prices and stock are re-read live where the page needs them fresh.
  */
 export function useCompare() {
-  const [items, setItems] = useState<ProductRow[]>(current);
+  const [items, setItems] = useState<PublicProductRow[]>(current);
 
   useEffect(() => {
     listeners.add(setItems);
@@ -66,7 +66,7 @@ export function useCompare() {
 
   const has = useCallback((id: number) => items.some((p) => p.id === id), [items]);
 
-  const toggle = useCallback((product: ProductRow): CompareToggle => {
+  const toggle = useCallback((product: PublicProductRow): CompareToggle => {
     if (current.some((p) => p.id === product.id)) {
       commit(current.filter((p) => p.id !== product.id));
       return 'removed';

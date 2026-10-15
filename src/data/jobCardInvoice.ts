@@ -23,7 +23,7 @@ export interface PartsProduct {
 
 export async function fetchPartsProduct(): Promise<PartsProduct> {
   const { data, error } = await supabase
-    .from('products')
+    .from('products_staff')
     .select('id, name, sku, cost_price')
     .eq('sku', PARTS_SKU)
     .maybeSingle();

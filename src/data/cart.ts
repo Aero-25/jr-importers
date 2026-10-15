@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { LineItem, ProductRow } from '@/lib/database.types';
+import type { LineItem, PublicProductRow } from '@/lib/database.types';
 import { isServiceCategory } from '@/lib/constants';
 import { DEFAULT_VAT_RATE, round2, vatFromInclusive } from '@/lib/format';
 
@@ -79,7 +79,7 @@ export function useCart() {
     };
   }, []);
 
-  const add = useCallback((product: ProductRow, quantity = 1, color?: string | null) => {
+  const add = useCallback((product: PublicProductRow, quantity = 1, color?: string | null) => {
     // Repairs are quoted at the counter, not bought online. Refused here as
     // well as hidden in the UI, so the rule holds however the call is reached.
     if (isServiceCategory(product.category)) {

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Phone, Scale, ShoppingBag } from 'lucide-react';
-import type { ProductRow } from '@/lib/database.types';
+import type { PublicProductRow } from '@/lib/database.types';
 import { STORE, isServiceCategory } from '@/lib/constants';
 import { money, slugify } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -10,7 +10,7 @@ import { useCompare } from '@/data/compare';
 import { useToast } from '@/ui';
 import '../commerce.css';
 
-export function productPath(product: Pick<ProductRow, 'id' | 'name'>): string {
+export function productPath(product: Pick<PublicProductRow, 'id' | 'name'>): string {
   return `/product/${product.id}-${slugify(product.name)}`;
 }
 
@@ -19,7 +19,7 @@ export function ProductCard({
   priority = false,
   className,
 }: {
-  product: ProductRow;
+  product: PublicProductRow;
   /** Skip lazy-loading for the handful of cards above the fold. */
   priority?: boolean;
   className?: string;

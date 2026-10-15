@@ -185,6 +185,9 @@ export type ProductRow = {
   updated_at: string;
 }
 
+/** What the public may read of a product: everything but what the shop paid. */
+export type PublicProductRow = Omit<ProductRow, 'cost_price'>;
+
 export type OrderRow = {
   id: string;
   user_id: string | null;
@@ -842,6 +845,15 @@ export type Database = {
     // GenericSchema constraint accepts. `Record<string, never>` does not — it
     // makes every lookup resolve to `never` and silently untypes the client.
     Views: {
+      /**
+       * Full product rows, `cost_price` included, for staff only. The public
+       * cannot select `cost_price` on `products`, so anything that needs the
+       * cost reads it here.
+       */
+      products_staff: {
+        Row: ProductRow;
+        Relationships: [];
+      };
       /**
        * Commission billed against each till shift, by its SVC-COMMISSION
        * line. Recomputed from the documents on every read, so an invoice

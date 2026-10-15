@@ -115,11 +115,12 @@ export function useGrvFromPurchaseOrder() {
 /**
  * The whole active catalogue in one read, for matching invoice lines locally.
  * At the shop's size this is a small payload; matching in the browser keeps
- * the invoice reader free of round trips.
+ * the invoice reader free of round trips. Read from the staff view, since
+ * `cost_price` is not selectable on `products`.
  */
 export async function fetchIntakeCatalog() {
   const { data, error } = await supabase
-    .from('products')
+    .from('products_staff')
     .select('id, name, sku, barcode, color, cost_price')
     .eq('active', true);
   if (error) throw new Error(error.message);
@@ -135,7 +136,7 @@ export function useProductLookup(term: string) {
       const t = term.trim().replace(/[,()]/g, ' ').trim();
       if (!t) return [];
       const { data, error } = await supabase
-        .from('products')
+        .from('products_staff')
         .select('id, name, sku, barcode, color, cost_price, stock, category')
         .eq('active', true)
         .or(`name.ilike.%${t}%,sku.ilike.%${t}%,barcode.eq.${t}`)

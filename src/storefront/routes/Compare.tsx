@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Plus, Scale, Search, Trash2, X } from 'lucide-react';
-import type { ProductRow } from '@/lib/database.types';
+import type { PublicProductRow } from '@/lib/database.types';
 import { SPEC_FIELDS, colourSwatch, useCatalog, useVariants } from '@/data/products';
 import { isServiceCategory } from '@/lib/constants';
 import { COMPARE_LIMIT, useCompare } from '@/data/compare';
@@ -23,7 +23,7 @@ import { useSeo } from '../seo';
 
 // Identity rows first, then the shared spec table (see products.ts), so the
 // compare page always carries exactly the specs the product page shows.
-const COMPARE_ROWS: Array<{ label: string; get: (p: ProductRow) => string | null | undefined }> = [
+const COMPARE_ROWS: Array<{ label: string; get: (p: PublicProductRow) => string | null | undefined }> = [
   { label: 'Brand', get: (p) => p.brand },
   { label: 'Category', get: (p) => p.category },
   ...SPEC_FIELDS,
@@ -67,7 +67,7 @@ export default function Compare() {
 
   const columns = { gridTemplateColumns: `8.5rem repeat(${Math.max(count, 1)}, minmax(10rem, 1fr))` };
 
-  function pick(product: ProductRow) {
+  function pick(product: PublicProductRow) {
     const result = toggle(product);
     if (result === 'full') {
       toast.warn('Three at a time', 'Remove a product before adding another.');

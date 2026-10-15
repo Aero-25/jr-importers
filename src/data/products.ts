@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { ProductRow } from '@/lib/database.types';
+import type { PublicProductRow } from '@/lib/database.types';
 import { SERVICE_CATEGORIES } from '@/lib/constants';
 import { createResource } from './crud';
 import { keys } from './keys';
@@ -22,9 +22,30 @@ const NO_SERVICES = `(${SERVICE_CATEGORIES.map((c) => `"${c}"`).join(',')})`;
  */
 const NOT_A_SERVICE = `category.is.null,category.not.in.${NO_SERVICES}`;
 
-export const products = createResource('products', {
-  orderBy: { column: 'created_at', ascending: false },
-});
+/**
+ * Every products column the public may read — all but `cost_price`, which the
+ * database refuses to anon and signed-in shoppers alike, so `select('*')`
+ * fails there. Keep in step with the grant in
+ * 20261015000000_hide_cost_price_from_public.sql.
+ */
+const PUBLIC_COLUMNS = [
+  'id', 'name', 'brand', 'category', 'description', 'price', 'stock', 'reorder_level',
+  'sku', 'barcode', 'color',
+  'image', 'image1', 'image2', 'image3', 'image4', 'image5',
+  'spec_display', 'spec_processor', 'spec_ram', 'spec_storage', 'spec_battery',
+  'spec_back_camera', 'spec_front_camera', 'spec_os', 'spec_weight', 'spec_extras',
+  'active', 'show_online', 'featured', 'created_at', 'updated_at',
+].join(',');
+
+/**
+ * The console's product resource. Reads go through `products_staff`, the
+ * staff-only view that still carries `cost_price`; writes go to the table.
+ */
+export const products = createResource(
+  'products',
+  { orderBy: { column: 'created_at', ascending: false } },
+  { readFrom: 'products_staff' },
+);
 
 export interface CatalogFilters {
   category?: string | null;
@@ -53,12 +74,12 @@ export type CatalogSort = 'newest' | 'price-asc' | 'price-desc' | 'name' | 'popu
  * off the shop with `show_online`.
  */
 export function useCatalog(filters: CatalogFilters = {}) {
-  return useQuery<ProductRow[], Error>({
+  return useQuery<PublicProductRow[], Error>({
     queryKey: keys.list('products', { catalog: filters }),
     queryFn: async () => {
       let query = supabase
         .from('products')
-        .select('*')
+        .select(PUBLIC_COLUMNS)
         .eq('active', true)
         .eq('show_online', true)
         .gt('stock', 0)
@@ -102,23 +123,23 @@ export function useCatalog(filters: CatalogFilters = {}) {
 
       const { data, error } = await query.limit(filters.limit ?? 300);
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return (data ?? []) as unknown as PublicProductRow[];
     },
   });
 }
 
 export function useProduct(id: number | string | null | undefined) {
-  return useQuery<ProductRow | null, Error>({
+  return useQuery<PublicProductRow | null, Error>({
     queryKey: keys.detail('products', id ?? ''),
     enabled: id !== null && id !== undefined && id !== '',
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(PUBLIC_COLUMNS)
         .eq('id', Number(id))
         .maybeSingle();
       if (error) throw new Error(error.message);
-      return data;
+      return data as unknown as PublicProductRow | null;
     },
   });
 }
@@ -190,14 +211,14 @@ export function useFacets(scope: { categories?: string[] | null } = {}) {
 }
 
 /** Same-category products, excluding the one being viewed. */
-export function useRelatedProducts(product: ProductRow | null | undefined, limit = 8) {
-  return useQuery<ProductRow[], Error>({
+export function useRelatedProducts(product: PublicProductRow | null | undefined, limit = 8) {
+  return useQuery<PublicProductRow[], Error>({
     queryKey: keys.list('products', { related: product?.id, category: product?.category }),
     enabled: Boolean(product?.category),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(PUBLIC_COLUMNS)
         .eq('active', true)
         .eq('show_online', true)
         .gt('stock', 0)
@@ -207,13 +228,13 @@ export function useRelatedProducts(product: ProductRow | null | undefined, limit
         .order('featured', { ascending: false })
         .limit(limit);
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return (data ?? []) as unknown as PublicProductRow[];
     },
   });
 }
 
 /** Every non-empty image on a product, in display order, deduplicated. */
-export function productImages(product: ProductRow): string[] {
+export function productImages(product: PublicProductRow): string[] {
   return [
     product.image,
     product.image1,
@@ -229,7 +250,7 @@ export function productImages(product: ProductRow): string[] {
  * page's spec list and the compare page's rows, so a new spec column appears
  * in both places at once.
  */
-export const SPEC_FIELDS: Array<{ label: string; get: (p: ProductRow) => string | null }> = [
+export const SPEC_FIELDS: Array<{ label: string; get: (p: PublicProductRow) => string | null }> = [
   { label: 'Display', get: (p) => p.spec_display },
   { label: 'Processor', get: (p) => p.spec_processor },
   { label: 'RAM', get: (p) => p.spec_ram },
@@ -243,7 +264,7 @@ export const SPEC_FIELDS: Array<{ label: string; get: (p: ProductRow) => string 
 ];
 
 /** Spec sheet rows, skipping blanks so the table has no empty cells. */
-export function productSpecs(product: ProductRow): Array<{ label: string; value: string }> {
+export function productSpecs(product: PublicProductRow): Array<{ label: string; value: string }> {
   return SPEC_FIELDS.map(({ label, get }) => ({ label, value: get(product)?.trim() ?? '' })).filter(
     (row) => row.value,
   );
@@ -276,7 +297,7 @@ export interface Variants {
  * Falls back to `products.stock` for anything not yet booked in by IMEI, so
  * accessories and un-serialised stock keep working unchanged.
  */
-export function useVariants(product: ProductRow | null | undefined) {
+export function useVariants(product: PublicProductRow | null | undefined) {
   return useQuery<Variants, Error>({
     queryKey: keys.list('product_imeis', { variants: product?.id }),
     enabled: Boolean(product?.id),

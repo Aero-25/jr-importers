@@ -616,6 +616,8 @@ export function useShiftSales(shiftId: number | null | undefined) {
  *
  * A scanner types the full barcode and presses Enter, so an exact hit has to
  * win even when those digits also appear inside another product's name.
+ * Reads the staff view: the sale line records the cost, which the public
+ * cannot select on `products`.
  */
 export function usePosSearch(term: string) {
   const query = term.trim();
@@ -628,7 +630,7 @@ export function usePosSearch(term: string) {
       const safe = query.replace(/[,()]/g, ' ').trim();
 
       const { data: exact, error: exactError } = await supabase
-        .from('products')
+        .from('products_staff')
         .select('*')
         .eq('active', true)
         .or(`barcode.eq.${safe},sku.eq.${safe}`)
@@ -637,7 +639,7 @@ export function usePosSearch(term: string) {
       if (exact && exact.length > 0) return { rows: exact, exact: true };
 
       const { data, error } = await supabase
-        .from('products')
+        .from('products_staff')
         .select('*')
         .eq('active', true)
         .or(`name.ilike.%${safe}%,brand.ilike.%${safe}%,sku.ilike.%${safe}%`)

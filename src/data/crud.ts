@@ -123,7 +123,35 @@ async function fetchList<T extends TableName>(
  * one table with no bespoke logic; those get this. Anything with real domain
  * rules (stock, tills, orders) gets a hand-written module instead.
  */
-export function createResource<T extends TableName>(table: T, defaults: ListOptions<T> = {}) {
+export interface ResourceOptions {
+  /**
+   * Read rows from this view instead of the table, while writes still go to
+   * the table. For tables with a column the public may not select — the
+   * select privilege then lives on a staff-only view (see products_staff).
+   */
+  readFrom?: string;
+}
+
+export function createResource<T extends TableName>(
+  table: T,
+  defaults: ListOptions<T> = {},
+  { readFrom }: ResourceOptions = {},
+) {
+  // fetchList/fetchPage are typed on the table; the view has the same row.
+  const source = (readFrom ?? table) as T;
+
+  /**
+   * Returns the written row. With `readFrom`, the write itself may only hand
+   * back columns the caller can select on the table, so it returns the id and
+   * the full row is read from the view.
+   */
+  async function readBack(written: { id: string | number }): Promise<Row<T>> {
+    if (!readFrom) return written as unknown as Row<T>;
+    const { data, error } = await db.from(readFrom).select('*').eq('id', written.id).single();
+    if (error) throw new Error(error.message);
+    return data as Row<T>;
+  }
+
   function useList(
     options: ListOptions<T> = {},
     queryOptions?: Partial<UseQueryOptions<Row<T>[], Error>>,
@@ -131,7 +159,7 @@ export function createResource<T extends TableName>(table: T, defaults: ListOpti
     const merged = { ...defaults, ...options };
     return useQuery<Row<T>[], Error>({
       queryKey: keys.list(table, merged),
-      queryFn: () => fetchList(table, merged),
+      queryFn: () => fetchList(source, merged),
       ...queryOptions,
     });
   }
@@ -141,7 +169,7 @@ export function createResource<T extends TableName>(table: T, defaults: ListOpti
     const merged = { ...defaults, ...options };
     return useQuery<Page<Row<T>>, Error>({
       queryKey: keys.list(table, { ...merged, page, pageSize }),
-      queryFn: () => fetchPage(table, merged, page, pageSize),
+      queryFn: () => fetchPage(source, merged, page, pageSize),
       // Keeps the previous page on screen while the next loads, so paging does
       // not flash an empty table.
       placeholderData: (previous) => previous,
@@ -154,7 +182,7 @@ export function createResource<T extends TableName>(table: T, defaults: ListOpti
       enabled: id !== null && id !== undefined && id !== '',
       queryFn: async () => {
         const { data, error } = await db
-          .from(table)
+          .from(source)
           .select('*')
           .eq('id', id)
           .maybeSingle();
@@ -171,10 +199,10 @@ export function createResource<T extends TableName>(table: T, defaults: ListOpti
         const { data, error } = await db
           .from(table)
           .insert(values)
-          .select()
+          .select(readFrom ? 'id' : '*')
           .single();
         if (error) throw new Error(error.message);
-        return data as Row<T>;
+        return readBack(data as { id: string | number });
       },
       onSuccess: () => void qc.invalidateQueries({ queryKey: keys.table(table) }),
     });
@@ -188,10 +216,10 @@ export function createResource<T extends TableName>(table: T, defaults: ListOpti
           .from(table)
           .update(values)
           .eq('id', id)
-          .select()
+          .select(readFrom ? 'id' : '*')
           .single();
         if (error) throw new Error(error.message);
-        return data as Row<T>;
+        return readBack(data as { id: string | number });
       },
       onSuccess: () => void qc.invalidateQueries({ queryKey: keys.table(table) }),
     });
@@ -211,5 +239,16 @@ export function createResource<T extends TableName>(table: T, defaults: ListOpti
     });
   }
 
-  return { table, useList, usePage, useDetail, useCreate, useUpdate, useRemove, fetchList, fetchPage };
+  return {
+    table,
+    useList,
+    usePage,
+    useDetail,
+    useCreate,
+    useUpdate,
+    useRemove,
+    fetchList: (options?: ListOptions<T>) => fetchList(source, options),
+    fetchPage: (options: ListOptions<T>, page: number, pageSize: number) =>
+      fetchPage(source, options, page, pageSize),
+  };
 }
