@@ -18,6 +18,17 @@ select set_config('request.jwt.claims',
   '{"sub":"d235f065-753e-4ad2-a677-2380752624a9","email":"info@jrimporters.com","role":"authenticated"}',
   true);
 
+-- Pin the rates this file asserts against.
+--
+-- The worked example below is the shop's own: N$1,000 at 17% import VAT and a
+-- 22% markup comes to N$1,641.51. Settings now carries the true 16.5%, so
+-- reading the live rates would make these cases fail for a reason that has
+-- nothing to do with whether the arithmetic is right. They are set here and
+-- the transaction rolls back, so the shop's own rates are untouched.
+update public.settings set value = to_jsonb(0.17) where key = 'bulk_import_vat_rate';
+update public.settings set value = to_jsonb(0.15) where key = 'bulk_sales_vat_rate';
+update public.settings set value = to_jsonb(22)   where key = 'bulk_default_markup';
+
 -- ---------------------------------------------------------------------------
 -- The classifier and the parser
 -- ---------------------------------------------------------------------------

@@ -72,7 +72,7 @@ const S = {
 const STATUS_LABEL = {
   in_stock: 'IN STOCK',
   on_order: 'ON ORDER',
-  out_of_stock: 'OUT OF STOCK',
+  out_of_stock: 'ON ORDER',
 } as const;
 
 const colLetter = (index: number): string => {
@@ -243,7 +243,7 @@ export function buildCostingWorkbook(options: CostingWorkbookOptions): Blob {
     ]),
     rowXml(14, [
       str('On order', S.label),
-      num(options.rows.filter((r) => r.stock_status === 'on_order').length, S.integer),
+      num(options.rows.filter((r) => r.stock_status !== 'in_stock').length, S.integer),
     ]),
     rowXml(16, [
       str(

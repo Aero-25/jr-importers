@@ -49,7 +49,7 @@ const ITEMS = [
     display_name: 'Samsung Galaxy S26 Ultra 512GB', model: 'S26 ULTRA', storage_gb: 512,
     five_g: false, supplier_cost: 19995, import_vat: 3399.15, landed_cost: 23394.15,
     markup_pct: 22, price_excl_vat: 28540.86, sales_vat: 4281.13, final_price: 32821.99,
-    stock_status: 'out_of_stock', stock_qty: 0, product_id: null,
+    stock_status: 'on_order', stock_qty: 0, product_id: null,
   },
 ];
 
@@ -184,6 +184,41 @@ test('a real supplier file yields the Samsung phones and nothing else', async ({
   await expect(page.getByText('I-PHONE 17 PRO MAX 512GIG (LOCAL)')).toBeVisible();
 });
 
+test('a line can be dropped from the preview, and one added by hand', async ({ page }) => {
+  await mockConsole(page);
+  await page.goto('/admin/#/bulk-pricing');
+  await tabs(page).getByRole('button', { name: 'Upload supplier prices' }).click();
+  await page.setInputFiles('input[type="file"]', SUPPLIER_FILE);
+
+  // Count the priced rows themselves rather than the tile: it is the table
+  // that gets saved.
+  const rows = page.locator('table').first().locator('tbody tr');
+  await expect(rows).toHaveCount(27);
+
+  // A handset the shop does not want on this week's list.
+  await page.getByRole('button', { name: 'Remove Samsung Galaxy A23 64GB' }).click();
+  await expect(page.getByRole('cell', { name: 'Samsung Galaxy A23 64GB', exact: true })).toHaveCount(0);
+  await expect(rows).toHaveCount(26);
+
+  // One the supplier quoted separately.
+  await page.getByLabel('Model').fill('A26');
+  await page.getByLabel('Storage (GB)').fill('128');
+  await page.getByLabel('Supplier cost').fill('3600');
+  await page.getByLabel('5G').check();
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+  await expect(page.getByRole('cell', { name: 'Samsung Galaxy A26 128GB 5G', exact: true })).toBeVisible();
+  await expect(rows).toHaveCount(27);
+
+  // The same handset twice would be priced twice over.
+  await page.getByLabel('Model').fill('A26');
+  await page.getByLabel('Storage (GB)').fill('128');
+  await page.getByLabel('Supplier cost').fill('3700');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByText('A26 128GB is already on this list.')).toBeVisible();
+  await expect(rows).toHaveCount(27);
+});
+
 test('the pricing table shows the full build-up and sends the markup to the server', async ({ page }) => {
   const { rpcCalls } = await mockConsole(page);
   await page.goto('/admin/#/bulk-pricing');
@@ -195,6 +230,12 @@ test('the pricing table shows the full build-up and sends the markup to the serv
   await expect(row).toContainText('1,901.25');   // landed
   await expect(row).toContainText('2,667.46');   // retail
   await expect(row).toContainText('In stock');
+
+  // Everything here is on a supplier list the shop orders from, so a handset
+  // that is not on the shelf is on order — never "out of stock".
+  const away = page.getByRole('row', { name: /Samsung Galaxy S26 Ultra 512GB/ });
+  await expect(away).toContainText('On order');
+  await expect(page.locator('table')).not.toContainText('Out of stock');
 
   // Changing a markup is sent to the database, which owns the arithmetic, and
   // the list is repriced from there rather than in the browser.

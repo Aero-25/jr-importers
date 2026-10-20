@@ -43,10 +43,12 @@ export interface CustomerPdfOptions {
   generatedAt?: Date;
 }
 
+// On the shelf, or coming in. Everything here is on a supplier list the shop
+// orders from, so nothing is ever simply unavailable.
 const STATUS_LABEL: Record<StockStatus, string> = {
   in_stock: 'In stock',
   on_order: 'On order',
-  out_of_stock: 'Out of stock',
+  out_of_stock: 'On order',
 };
 
 export function priceListFileName(weekStart: string): string {

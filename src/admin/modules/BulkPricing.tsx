@@ -7,8 +7,10 @@ import {
   FileSpreadsheet,
   Gauge,
   Mail,
+  Plus,
   RotateCcw,
   Send,
+  Trash2,
   Upload as UploadIcon,
   Users,
   Warehouse,
@@ -36,7 +38,11 @@ import {
   useSendPriceList,
   useSetMarkup,
 } from '@/data/bulkPricing';
-import { parseSupplierList, type ParsedSupplierList } from '@/lib/supplierPriceList';
+import {
+  describeHandset,
+  parseSupplierList,
+  type ParsedSupplierList,
+} from '@/lib/supplierPriceList';
 import { buildCustomerPdf, priceListFileName } from '@/lib/bulkPriceListPdf';
 import { buildCostingWorkbook, costingFileName } from '@/lib/bulkCostingXlsx';
 import { formatDate, money } from '@/lib/format';
@@ -70,10 +76,18 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof Gauge }> = [
   { id: 'settings', label: 'Settings', icon: CalendarClock },
 ];
 
+/**
+ * What the shop can say about a handset: it is here, or it is coming.
+ *
+ * Everything on this list is on a supplier price list the shop orders from, so
+ * there is no third answer — "out of stock" would tell a dealer the phone
+ * cannot be had when it arrives with the next order. 'out_of_stock' survives in
+ * the type for rows written before that was settled, and reads the same way.
+ */
 const STATUS: Record<StockStatus, { label: string; tone: Tone }> = {
   in_stock: { label: 'In stock', tone: 'lime' },
   on_order: { label: 'On order', tone: 'warn' },
-  out_of_stock: { label: 'Out of stock', tone: 'neutral' },
+  out_of_stock: { label: 'On order', tone: 'warn' },
 };
 
 function downloadBlob(blob: Blob, fileName: string): void {
@@ -188,7 +202,7 @@ function DashboardPanel({ onGo }: { onGo: (tab: Tab) => void }) {
         <StatTile
           label="On order"
           value={list ? String(list.on_order) : '—'}
-          sub="Not shaded — coming, not here"
+          sub="Not shaded — we bring it in"
         />
         <StatTile
           label="Recipients"
@@ -276,6 +290,67 @@ function UploadPanel({ onDone }: { onDone: () => void }) {
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState({ model: '', storage: '', cost: '', fiveG: false });
+  const [addError, setAddError] = useState<string | null>(null);
+
+  /**
+   * The preview is editable before it is saved.
+   *
+   * A supplier list is not the same thing as the list the shop wants to put
+   * out: a handset may be discontinued, quoted separately, or written in a way
+   * the parser could not read. Curating here rather than after pricing keeps
+   * the generated list and the file it came from describing the same set.
+   */
+  const removeRow = (model: string, storage: number) =>
+    setParsed((current) =>
+      current === null
+        ? current
+        : {
+            ...current,
+            rows: current.rows.filter(
+              (row) => !(row.model === model && row.storage_gb === storage),
+            ),
+          },
+    );
+
+  const addRow = () => {
+    setAddError(null);
+    const model = draft.model.trim().toUpperCase();
+    const storage = Number(draft.storage);
+    const cost = Number(draft.cost);
+
+    if (!model) return setAddError('Which model? For example A17, S26 Ultra or Z Fold 7.');
+    if (!Number.isFinite(storage) || storage <= 0) return setAddError('Enter the storage size in GB.');
+    if (!Number.isFinite(cost) || cost <= 0) return setAddError('Enter the supplier cost.');
+
+    // Storage identifies a handset, so the same model and size twice would
+    // price one of them twice over.
+    const clash = (parsed?.rows ?? []).some(
+      (row) => row.model.toUpperCase() === model && row.storage_gb === storage,
+    );
+    if (clash) return setAddError(`${model} ${storage}GB is already on this list.`);
+
+    setParsed((current) =>
+      current === null
+        ? current
+        : {
+            ...current,
+            rows: [
+              ...current.rows,
+              {
+                display_name: describeHandset(model, storage, draft.fiveG),
+                model,
+                storage_gb: storage,
+                five_g: draft.fiveG,
+                description: 'Added by hand',
+                supplier_cost: cost,
+              },
+            ].sort((a, b) => a.display_name.localeCompare(b.display_name)),
+          },
+    );
+    setDraft({ model: '', storage: '', cost: '', fiveG: false });
+  };
+
   const save = useSaveUpload();
   const toast = useToast();
   const input = useRef<HTMLInputElement>(null);
@@ -364,6 +439,7 @@ function UploadPanel({ onDone }: { onDone: () => void }) {
                   <th className="px-4 py-2.5">5G</th>
                   <th className="px-4 py-2.5 text-right">Supplier cost</th>
                   <th className="px-4 py-2.5">From the supplier&rsquo;s file</th>
+                  <th className="w-10 px-3 py-2.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-hairline/70">
@@ -374,10 +450,81 @@ function UploadPanel({ onDone }: { onDone: () => void }) {
                     <td className="px-4 py-2.5">{row.five_g ? 'Yes' : '—'}</td>
                     <td className="tabular px-4 py-2.5 text-right">{money(row.supplier_cost)}</td>
                     <td className="px-4 py-2.5 text-xs text-ink-subtle">{row.description}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <button
+                        type="button"
+                        onClick={() => removeRow(row.model, row.storage_gb)}
+                        title={`Leave ${row.display_name} off this list`}
+                        className="rounded-lg p-1.5 text-ink-subtle transition-colors hover:bg-danger/10 hover:text-danger"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden />
+                        <span className="sr-only">Remove {row.display_name}</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Add a handset the supplier did not list, or one the file could
+              not be read for. It is priced exactly like the rest. */}
+          <div className="rounded-2xl border border-hairline bg-surface p-5">
+            <h3 className="text-sm font-semibold text-ink">Add a handset by hand</h3>
+            <p className="mt-1 text-xs text-ink-subtle">
+              For something the supplier quoted separately, or a line the file could not be read
+              for. It is added to this week&rsquo;s list only — next week&rsquo;s upload starts from
+              the supplier&rsquo;s file again, though any markup you set is remembered.
+            </p>
+            <div className="mt-4 flex flex-wrap items-end gap-2">
+              <Field label="Model" hint="A17, S26 Ultra, Z Fold 7" htmlFor="bulk-add-model">
+                <Input
+                  id="bulk-add-model"
+                  value={draft.model}
+                  onChange={(e) => setDraft({ ...draft, model: e.target.value })}
+                  placeholder="A17"
+                  className="w-32"
+                />
+              </Field>
+              <Field label="Storage (GB)" htmlFor="bulk-add-storage">
+                <Input
+                  id="bulk-add-storage"
+                  type="number"
+                  min={1}
+                  value={draft.storage}
+                  onChange={(e) => setDraft({ ...draft, storage: e.target.value })}
+                  placeholder="128"
+                  className="w-28"
+                />
+              </Field>
+              <Field label="Supplier cost" htmlFor="bulk-add-cost">
+                <Input
+                  id="bulk-add-cost"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={draft.cost}
+                  onChange={(e) => setDraft({ ...draft, cost: e.target.value })}
+                  placeholder="2795"
+                  className="w-32"
+                />
+              </Field>
+              <div className="pb-1">
+                <Checkbox
+                  label="5G"
+                  checked={draft.fiveG}
+                  onChange={(e) => setDraft({ ...draft, fiveG: e.target.checked })}
+                />
+              </div>
+              <Button variant="secondary" onClick={addRow}>
+                <Plus className="h-4 w-4" aria-hidden /> Add
+              </Button>
+            </div>
+            {addError && (
+              <Notice tone="danger" className="mt-3">
+                {addError}
+              </Notice>
+            )}
           </div>
 
           {parsed.skipped.length > 0 && (
@@ -457,8 +604,9 @@ function PricingPanel() {
     <section className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="Search">
+          <Field label="Search" htmlFor="bulk-search">
             <Input
+                  id="bulk-search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="A17, S26, Z Fold…"
@@ -697,9 +845,10 @@ function StockPanel() {
 
   if (!current) return <Notice tone="info">Nothing priced yet.</Notice>;
 
-  const groups: Array<[StockStatus, PriceListItem[]]> = (
-    ['in_stock', 'on_order', 'out_of_stock'] as StockStatus[]
-  ).map((status) => [status, (items.data ?? []).filter((r) => r.stock_status === status)]);
+  const groups: Array<[StockStatus, PriceListItem[]]> = [
+    ['in_stock', (items.data ?? []).filter((r) => r.stock_status === 'in_stock')],
+    ['on_order', (items.data ?? []).filter((r) => r.stock_status !== 'in_stock')],
+  ];
 
   return (
     <section className="space-y-4">
@@ -918,11 +1067,13 @@ function EmailPanel() {
           week. Each recipient gets their own email — nobody sees anybody else&rsquo;s address.
         </p>
         <div className="mt-4 space-y-3">
-          <Field label="Subject">
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
+          <Field label="Subject" htmlFor="bulk-subject">
+            <Input
+                  id="bulk-subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
           </Field>
-          <Field label="Message">
-            <Textarea rows={10} value={body} onChange={(e) => setBody(e.target.value)} />
+          <Field label="Message" htmlFor="bulk-body">
+            <Textarea
+                  id="bulk-body" rows={10} value={body} onChange={(e) => setBody(e.target.value)} />
           </Field>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -985,11 +1136,13 @@ function EmailPanel() {
         </div>
 
         <div className="mt-4 flex flex-wrap items-end gap-2">
-          <Field label="Name">
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Dealer name" />
-          </Field>
-          <Field label="Email">
+          <Field label="Name" htmlFor="bulk-recipient-name">
             <Input
+                  id="bulk-recipient-name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Dealer name" />
+          </Field>
+          <Field label="Email" htmlFor="bulk-recipient-email">
+            <Input
+                  id="bulk-recipient-email"
               type="email"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
@@ -1230,24 +1383,27 @@ function SettingsPanel() {
         <div className="rounded-2xl border border-hairline bg-surface p-5">
           <h3 className="text-sm font-semibold text-ink">Rates</h3>
           <div className="mt-4 space-y-3">
-            <Field label="Import VAT %" hint="Applied to the supplier cost first.">
+            <Field label="Import VAT %" hint="Applied to the supplier cost first." htmlFor="bulk-import-vat">
               <Input
+                  id="bulk-import-vat"
                 type="number"
                 step={0.1}
                 defaultValue={(Number(s.bulk_import_vat_rate ?? 0.17) * 100).toFixed(1)}
                 onBlur={(e) => saveNumber('bulk_import_vat_rate', e.target.value, 100)}
               />
             </Field>
-            <Field label="Default markup %" hint="Used for any handset with no markup of its own.">
+            <Field label="Default markup %" hint="Used for any handset with no markup of its own." htmlFor="bulk-default-markup">
               <Input
+                  id="bulk-default-markup"
                 type="number"
                 step={0.5}
                 defaultValue={Number(s.bulk_default_markup ?? 22).toFixed(1)}
                 onBlur={(e) => saveNumber('bulk_default_markup', e.target.value)}
               />
             </Field>
-            <Field label="Sales VAT %" hint="Added last, to reach the retail price.">
+            <Field label="Sales VAT %" hint="Added last, to reach the retail price." htmlFor="bulk-sales-vat">
               <Input
+                  id="bulk-sales-vat"
                 type="number"
                 step={0.1}
                 defaultValue={(Number(s.bulk_sales_vat_rate ?? 0.15) * 100).toFixed(1)}
@@ -1260,8 +1416,9 @@ function SettingsPanel() {
         <div className="rounded-2xl border border-hairline bg-surface p-5">
           <h3 className="text-sm font-semibold text-ink">Weekly send</h3>
           <div className="mt-4 space-y-3">
-            <Field label="Day" hint="Namibian time (Africa/Windhoek).">
+            <Field label="Day" hint="Namibian time (Africa/Windhoek)." htmlFor="bulk-day">
               <Select
+                  id="bulk-day"
                 defaultValue={String(s.bulk_schedule_day ?? '1')}
                 onChange={(e) =>
                   save.mutate(
@@ -1279,8 +1436,9 @@ function SettingsPanel() {
                 )}
               </Select>
             </Field>
-            <Field label="Time">
+            <Field label="Time" htmlFor="bulk-time">
               <Input
+                  id="bulk-time"
                 type="time"
                 defaultValue={String(s.bulk_schedule_time ?? '08:00')}
                 onBlur={(e) =>
