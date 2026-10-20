@@ -134,11 +134,15 @@ select 12, 'landed is exactly cost + import VAT',
 from public.bulk_price_list_items i
 where i.list_id = (select id from gen);
 
+-- The list carries the supplier's phones AND the shop's own stock, so counting
+-- rows proves nothing. What matters is that no tablet is among them.
 insert into t
-select 13, 'a tablet in the upload never reaches the list',
-  case when count(*) = 2 then 'PASS (only the two phones)'
-       else 'FAIL (' || count(*) || ' items)' end
-from public.bulk_price_list_items where list_id = (select id from gen);
+select 13, 'a tablet never reaches the list',
+  case when count(*) = 0 then 'PASS (no tablets)'
+       else 'FAIL (' || string_agg(display_name, ', ') || ')' end
+from public.bulk_price_list_items
+where list_id = (select id from gen)
+  and (upper(display_name) ~ '\yTAB\y|TAB-' or upper(coalesce(model,'')) ~ '^X\d{3}');
 
 -- ---------------------------------------------------------------------------
 -- The markup, which must outlive the upload
@@ -289,6 +293,69 @@ select 23, 'a scheduled send refuses last week''s prices',
   case when (public.bulk_start_distribution(
                (select id from gen5), null, 'S', 'B', 'x.pdf', 'scheduled') ->> 'ok') = 'false'
        then 'PASS (skipped)' else 'FAIL — stale prices would go out' end;
+
+-- ---------------------------------------------------------------------------
+-- Stock the shop holds, that the supplier did not quote
+-- ---------------------------------------------------------------------------
+-- The sheet is this week's offer, not a stocktake. A handset on the shelf that
+-- the supplier left out is the one a dealer could have had today, so it has to
+-- reach the list — priced the same way, from the catalogue cost with the
+-- import VAT backed out and put back, never added twice.
+
+create temp table up4 as
+select public.bulk_save_upload(
+  'supplier-quoted-nothing-we-hold.xlsx',
+  jsonb_build_array(
+    jsonb_build_object('display_name','Unrelated 64GB','model','A98','storage_gb',64,
+                       'five_g',false,'description','CHECK A98 64GIG','supplier_cost',1000)
+  )
+) as id;
+grant all on up4 to authenticated;
+
+create temp table gen6 as select public.bulk_generate_list((select id from up4)) as id;
+grant all on gen6 to authenticated;
+
+insert into t
+select 24, 'a handset on the shelf reaches a list that never quoted it',
+  case when count(*) > 0 then 'PASS (' || count(*) || ' added from stock)'
+       else 'FAIL — stock the shop holds was left off' end
+from public.bulk_price_list_items i
+where i.list_id = (select id from gen6)
+  and i.stock_status = 'in_stock'
+  and i.model <> 'A98';
+
+-- The catalogue cost already carries the import VAT. Adding it again would
+-- overprice every one of these by the import rate, so the landed cost must
+-- come back to the catalogue figure exactly.
+-- Backing the import VAT out and putting it back must be a round trip, at
+-- whatever rate Settings carries. Comparing the landed cost to the catalogue
+-- cost directly would only hold while the two rates agree — true in the shop,
+-- but this file pins 17% for the worked example above.
+insert into t
+select 25, 'the import VAT on catalogue stock is applied once, not twice',
+  coalesce(string_agg(
+    case when i.supplier_cost
+              = round(pr.cost_price / (1 + l.import_vat_rate), 2)
+          and i.landed_cost
+              = round(i.supplier_cost + i.supplier_cost * l.import_vat_rate, 2)
+         then null
+         else i.display_name || ': cost ' || pr.cost_price
+              || ' became ' || i.supplier_cost || ' then ' || i.landed_cost end, '; '),
+    'PASS')
+from public.bulk_price_list_items i
+join public.products pr on pr.id = i.product_id
+join public.bulk_price_lists l on l.id = i.list_id
+where i.list_id = (select id from gen6)
+  and i.stock_status = 'in_stock'
+  and i.model <> 'A98';
+
+-- Where the supplier did quote it, their price is this week's and wins.
+insert into t
+select 26, 'a quoted handset keeps the supplier''s cost, not the catalogue''s',
+  case when i.supplier_cost = 1000 then 'PASS'
+       else 'FAIL — got ' || i.supplier_cost end
+from public.bulk_price_list_items i
+where i.list_id = (select id from gen6) and i.model = 'A98';
 
 select n, check_name, result from t order by n;
 

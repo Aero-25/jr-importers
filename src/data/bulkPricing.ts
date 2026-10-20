@@ -330,6 +330,50 @@ export function useRecipients() {
   });
 }
 
+export interface CustomerMatch {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
+/**
+ * Customers whose name or address matches what is being typed.
+ *
+ * The mailing list is mostly people the shop already deals with, and typing
+ * an address that is one character off a customer's means they quietly never
+ * receive anything. Suggesting from the customer book removes the retyping
+ * and the typo at once.
+ *
+ * Only rows with an address are offered — most of the 2,500 customer records
+ * are walk-ins with a phone number and nothing to send to.
+ */
+export function useCustomerSearch(term: string) {
+  const needle = term.trim();
+  return useQuery<CustomerMatch[], Error>({
+    queryKey: key('customer-search', needle.toLowerCase()),
+    enabled: needle.length >= 2,
+    staleTime: 30_000,
+    queryFn: async () => {
+      // PostgREST splits an `or` filter on commas, so a comma in the search
+      // would be read as the end of one condition and the start of another.
+      const safe = needle.replace(/[,()*]/g, ' ').trim();
+      if (safe === '') return [];
+
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, name, email')
+        .or(`name.ilike.%${safe}%,email.ilike.%${safe}%`)
+        .not('email', 'is', null)
+        .limit(8);
+      if (error) throw new Error(error.message);
+
+      return (data ?? [])
+        .filter((row) => (row as { email: string | null }).email)
+        .map((row) => row as unknown as CustomerMatch);
+    },
+  });
+}
+
 export function useSaveRecipient() {
   const qc = useQueryClient();
   return useMutation<void, Error, { id?: number; name: string; email: string; active?: boolean }>({

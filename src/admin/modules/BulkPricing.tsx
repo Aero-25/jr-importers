@@ -16,6 +16,7 @@ import {
   Warehouse,
 } from 'lucide-react';
 import {
+  type CustomerMatch,
   type PriceListItem,
   type StockStatus,
   useApproveList,
@@ -24,6 +25,7 @@ import {
   useBulkSettings,
   useClearMarkup,
   useCurrentList,
+  useCustomerSearch,
   useDeleteRecipient,
   useDeliveries,
   useDistributions,
@@ -668,6 +670,7 @@ function PricingPanel() {
                       five_g: r.five_g,
                       final_price: Number(r.final_price),
                       stock_status: r.stock_status,
+                      stock_qty: r.stock_qty,
                     })),
                     weekStart: current.week_start,
                   });
@@ -912,6 +915,7 @@ function ListsPanel() {
           five_g: r.five_g,
           final_price: Number(r.final_price),
           stock_status: r.stock_status,
+      stock_qty: r.stock_qty,
         })),
         weekStart: list.week_start,
       });
@@ -1045,6 +1049,7 @@ function EmailPanel() {
         five_g: r.five_g,
         final_price: Number(r.final_price),
         stock_status: r.stock_status,
+      stock_qty: r.stock_qty,
       })),
       weekStart: current.week_start,
     });
@@ -1136,19 +1141,29 @@ function EmailPanel() {
         </div>
 
         <div className="mt-4 flex flex-wrap items-end gap-2">
-          <Field label="Name" htmlFor="bulk-recipient-name">
-            <Input
-                  id="bulk-recipient-name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Dealer name" />
-          </Field>
-          <Field label="Email" htmlFor="bulk-recipient-email">
-            <Input
-                  id="bulk-recipient-email"
-              type="email"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              placeholder="buyer@example.com"
-            />
-          </Field>
+          <CustomerPicker
+            label="Name"
+            id="bulk-recipient-name"
+            placeholder="Dealer name"
+            value={newName}
+            onChange={setNewName}
+            onPick={(match) => {
+              setNewName(match.name ?? "");
+              setNewEmail(match.email);
+            }}
+          />
+          <CustomerPicker
+            label="Email"
+            id="bulk-recipient-email"
+            placeholder="buyer@example.com"
+            type="email"
+            value={newEmail}
+            onChange={setNewEmail}
+            onPick={(match) => {
+              setNewName(match.name ?? "");
+              setNewEmail(match.email);
+            }}
+          />
           <Button
             disabled={!newEmail.trim() || saveRecipient.isPending}
             onClick={() =>
@@ -1347,6 +1362,91 @@ function EmailPanel() {
         </div>
       </Modal>
     </section>
+  );
+}
+
+/**
+ * A field that suggests people the shop already deals with.
+ *
+ * The mailing list is mostly existing customers, and an address typed one
+ * character wrong means that dealer quietly never receives anything. Picking
+ * from the customer book fills both fields at once and removes the typo.
+ *
+ * It suggests rather than restricts: a new dealer who is not a customer yet is
+ * a perfectly ordinary thing to type in full.
+ */
+function CustomerPicker({
+  label,
+  id,
+  value,
+  placeholder,
+  type,
+  onChange,
+  onPick,
+}: {
+  label: string;
+  id: string;
+  value: string;
+  placeholder?: string;
+  type?: string;
+  onChange: (value: string) => void;
+  onPick: (match: CustomerMatch) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const matches = useCustomerSearch(open ? value : '');
+  const found = matches.data ?? [];
+
+  return (
+    <Field label={label} htmlFor={id} className="relative">
+      <Input
+        id={id}
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        role="combobox"
+        aria-expanded={open && found.length > 0}
+        aria-autocomplete="list"
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        // A click on a suggestion blurs the field first, so closing is
+        // deferred past the click that would otherwise never land.
+        onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') setOpen(false);
+        }}
+      />
+
+      {open && found.length > 0 && (
+        <ul
+          role="listbox"
+          aria-label={`Customers matching ${value}`}
+          className="absolute z-20 mt-1 max-h-60 w-72 overflow-y-auto rounded-xl border border-hairline bg-surface shadow-lg"
+        >
+          {found.map((match) => (
+            <li key={match.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={false}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onPick(match);
+                  setOpen(false);
+                }}
+                className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-raised"
+              >
+                <span className="text-sm font-medium text-ink">{match.name ?? match.email}</span>
+                {match.name && <span className="text-xs text-ink-subtle">{match.email}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Field>
   );
 }
 

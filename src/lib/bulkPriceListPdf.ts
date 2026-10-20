@@ -34,6 +34,12 @@ export interface CustomerPriceLine {
   five_g: boolean;
   final_price: number;
   stock_status: StockStatus;
+  /**
+   * How many are on the shelf. Not a cost, so it may be shown: the question a
+   * dealer actually has is whether the shop can hand one over today, and
+   * "four" answers that better than "yes".
+   */
+  stock_qty: number;
 }
 
 export interface CustomerPdfOptions {
@@ -132,7 +138,8 @@ export async function buildCustomerPdf(options: CustomerPdfOptions): Promise<Blo
   doc.setFontSize(8.4);
   doc.setTextColor(...GREY);
   doc.text(
-    'Prices include 15% VAT and are quoted in Namibian dollars. Rows shaded green are in stock today.',
+    'Prices include 15% VAT and are quoted in Namibian dollars. Rows shaded green are in stock'
+      + ' today, and the tag is how many we hold.',
     left,
     y,
   );
@@ -176,7 +183,23 @@ export async function buildCustomerPdf(options: CustomerPdfOptions): Promise<Blo
     } else {
       doc.setTextColor(...GREY);
     }
-    doc.text(STATUS_LABEL[line.stock_status], columns.status, y);
+    const status = STATUS_LABEL[line.stock_status];
+    doc.text(status, columns.status, y);
+
+    // A small tag with the count. Only where there is stock: on an "on order"
+    // line the number would always be nought, which reads as a correction
+    // rather than as information.
+    if (inStock && line.stock_qty > 0) {
+      const count = String(line.stock_qty);
+      const tagX = columns.status + doc.getTextWidth(status) + 1.8;
+      const tagW = Math.max(4.6, doc.getTextWidth(count) + 3.2);
+      doc.setFillColor(...BRAND_GREEN);
+      doc.roundedRect(tagX, y - 3.2, tagW, 4.4, 1.1, 1.1, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(7);
+      doc.text(count, tagX + tagW / 2, y - 0.1, { align: 'center' });
+      doc.setFontSize(8.6);
+    }
 
     doc.setTextColor(...INK);
     doc.setFont('helvetica', 'bold');

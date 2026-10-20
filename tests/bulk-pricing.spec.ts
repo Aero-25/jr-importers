@@ -121,6 +121,18 @@ async function mockConsole(page: Page) {
     }
     if (tail === 'bulk_price_lists') return reply([LIST]);
     if (tail === 'bulk_price_list_items') return reply(ITEMS);
+    if (tail === 'customers') {
+      // searchParams.get already decodes; decoding again chokes on the %
+      // wildcards PostgREST uses for ilike.
+      const match = (url.searchParams.get('or') ?? '').toLowerCase();
+      const all = [
+        { id: 'c1', name: 'Coastal Cellular', email: 'buyer@coastal.na' },
+        { id: 'c2', name: 'Swakop Phones', email: 'orders@swakopphones.na' },
+        { id: 'c3', name: 'Namib Mills (PTY) LTD', email: 'wwalters@namibmills.com.na' },
+      ];
+      return reply(all.filter((c) =>
+        match.includes(c.name.toLowerCase().slice(0, 4)) || match.includes(c.email.slice(0, 4))));
+    }
     if (tail === 'bulk_recipients') {
       return reply([
         { id: 1, name: 'Coastal Cellular', email: 'buyer@coastal.na', active: true, opted_out_at: null, notes: null },
@@ -248,6 +260,27 @@ test('the pricing table shows the full build-up and sends the markup to the serv
   await expect.poll(() => rpcCalls.some((c) => c.name === 'bulk_recalculate')).toBe(true);
 });
 
+test('recipients can be picked from the customers the shop already has', async ({ page }) => {
+  await mockConsole(page);
+  await page.goto('/admin/#/bulk-pricing');
+  await tabs(page).getByRole('button', { name: 'Email distribution' }).click();
+
+  // Typing a name offers matching customers.
+  await page.getByLabel('Name', { exact: true }).fill('Coas');
+  const option = page.getByRole('option', { name: /Coastal Cellular/ });
+  await expect(option).toBeVisible();
+
+  // Picking one fills both fields, so the address is never retyped.
+  await option.click();
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Coastal Cellular');
+  await expect(page.getByLabel('Email', { exact: true })).toHaveValue('buyer@coastal.na');
+
+  // A dealer who is not a customer yet can still be typed in full.
+  await page.getByLabel('Name', { exact: true }).fill('Brand New Dealer');
+  await page.getByLabel('Email', { exact: true }).fill('new@dealer.na');
+  await expect(page.getByRole('button', { name: 'Add', exact: true })).toBeEnabled();
+});
+
 test('the customer attachment carries retail prices and no costs at all', async ({ page }) => {
   await mockConsole(page);
   await page.goto('/admin/#/bulk-pricing');
@@ -274,6 +307,16 @@ test('the customer attachment carries retail prices and no costs at all', async 
   for (const secret of ['1,625.00', '1625', '276.25', '1,901.25', '2,319.53', '19,995']) {
     expect(pdf, `the customer PDF must not contain ${secret}`).not.toContain(secret);
   }
+  // The small tag that says how many are on the shelf.
+  expect(pdf).toContain('the tag is how many we hold');
+
+  // Nor anything identifying where the shop buys. The supplier's name and the
+  // file it came in are on the upload record; neither belongs in a customer's
+  // hands.
+  for (const secret of ['Active Cellular', 'activecellular', 'EXPORT', 'LOCAL', 'GIG']) {
+    expect(pdf, `the customer PDF must not mention ${secret}`).not.toContain(secret);
+  }
+
   expect(pdf.toLowerCase()).not.toContain('markup');
   expect(pdf.toLowerCase()).not.toContain('supplier cost');
   expect(pdf.toLowerCase()).not.toContain('landed');
