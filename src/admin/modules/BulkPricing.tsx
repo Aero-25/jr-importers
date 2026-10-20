@@ -18,6 +18,7 @@ import {
 import {
   type CustomerMatch,
   type PriceListItem,
+  type PriceListRow,
   type StockStatus,
   useApproveList,
   useBulkDashboard,
@@ -40,6 +41,8 @@ import {
   useSaveUpload,
   useSendPriceList,
   useSetMarkup,
+  useShopPricePreview,
+  useApplyShopPrices,
 } from '@/data/bulkPricing';
 import {
   describeHandset,
@@ -800,6 +803,8 @@ function PricingPanel({ brand }: { brand: Brand }) {
         A markup you set here is remembered for next week&rsquo;s upload.
       </p>
 
+      <ShopPricePanel list={current} />
+
       <div className="overflow-x-auto rounded-2xl border border-hairline">
         <table className="w-full text-sm">
           <thead className="bg-raised text-left text-2xs uppercase tracking-[0.12em] text-ink-subtle">
@@ -851,6 +856,105 @@ function PricingPanel({ brand }: { brand: Brand }) {
         </table>
       </div>
     </section>
+  );
+}
+
+/**
+ * What the shop's own prices would become if the dealer list set them.
+ *
+ * The dealer list is the better price; the shop's should sit above it by a set
+ * margin. Nothing is written until the button is pressed — this module was
+ * built on the rule that these prices never reach the shop, and changing that
+ * is a decision to take deliberately rather than one to discover afterwards.
+ */
+function ShopPricePanel({ list }: { list: PriceListRow }) {
+  const preview = useShopPricePreview(list.id);
+  const apply = useApplyShopPrices();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+
+  // Defensive: a surprising payload must not take the whole pricing tab down
+  // with it — the table below this panel is the screen's actual job.
+  const all = Array.isArray(preview.data) ? preview.data : [];
+  const rows = all.filter((r) => Number(r.change) !== 0);
+  if (list.pricing_mode !== 'calculated') return null;
+  if (preview.isLoading) return <Skeleton className="h-24" />;
+
+  const down = rows.filter((r) => Number(r.change) < 0);
+
+  return (
+    <div className="rounded-2xl border border-hairline bg-surface p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-ink">The shop&rsquo;s own prices</h3>
+          <p className="mt-0.5 text-xs text-ink-subtle">
+            {rows.length === 0
+              ? 'Every shop price already sits where the dealer list puts it.'
+              : `${rows.length} of ${all.length} would change. Nothing is written until you press the button.`}
+          </p>
+        </div>
+        {rows.length > 0 && (
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setOpen((v) => !v)}>
+              {open ? 'Hide' : 'Show me'}
+            </Button>
+            <Button
+              disabled={apply.isPending}
+              onClick={() =>
+                apply.mutate(list.id, {
+                  onSuccess: (r) => toast.success('Shop prices updated', r.message),
+                  onError: (e) => toast.error(e.message),
+                })
+              }
+            >
+              {apply.isPending ? 'Applying…' : `Apply to ${rows.length} shop price${rows.length === 1 ? '' : 's'}`}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {down.length > 0 && (
+        <Notice tone="warn" className="mt-3">
+          {down.length} of these would go <strong>down</strong> — the dealer price has fallen
+          below what the shop is charging. Worth a look before applying.
+        </Notice>
+      )}
+
+      {open && rows.length > 0 && (
+        <div className="mt-3 overflow-x-auto rounded-xl border border-hairline">
+          <table className="w-full text-sm">
+            <thead className="bg-raised text-left text-2xs uppercase tracking-[0.12em] text-ink-subtle">
+              <tr>
+                <th className="px-4 py-2">Handset</th>
+                <th className="px-3 py-2 text-right">Dealer</th>
+                <th className="px-3 py-2 text-right">Shop now</th>
+                <th className="px-3 py-2 text-right">Would be</th>
+                <th className="px-3 py-2 text-right">Change</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-hairline/70">
+              {rows.map((r) => (
+                <tr key={r.product_id}>
+                  <td className="px-4 py-2 text-ink">{r.display_name}</td>
+                  <td className="tabular px-3 py-2 text-right text-ink-muted">{money(r.dealer_price)}</td>
+                  <td className="tabular px-3 py-2 text-right text-ink-muted">{money(r.shop_price)}</td>
+                  <td className="tabular px-3 py-2 text-right font-semibold text-ink">{money(r.target_price)}</td>
+                  <td
+                    className={cn(
+                      'tabular px-3 py-2 text-right font-medium',
+                      Number(r.change) < 0 ? 'text-danger' : 'text-ink-muted',
+                    )}
+                  >
+                    {Number(r.change) > 0 ? '+' : ''}
+                    {money(r.change)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -1031,6 +1031,18 @@ export type Database = {
         Returns: Json;
       };
       bulk_retry_failed: { Args: { p_distribution_id: number }; Returns: number };
+      bulk_shop_price_preview: {
+        Args: { p_list_id: number };
+        Returns: Array<{
+          product_id: number;
+          display_name: string;
+          dealer_price: number;
+          shop_price: number;
+          target_price: number;
+          change: number;
+        }>;
+      };
+      bulk_apply_shop_prices: { Args: { p_list_id: number }; Returns: Json };
       /**
        * The colours a shopper can pick, without publishing the IMEI beside
        * them; see 20261015010000.

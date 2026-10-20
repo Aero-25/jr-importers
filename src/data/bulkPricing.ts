@@ -315,6 +315,61 @@ export function useBulkSetMarkups() {
  * browser — so the copy that goes out automatically has to exist before then.
  * Approval is the moment the prices are settled, so that is when it is written.
  */
+export interface ShopPriceTarget {
+  product_id: number;
+  display_name: string;
+  dealer_price: number;
+  shop_price: number;
+  target_price: number;
+  change: number;
+}
+
+/**
+ * What each shop price would become if the dealer list set it.
+ *
+ * The dealer list is the better price, and the shop's own should sit a set
+ * percentage above it. This only previews: nothing is written until
+ * useApplyShopPrices is called, because the module was built on the rule that
+ * these prices never touch the shop and reversing that is a decision somebody
+ * should make on purpose.
+ *
+ * Empty for a shop-price list — Ulefone's dealer price is read from
+ * products.price, so raising the shop price would raise the dealer price with
+ * it, week after week.
+ */
+export function useShopPricePreview(listId: number | null | undefined) {
+  return useQuery<ShopPriceTarget[], Error>({
+    queryKey: key('shop-price-preview', listId ?? 0),
+    enabled: Boolean(listId),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('bulk_shop_price_preview', {
+        p_list_id: listId!,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as ShopPriceTarget[];
+    },
+  });
+}
+
+export function useApplyShopPrices() {
+  const qc = useQueryClient();
+  return useMutation<{ updated: number; message: string }, Error, number>({
+    mutationFn: async (listId) => {
+      const { data, error } = await supabase.rpc('bulk_apply_shop_prices', {
+        p_list_id: listId,
+      });
+      if (error) throw new Error(error.message);
+      const reply = data as unknown as { ok: boolean; updated?: number; message?: string };
+      if (!reply?.ok) fail(reply?.message ?? 'The shop prices could not be updated.');
+      return { updated: reply.updated ?? 0, message: reply.message ?? '' };
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: BULK });
+      void qc.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+}
+
 export function useApproveList() {
   const qc = useQueryClient();
   return useMutation<void, Error, { listId: number; weekStart: string; pdf: Blob }>({

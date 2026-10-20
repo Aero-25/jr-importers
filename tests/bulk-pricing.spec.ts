@@ -101,6 +101,13 @@ async function mockConsole(page: Page) {
           markups_overridden: 0,
         } });
       }
+      // Returns a table, not an object — the pricing tab maps over it.
+      if (tail === 'bulk_shop_price_preview') {
+        return route.fulfill({ json: [
+          { product_id: 11, display_name: 'Samsung Galaxy A06 64GB',
+            dealer_price: 2667.46, shop_price: 2500, target_price: 2750, change: 250 },
+        ] });
+      }
       if (tail === 'bulk_save_upload') return route.fulfill({ json: 301 });
       if (tail === 'bulk_generate_list' || tail === 'bulk_recalculate') return route.fulfill({ json: 501 });
       return route.fulfill({ json: { ok: true } });
