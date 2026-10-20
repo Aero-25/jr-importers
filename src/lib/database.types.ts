@@ -1049,7 +1049,12 @@ export type Database = {
       };
       /** Raises a CRN credit note against an invoice. Invoices are never deleted. */
       credit_invoice: {
-        Args: { p_invoice_id: number; p_reason?: string | null };
+        Args: {
+          p_invoice_id: number;
+          p_reason?: string | null;
+          /** [{ imei: the handset credited, replacement_imei: the one given }] */
+          p_replacements?: Json;
+        };
         Returns: Json;
       };
       /** Releases reservations older than the 30-minute hold; returns the count. */

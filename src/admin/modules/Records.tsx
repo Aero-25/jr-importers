@@ -41,6 +41,7 @@ import {
 } from '@/ui';
 import { ImeiChooser, useAvailableUnits } from '../components/ImeiChooser';
 import { ModuleHeader } from '../components/AdminShell';
+import { CreditInvoiceDialog } from '../components/CreditInvoiceDialog';
 import { StaffLogin } from '../components/StaffLogin';
 import { PdfActions } from '../components/PdfActions';
 import { RECORD_SPECS, type FieldSpec, type RecordSpec } from './recordSpecs';
@@ -271,37 +272,6 @@ function RecordDialog({
   const isNew = record === 'new';
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmCredit, setConfirmCredit] = useState(false);
-  const [crediting, setCrediting] = useState(false);
-
-  /**
-   * Credits an invoice: a CRN document carrying the same lines at negative
-   * value, pointing at the invoice it reverses. An invoice is never deleted
-   * — it is numbered out of a gapless series and the VAT return is built
-   * from it — so this is the way back from one raised in error.
-   */
-  async function creditInvoice() {
-    if (isNew) return;
-    setCrediting(true);
-    try {
-      const { data, error } = await supabase.rpc('credit_invoice', {
-        p_invoice_id: (record as AnyRow).id as number,
-        p_reason: null,
-      });
-      if (error) throw new Error(error.message);
-      const result = data as { ok?: boolean; message?: string } | null;
-      if (!result?.ok) throw new Error(result?.message ?? 'The credit note could not be raised.');
-      toast.success('Credit note raised', result.message);
-      void qc.invalidateQueries({ queryKey: keys.table('invoices') });
-      void qc.invalidateQueries({ queryKey: keys.table('orders') });
-      void qc.invalidateQueries({ queryKey: keys.table('products') });
-      onClose();
-    } catch (error) {
-      toast.error('Could not credit the invoice', error instanceof Error ? error.message : undefined);
-    } finally {
-      setCrediting(false);
-      setConfirmCredit(false);
-    }
-  }
 
   // Document lines, for specs that carry them. Prices are VAT-inclusive, so
   // the money fields are derived here and never typed.
@@ -512,7 +482,6 @@ function RecordDialog({
                 <Button
                   variant="danger"
                   className="mr-auto"
-                  loading={crediting}
                   onClick={() => setConfirmCredit(true)}
                 >
                   Credit this invoice
@@ -605,14 +574,22 @@ function RecordDialog({
         loading={remove.isPending}
       />
 
-      <ConfirmDialog
+      <CreditInvoiceDialog
         open={confirmCredit}
+        invoice={isNew ? null : (record as unknown as {
+          id: number;
+          invoice_number?: string | null;
+          items?: unknown;
+        })}
         onClose={() => setConfirmCredit(false)}
-        onConfirm={() => void creditInvoice()}
-        title="Credit this invoice?"
-        message="A credit note is raised against it, carrying the same lines at negative value. Both documents stay on the record and the pair nets to nothing. If this was a counter sale, the stock comes back and the sale is cancelled."
-        confirmLabel="Raise the credit note"
-        loading={crediting}
+        onCredited={(message) => {
+          toast.success('Credit note raised', message);
+          void qc.invalidateQueries({ queryKey: keys.table('invoices') });
+          void qc.invalidateQueries({ queryKey: keys.table('orders') });
+          void qc.invalidateQueries({ queryKey: keys.table('products') });
+          void qc.invalidateQueries({ queryKey: keys.table('product_imeis') });
+          onClose();
+        }}
       />
     </>
   );

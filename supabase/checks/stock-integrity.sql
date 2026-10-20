@@ -86,6 +86,142 @@ select n, check_name, result from t order by n;
 rollback;
 
 -- ---------------------------------------------------------------------------
+-- Crediting, and the handset that goes out in its place
+-- ---------------------------------------------------------------------------
+-- The shop replaces rather than refunds, so a credit note is usually the start
+-- of a second handset leaving the counter. The credit must not be refused for
+-- naming a handset that is already sold, must not put that handset back on the
+-- shelf, and must take whatever was handed over instead.
+begin;
+create temp table t(n int, check_name text, result text);
+grant all on t to authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"d235f065-753e-4ad2-a677-2380752624a9","email":"info@jrimporters.com","role":"authenticated"}',
+  true);
+
+-- A product with at least three handsets on the shelf: one to sell, one to
+-- give as a replacement, one left over.
+create temp table scene as
+select pr.id as product_id,
+       (array(select imei from public.product_imeis
+               where product_id = pr.id and status = 'available' order by id))[1] as sold_a,
+       (array(select imei from public.product_imeis
+               where product_id = pr.id and status = 'available' order by id))[2] as sold_b,
+       (array(select imei from public.product_imeis
+               where product_id = pr.id and status = 'available' order by id))[3] as spare,
+       (array(select imei from public.product_imeis
+               where product_id = pr.id and status = 'available' order by id))[4] as fourth
+from public.products pr
+where pr.active and private.is_samsung_phone(pr.name)
+  and (select count(*) from public.product_imeis i
+        where i.product_id = pr.id and i.status = 'available') >= 4
+limit 1;
+grant all on scene to authenticated;
+
+insert into public.invoices (invoice_number, customer_name, doc_type, status, charge_vat,
+                             subtotal_amount, vat_amount, total_amount, items)
+select 'CHECK-SALE-A', 'Check', 'invoice', 'paid', true, 100, 15, 115,
+       jsonb_build_array(jsonb_build_object('product_id', s.product_id, 'name', 'Check handset',
+                                            'quantity', 1, 'price', 115, 'imei', s.sold_a))
+from scene s;
+
+insert into public.invoices (invoice_number, customer_name, doc_type, status, charge_vat,
+                             subtotal_amount, vat_amount, total_amount, items)
+select 'CHECK-SALE-B', 'Check', 'invoice', 'paid', true, 100, 15, 115,
+       jsonb_build_array(jsonb_build_object('product_id', s.product_id, 'name', 'Check handset',
+                                            'quantity', 1, 'price', 115, 'imei', s.sold_b))
+from scene s;
+
+-- 1. Crediting must work at all. It has been refused since 20261020110000.
+do $$
+declare v jsonb;
+begin
+  v := public.credit_invoice((select id from public.invoices where invoice_number = 'CHECK-SALE-A'));
+  insert into t select 1, 'an invoice can be credited at all',
+    case when (v->>'ok') = 'true' then 'PASS' else 'FAIL — ' || coalesce(v->>'message','?') end;
+exception when others then
+  insert into t select 1, 'an invoice can be credited at all', 'FAIL — ' || left(sqlerrm, 80);
+end $$;
+
+-- 2. The credited handset stays sold: it came back faulty, it is not re-shelved
+--    by the credit note, and naming it does not get the credit note refused.
+insert into t select 2, 'the credited handset is not refused and not re-shelved',
+  case when (select status from public.product_imeis where imei = (select sold_a from scene)) = 'sold'
+       then 'PASS (still sold)'
+       else 'FAIL (now ' || (select status from public.product_imeis where imei = (select sold_a from scene)) || ')' end;
+
+-- 3. A replacement named on the credit goes out, and is recorded.
+do $$
+declare v jsonb;
+begin
+  v := public.credit_invoice(
+         (select id from public.invoices where invoice_number = 'CHECK-SALE-B'),
+         'Faulty screen',
+         jsonb_build_array(jsonb_build_object('imei', (select sold_b from scene),
+                                              'replacement_imei', (select spare from scene))));
+  insert into t select 3, 'a replacement can be named when crediting',
+    case when (v->>'ok') = 'true' and (v->>'replacements') = '1' then 'PASS'
+         else 'FAIL — ' || coalesce(v->>'message','?') end;
+exception when others then
+  insert into t select 3, 'a replacement can be named when crediting', 'FAIL — ' || left(sqlerrm, 80);
+end $$;
+
+insert into t select 4, 'the replacement handset comes off the shelf',
+  case when (select status from public.product_imeis where imei = (select spare from scene)) = 'sold'
+       then 'PASS (taken)'
+       else 'FAIL (still ' || (select status from public.product_imeis where imei = (select spare from scene)) || ')' end;
+
+insert into t select 5, 'and a movement says which credit note took it',
+  coalesce((select 'PASS (' || left(m.notes, 44) || '…)'
+            from public.stock_movements m
+            where m.reference_type = 'credit_note'
+              and m.notes like '%' || (select sold_b from scene) || '%'
+            order by m.id desc limit 1),
+           'FAIL — no movement recorded');
+
+-- 6. A replacement keyed to a handset this invoice never sold.
+do $$
+declare v jsonb;
+begin
+  insert into public.invoices (invoice_number, customer_name, doc_type, status, charge_vat,
+                               subtotal_amount, vat_amount, total_amount, items)
+  select 'CHECK-SALE-C', 'Check', 'invoice', 'paid', true, 100, 15, 115,
+         jsonb_build_array(jsonb_build_object('product_id', s.product_id, 'name', 'Check handset',
+                                              'quantity', 1, 'price', 115, 'imei', s.fourth))
+  from scene s;
+
+  v := public.credit_invoice(
+         (select id from public.invoices where invoice_number = 'CHECK-SALE-C'),
+         null,
+         jsonb_build_array(jsonb_build_object('imei', 'A-HANDSET-NOT-ON-THIS-INVOICE',
+                                              'replacement_imei', 'ANYTHING')));
+  insert into t select 6, 'a replacement keyed to the wrong handset',
+    case when (v->>'ok') = 'false' then 'PASS (' || left(v->>'message', 44) || '…)'
+         else 'FAIL (accepted and dropped in silence)' end;
+exception when others then
+  insert into t select 6, 'a replacement keyed to the wrong handset', 'PASS (' || left(sqlerrm, 44) || '…)';
+end $$;
+
+-- 7. A replacement that is named correctly but is not on the shelf.
+do $$
+declare v jsonb;
+begin
+  v := public.credit_invoice(
+         (select id from public.invoices where invoice_number = 'CHECK-SALE-C'),
+         null,
+         jsonb_build_array(jsonb_build_object('imei', (select fourth from scene),
+                                              'replacement_imei', 'NOT-A-REAL-HANDSET')));
+  insert into t select 7, 'a replacement that is not in stock',
+    case when (v->>'ok') = 'false' then 'PASS' else 'FAIL (allowed)' end;
+exception when others then
+  insert into t select 7, 'a replacement that is not in stock', 'PASS (' || left(sqlerrm, 44) || '…)';
+end $$;
+
+select n, check_name, result from t order by n;
+rollback;
+
+
+-- ---------------------------------------------------------------------------
 -- Live audits. These read the real data; run them after a stocktake.
 -- ---------------------------------------------------------------------------
 
