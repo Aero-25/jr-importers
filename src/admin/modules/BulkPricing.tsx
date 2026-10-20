@@ -27,6 +27,7 @@ import {
   useCurrentList,
   useCustomerSearch,
   useDeleteRecipient,
+  useGenerateCatalogueList,
   useDeliveries,
   useDistributions,
   useImportRecipients,
@@ -116,8 +117,20 @@ function downloadBlob(blob: Blob, fileName: string): void {
  *     upload arrives with new costs and keeps every markup that was set by
  *     hand; a handset nobody has priced yet takes the default.
  */
+/**
+ * The brands the shop sends a dealer list for.
+ *
+ * Samsung is priced forward from a supplier's weekly sheet. Ulefone is bought
+ * direct, carries no import VAT, and is quoted at the shop’s own online price
+ * — so it has no supplier file and no markup to set. Each brand keeps its own
+ * live list for the week, and approving one never supersedes the other.
+ */
+const BRANDS = ['Samsung', 'Ulefone'] as const;
+type Brand = (typeof BRANDS)[number];
+
 export default function BulkPricing() {
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [brand, setBrand] = useState<Brand>('Samsung');
 
   return (
     <>
@@ -127,6 +140,28 @@ export default function BulkPricing() {
       />
 
       <div className="space-y-5 p-6">
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Brand">
+          <span className="text-2xs font-bold uppercase tracking-[0.14em] text-ink-subtle">
+            Price list for
+          </span>
+          {BRANDS.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => setBrand(name)}
+              aria-pressed={brand === name}
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors',
+                brand === name
+                  ? 'bg-ink text-white'
+                  : 'border border-hairline text-ink-muted hover:bg-raised',
+              )}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+
         <nav className="flex flex-wrap gap-1.5" aria-label="Bulk pricing">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
@@ -147,12 +182,17 @@ export default function BulkPricing() {
           ))}
         </nav>
 
-        {tab === 'dashboard' && <DashboardPanel onGo={setTab} />}
-        {tab === 'upload' && <UploadPanel onDone={() => setTab('pricing')} />}
-        {tab === 'pricing' && <PricingPanel />}
-        {tab === 'stock' && <StockPanel />}
+        {tab === 'dashboard' && <DashboardPanel brand={brand} onGo={setTab} />}
+        {tab === 'upload' &&
+          (brand === 'Samsung' ? (
+            <UploadPanel brand={brand} onDone={() => setTab('pricing')} />
+          ) : (
+            <CataloguePanel brand={brand} onDone={() => setTab('pricing')} />
+          ))}
+        {tab === 'pricing' && <PricingPanel brand={brand} />}
+        {tab === 'stock' && <StockPanel brand={brand} />}
         {tab === 'lists' && <ListsPanel />}
-        {tab === 'email' && <EmailPanel />}
+        {tab === 'email' && <EmailPanel brand={brand} />}
         {tab === 'settings' && <SettingsPanel />}
       </div>
     </>
@@ -161,13 +201,16 @@ export default function BulkPricing() {
 
 /* ── Dashboard ───────────────────────────────────────────────────────────── */
 
-function DashboardPanel({ onGo }: { onGo: (tab: Tab) => void }) {
+function DashboardPanel({ brand, onGo }: { brand: Brand; onGo: (tab: Tab) => void }) {
   const { data, isLoading } = useBulkDashboard();
+  // The dashboard RPC reports the newest list of any brand; the tiles below
+  // are about the brand on screen, so they read that directly.
+  const { current } = useCurrentList(brand);
 
   if (isLoading || !data) return <Skeleton className="h-64" />;
 
-  const list = data.latest_list;
-  const stale = list ? !list.current_week : false;
+  const list = current;
+  const stale = list ? list.week_start !== data.this_week : false;
 
   return (
     <section className="space-y-4">
@@ -179,7 +222,7 @@ function DashboardPanel({ onGo }: { onGo: (tab: Tab) => void }) {
 
       {list && stale && (
         <Notice tone="warn">
-          The newest price list is for the week of {formatDate(list.week)}, not this week. A
+          The newest price list is for the week of {formatDate(list.week_start)}, not this week. A
           scheduled send will be skipped rather than post last week&rsquo;s prices.
         </Notice>
       )}
@@ -193,17 +236,17 @@ function DashboardPanel({ onGo }: { onGo: (tab: Tab) => void }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           label="Handsets priced"
-          value={list ? String(list.products) : '—'}
-          sub={list ? `Week of ${formatDate(list.week)}` : 'No list yet'}
+          value={list ? String(list.product_count) : '—'}
+          sub={list ? `Week of ${formatDate(list.week_start)}` : 'No list yet'}
         />
         <StatTile
           label="In stock"
-          value={list ? String(list.in_stock) : '—'}
+          value={list ? String(list.in_stock_count) : '—'}
           sub="Shaded green on the customer list"
         />
         <StatTile
           label="On order"
-          value={list ? String(list.on_order) : '—'}
+          value={list ? String(list.on_order_count) : '—'}
           sub="Not shaded — we bring it in"
         />
         <StatTile
@@ -287,7 +330,56 @@ const Figure = ({ label, children }: { label: string; children: React.ReactNode 
 
 /* ── Upload ──────────────────────────────────────────────────────────────── */
 
-function UploadPanel({ onDone }: { onDone: () => void }) {
+/**
+ * Ulefone has no supplier sheet to upload: the shop buys direct and quotes its
+ * own online price, so the list is built from the catalogue instead.
+ */
+function CataloguePanel({ brand, onDone }: { brand: Brand; onDone: () => void }) {
+  const build = useGenerateCatalogueList();
+  const { current } = useCurrentList(brand);
+  const toast = useToast();
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-2xl border border-hairline bg-surface p-5">
+        <h3 className="text-sm font-semibold text-ink">Build this week&rsquo;s {brand} list</h3>
+        <p className="mt-1 text-sm text-ink-subtle">
+          {brand} is bought direct and carries no import VAT, so there is no supplier file and
+          no markup to set. The dealer price is the shop&rsquo;s own online price, taken exactly
+          as it stands &mdash; phones and tablets listed on the shop.
+        </p>
+
+        {current && (
+          <p className="mt-3 text-xs text-ink-subtle">
+            The current list is from {formatDate(current.created_at)} with {current.product_count}{' '}
+            lines. Building again replaces it while it is still a draft.
+          </p>
+        )}
+
+        <Button
+          className="mt-4"
+          disabled={build.isPending}
+          onClick={() =>
+            build.mutate(
+              { brand },
+              {
+                onSuccess: () => {
+                  toast.success(`${brand} price list built from the catalogue.`);
+                  onDone();
+                },
+                onError: (e) => toast.error(e.message),
+              },
+            )
+          }
+        >
+          {build.isPending ? 'Building…' : `Build the ${brand} list`}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function UploadPanel({ brand, onDone }: { brand: Brand; onDone: () => void }) {
   const [parsed, setParsed] = useState<ParsedSupplierList | null>(null);
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -378,9 +470,9 @@ function UploadPanel({ onDone }: { onDone: () => void }) {
   return (
     <section className="space-y-4">
       <div className="rounded-2xl border border-hairline bg-surface p-5">
-        <h3 className="text-sm font-semibold text-ink">Upload this week&rsquo;s supplier file</h3>
+        <h3 className="text-sm font-semibold text-ink">Upload this week&rsquo;s {brand} supplier file</h3>
         <p className="mt-1 text-sm text-ink-subtle">
-          Excel (.xlsx) or CSV. The Samsung phones are picked out automatically — tablets and other
+          Excel (.xlsx) or CSV. The {brand} phones are picked out automatically — tablets and other
           brands are left behind.
         </p>
 
@@ -575,8 +667,8 @@ function UploadPanel({ onDone }: { onDone: () => void }) {
 
 /* ── Pricing & markups ───────────────────────────────────────────────────── */
 
-function PricingPanel() {
-  const { current, isLoading } = useCurrentList();
+function PricingPanel({ brand }: { brand: Brand }) {
+  const { current, isLoading } = useCurrentList(brand);
   const items = usePriceListItems(current?.id);
   const setMarkup = useSetMarkup();
   const clearMarkup = useClearMarkup();
@@ -673,6 +765,7 @@ function PricingPanel() {
                       stock_qty: r.stock_qty,
                     })),
                     weekStart: current.week_start,
+                    brand,
                   });
                   approve.mutate(
                     { listId: current.id, weekStart: current.week_start, pdf },
@@ -692,6 +785,14 @@ function PricingPanel() {
           )}
         </div>
       </div>
+
+      {current.pricing_mode === 'shop_price' ? (
+        <Notice tone="info">
+          These are quoted at the shop&rsquo;s own online price, so there is no markup to set — the
+          price came first and the margin shown is worked back from it. Change a price on the
+          product itself and rebuild the list.
+        </Notice>
+      ) : null}
 
       <p className="text-xs text-ink-subtle">
         Supplier cost + {(Number(current.import_vat_rate) * 100).toFixed(1)}% import VAT, then the
@@ -722,6 +823,7 @@ function PricingPanel() {
                 row={row}
                 listId={current.id}
                 defaultMarkup={defaultMarkup}
+                readOnly={current.pricing_mode === 'shop_price'}
                 selected={selected.has(row.variant_key)}
                 onSelect={(on) =>
                   setSelected((prev) => {
@@ -756,6 +858,7 @@ function MarkupRow({
   row,
   listId: _listId,
   defaultMarkup,
+  readOnly,
   selected,
   onSelect,
   onSave,
@@ -764,6 +867,7 @@ function MarkupRow({
   row: PriceListItem;
   listId: number;
   defaultMarkup: number;
+  readOnly: boolean;
   selected: boolean;
   onSelect: (on: boolean) => void;
   onSave: (markup: number) => void;
@@ -775,7 +879,7 @@ function MarkupRow({
   // follows it rather than holding a stale edit.
   useEffect(() => setDraft(String(Number(row.markup_pct))), [row.markup_pct]);
 
-  const overridden = Math.abs(Number(row.markup_pct) - defaultMarkup) > 0.0005;
+  const overridden = !readOnly && Math.abs(Number(row.markup_pct) - defaultMarkup) > 0.0005;
   const commit = () => {
     const value = Number(draft);
     if (!Number.isFinite(value) || value < 0 || value > 500) {
@@ -805,7 +909,8 @@ function MarkupRow({
             min={0}
             max={500}
             step={0.5}
-            value={draft}
+            disabled={readOnly}
+            value={readOnly ? Number(row.markup_pct).toFixed(1) : draft}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commit}
             onKeyDown={(e) => {
@@ -842,8 +947,8 @@ function MarkupRow({
 
 /* ── Stock availability ──────────────────────────────────────────────────── */
 
-function StockPanel() {
-  const { current } = useCurrentList();
+function StockPanel({ brand }: { brand: Brand }) {
+  const { current } = useCurrentList(brand);
   const items = usePriceListItems(current?.id);
 
   if (!current) return <Notice tone="info">Nothing priced yet.</Notice>;
@@ -1005,8 +1110,8 @@ function ListsPanel() {
 
 /* ── Email distribution ──────────────────────────────────────────────────── */
 
-function EmailPanel() {
-  const { current } = useCurrentList();
+function EmailPanel({ brand }: { brand: Brand }) {
+  const { current } = useCurrentList(brand);
   const items = usePriceListItems(current?.id);
   const recipients = useRecipients();
   const settings = useBulkSettings();
@@ -1052,6 +1157,7 @@ function EmailPanel() {
       stock_qty: r.stock_qty,
       })),
       weekStart: current.week_start,
+                    brand,
     });
   };
 
@@ -1094,7 +1200,7 @@ function EmailPanel() {
                     subject,
                     body,
                     pdf,
-                    fileName: priceListFileName(current!.week_start),
+                    fileName: priceListFileName(current!.week_start, brand),
                   },
                   {
                     onSuccess: (r) =>
@@ -1117,7 +1223,7 @@ function EmailPanel() {
             disabled={!current}
             onClick={async () => {
               try {
-                downloadBlob(await buildPdf(), priceListFileName(current!.week_start));
+                downloadBlob(await buildPdf(), priceListFileName(current!.week_start, brand));
               } catch (e) {
                 toast.error((e as Error).message);
               }
@@ -1300,7 +1406,7 @@ function EmailPanel() {
                             {
                               distributionId: d.id,
                               pdf,
-                              fileName: priceListFileName(current!.week_start),
+                              fileName: priceListFileName(current!.week_start, brand),
                             },
                             {
                               onSuccess: (n) =>

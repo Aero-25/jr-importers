@@ -48,8 +48,8 @@ export interface CostingWorkbookOptions {
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-export function costingFileName(weekStart: string): string {
-  return `JR_Importers_Internal_Costing_${weekStart}.xlsx`;
+export function costingFileName(weekStart: string, brand = 'Samsung'): string {
+  return `JR_Importers_${brand}_Internal_Costing_${weekStart}.xlsx`;
 }
 
 /* ── Style indices, in the order they are declared in styles.xml ─────────── */

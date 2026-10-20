@@ -249,14 +249,25 @@ where i.list_id = (select id from gen5);
 -- ---------------------------------------------------------------------------
 -- Distribution: one row per recipient, and no second copy on a retry
 -- ---------------------------------------------------------------------------
-insert into public.bulk_recipients (name, email) values
-  ('Check One', 'check-one@example.com'),
-  ('Check Two', 'check-two@example.com');
+-- The shop has real recipients now, so the distribution must be aimed at the
+-- two this file creates rather than at everybody — otherwise the count below
+-- is a count of the live mailing list.
+create temp table checkers(id bigint);
+grant all on checkers to authenticated;
+
+with added as (
+  insert into public.bulk_recipients (name, email) values
+    ('Check One', 'check-one@example.com'),
+    ('Check Two', 'check-two@example.com')
+  returning id
+)
+insert into checkers select id from added;
 
 select public.bulk_approve_list((select id from gen5));
 
 create temp table dist as
-select public.bulk_start_distribution((select id from gen5), null, 'Subject', 'Body', 'x.pdf', 'manual') as reply;
+select public.bulk_start_distribution((select id from gen5),
+       (select array_agg(id) from checkers), 'Subject', 'Body', 'x.pdf', 'manual') as reply;
 grant all on dist to authenticated;
 
 insert into t

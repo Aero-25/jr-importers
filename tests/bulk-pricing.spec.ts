@@ -22,6 +22,9 @@ const A06 = { cost: 1625, retail: 2667.46 };
 const LIST = {
   id: 501,
   upload_id: 301,
+  brand: 'Samsung',
+  pricing_mode: 'calculated',
+  pdf_path: null,
   week_start: '2026-10-19',
   import_vat_rate: 0.17,
   sales_vat_rate: 0.15,
@@ -291,7 +294,7 @@ test('the customer attachment carries retail prices and no costs at all', async 
     page.getByRole('button', { name: 'Preview the attachment' }).click(),
   ]).then(([d]) => d);
 
-  expect(download.suggestedFilename()).toBe('JR_Importers_Price_List_2026-10-19.pdf');
+  expect(download.suggestedFilename()).toBe('JR_Importers_Samsung_Price_List_2026-10-19.pdf');
 
   const path = await download.path();
   const pdf = readFileSync(path!).toString('latin1');
@@ -334,7 +337,7 @@ test('the costing workbook is a separate download that does carry the costs', as
     page.getByRole('button', { name: 'Costing' }).first().click(),
   ]).then(([d]) => d);
 
-  expect(download.suggestedFilename()).toBe('JR_Importers_Internal_Costing_2026-10-19.xlsx');
+  expect(download.suggestedFilename()).toBe('JR_Importers_Samsung_Internal_Costing_2026-10-19.xlsx');
 
   const bytes = readFileSync((await download.path())!);
   // A real zip, and therefore a real workbook.

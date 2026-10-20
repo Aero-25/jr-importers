@@ -18,8 +18,18 @@ import type { ParsedSupplierList } from '@/lib/supplierPriceList';
 export type StockStatus = 'in_stock' | 'on_order' | 'out_of_stock';
 export type ListStatus = 'draft' | 'approved' | 'sent' | 'superseded';
 
+export type PricingMode = 'calculated' | 'shop_price';
+
 export interface PriceListRow {
   id: number;
+  /** Whose list this is. Each brand has its own live list per week. */
+  brand: string;
+  /**
+   * How the prices were arrived at. 'calculated' walks forward from a supplier
+   * cost through import VAT and a markup; 'shop_price' takes the shop's own
+   * selling price as it stands, so there is no markup to set.
+   */
+  pricing_mode: PricingMode;
   upload_id: number | null;
   week_start: string;
   import_vat_rate: number;
@@ -191,11 +201,33 @@ export function usePriceLists() {
   });
 }
 
-/** The newest list that is not superseded — what the screens work on. */
-export function useCurrentList() {
+/** The newest live list for a brand — what the screens work on. */
+export function useCurrentList(brand: string) {
   const lists = usePriceLists();
-  const current = (lists.data ?? []).find((l) => l.status !== 'superseded') ?? null;
+  const current =
+    (lists.data ?? []).find((l) => l.brand === brand && l.status !== 'superseded') ?? null;
   return { ...lists, current };
+}
+
+/**
+ * Builds a list straight from the catalogue at the shop's own prices.
+ *
+ * Ulefone is bought directly, carries no import VAT, and is quoted to dealers
+ * at the same price a customer sees online — so there is nothing to calculate
+ * and no supplier file to upload.
+ */
+export function useGenerateCatalogueList() {
+  const qc = useQueryClient();
+  return useMutation<number, Error, { brand: string }>({
+    mutationFn: async ({ brand }) => {
+      const { data, error } = await supabase.rpc('bulk_generate_catalogue_list', {
+        p_brand: brand,
+      });
+      if (error) throw new Error(error.message);
+      return data as unknown as number;
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: BULK }),
+  });
 }
 
 export function usePriceListItems(listId: number | null | undefined) {

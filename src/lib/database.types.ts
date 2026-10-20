@@ -265,6 +265,8 @@ export type BulkVariantMarkupRow = {
 export type BulkPriceListRow = {
   id: number;
   pdf_path: string | null;
+  brand: string;
+  pricing_mode: 'calculated' | 'shop_price';
   upload_id: number | null;
   week_start: string;
   import_vat_rate: number;
@@ -1005,6 +1007,10 @@ export type Database = {
         Returns: number;
       };
       bulk_generate_list: { Args: { p_upload_id: number }; Returns: number };
+      bulk_generate_catalogue_list: {
+        Args: { p_brand?: string; p_categories?: string[] };
+        Returns: number;
+      };
       bulk_recalculate: { Args: { p_list_id: number }; Returns: number };
       bulk_approve_list: { Args: { p_list_id: number }; Returns: void };
       bulk_set_pdf_path: { Args: { p_list_id: number; p_path: string }; Returns: void };

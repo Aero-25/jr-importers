@@ -44,6 +44,8 @@ export interface CustomerPriceLine {
 
 export interface CustomerPdfOptions {
   lines: CustomerPriceLine[];
+  /** Whose list this is — it heads the page and names the file. */
+  brand?: string;
   /** The Monday the list belongs to. */
   weekStart: string;
   generatedAt?: Date;
@@ -57,8 +59,8 @@ const STATUS_LABEL: Record<StockStatus, string> = {
   out_of_stock: 'On order',
 };
 
-export function priceListFileName(weekStart: string): string {
-  return `JR_Importers_Price_List_${weekStart}.pdf`;
+export function priceListFileName(weekStart: string, brand = 'Samsung'): string {
+  return `JR_Importers_${brand}_Price_List_${weekStart}.pdf`;
 }
 
 export async function buildCustomerPdf(options: CustomerPdfOptions): Promise<Blob> {
@@ -71,6 +73,7 @@ export async function buildCustomerPdf(options: CustomerPdfOptions): Promise<Blo
   const right = pageWidth - 14;
   const logo = await loadBrandLogo();
   const generated = options.generatedAt ?? new Date();
+  const brand = options.brand ?? 'Samsung';
 
   /* ── Masthead ─────────────────────────────────────────────────────────── */
   const header = (): number => {
@@ -97,7 +100,7 @@ export async function buildCustomerPdf(options: CustomerPdfOptions): Promise<Blo
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
-    doc.text('Samsung price list', right, 14, { align: 'right' });
+    doc.text(`${brand} price list`, right, 14, { align: 'right' });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.2);
     doc.text(`Week of ${formatDate(options.weekStart)}`, right, 19.6, { align: 'right' });
@@ -132,7 +135,7 @@ export async function buildCustomerPdf(options: CustomerPdfOptions): Promise<Blo
   doc.setTextColor(...INK);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
-  doc.text('This week’s Samsung pricing', left, y);
+  doc.text(`This week’s ${brand} pricing`, left, y);
   y += 5.6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.4);
