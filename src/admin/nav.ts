@@ -1,5 +1,6 @@
 import {
   BadgePercent,
+  Calculator,
   Banknote,
   BarChart3,
   Bell,
@@ -86,6 +87,14 @@ export const NAV: NavSection[] = [
       { id: 'products', label: 'Products', path: '/products', icon: Package, adminOnly: true },
       { id: 'stock-takes', label: 'Stock takes', path: '/stock-takes', icon: ClipboardList, adminOnly: true },
       { id: 'grv', label: 'Goods received', path: '/grv', icon: PackageSearch, adminOnly: true },
+      {
+        id: 'bulk-pricing',
+        label: 'Bulk pricing',
+        path: '/bulk-pricing',
+        icon: Calculator,
+        // Supplier costs and margins. Not a cashier's business.
+        adminOnly: true,
+      },
       {
         id: 'purchase-orders',
         label: 'Purchase orders',

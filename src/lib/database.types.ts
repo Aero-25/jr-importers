@@ -234,6 +234,109 @@ export type OrderRow = {
   updated_at: string;
 }
 
+/* ── Bulk pricing ───────────────────────────────────────────────────────── */
+/* The weekly dealer price list. None of this touches `products`: these are
+   special prices for a list that goes out to dealers, not the shop's own. */
+
+export type BulkSupplierUploadRow = {
+  id: number;
+  file_name: string;
+  storage_path: string | null;
+  supplier_name: string | null;
+  list_date: string | null;
+  row_count: number;
+  phone_count: number;
+  skipped: Json;
+  rows: Json;
+  uploaded_by: string | null;
+  created_at: string;
+};
+
+export type BulkVariantMarkupRow = {
+  id: number;
+  variant_key: string;
+  label: string | null;
+  markup_pct: number;
+  product_id: number | null;
+  updated_by: string | null;
+  updated_at: string;
+};
+
+export type BulkPriceListRow = {
+  id: number;
+  pdf_path: string | null;
+  upload_id: number | null;
+  week_start: string;
+  import_vat_rate: number;
+  sales_vat_rate: number;
+  default_markup: number;
+  product_count: number;
+  in_stock_count: number;
+  on_order_count: number;
+  status: 'draft' | 'approved' | 'sent' | 'superseded';
+  generated_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+};
+
+export type BulkPriceListItemRow = {
+  id: number;
+  list_id: number;
+  variant_key: string;
+  display_name: string;
+  model: string | null;
+  storage_gb: number | null;
+  five_g: boolean;
+  supplier_cost: number;
+  import_vat: number;
+  landed_cost: number;
+  markup_pct: number;
+  price_excl_vat: number;
+  sales_vat: number;
+  final_price: number;
+  stock_status: 'in_stock' | 'on_order' | 'out_of_stock';
+  stock_qty: number;
+  product_id: number | null;
+};
+
+export type BulkRecipientRow = {
+  id: number;
+  name: string | null;
+  email: string;
+  active: boolean;
+  opted_out_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BulkDistributionRow = {
+  id: number;
+  list_id: number;
+  subject: string;
+  body: string;
+  file_name: string | null;
+  recipient_count: number;
+  started_by: string | null;
+  trigger: 'manual' | 'scheduled' | 'test' | 'retry';
+  created_at: string;
+  finished_at: string | null;
+};
+
+export type BulkDeliveryRow = {
+  id: number;
+  distribution_id: number;
+  recipient_id: number | null;
+  email: string;
+  name: string | null;
+  status: 'pending' | 'sending' | 'sent' | 'failed';
+  attempts: number;
+  error: string | null;
+  sent_at: string | null;
+  updated_at: string;
+};
+
 export type ProductImeiRow = {
   id: number;
   product_id: number | null;
@@ -822,6 +925,13 @@ export type Database = {
       laybys: Table<LaybyRow>;
       messages: Table<MessageRow>;
       orders: Table<OrderRow>;
+      bulk_supplier_uploads: Table<BulkSupplierUploadRow>;
+      bulk_variant_markups: Table<BulkVariantMarkupRow>;
+      bulk_price_lists: Table<BulkPriceListRow>;
+      bulk_price_list_items: Table<BulkPriceListItemRow>;
+      bulk_recipients: Table<BulkRecipientRow>;
+      bulk_distributions: Table<BulkDistributionRow>;
+      bulk_deliveries: Table<BulkDeliveryRow>;
       product_imeis: Table<ProductImeiRow>;
       products: Table<ProductRow, 'name'>;
       purchase_orders: Table<PurchaseOrderRow>;
@@ -881,6 +991,40 @@ export type Database = {
         Args: { p_code: string };
         Returns: Json;
       };
+      /* Bulk pricing — the weekly dealer price list; see 20261020000000. */
+      bulk_dashboard: { Args: Record<PropertyKey, never>; Returns: Json };
+      bulk_save_upload: {
+        Args: {
+          p_file_name: string;
+          p_rows: Json;
+          p_skipped?: Json;
+          p_supplier_name?: string | null;
+          p_list_date?: string | null;
+          p_storage_path?: string | null;
+        };
+        Returns: number;
+      };
+      bulk_generate_list: { Args: { p_upload_id: number }; Returns: number };
+      bulk_recalculate: { Args: { p_list_id: number }; Returns: number };
+      bulk_approve_list: { Args: { p_list_id: number }; Returns: void };
+      bulk_set_pdf_path: { Args: { p_list_id: number; p_path: string }; Returns: void };
+      bulk_set_markup: {
+        Args: { p_variant_key: string; p_markup: number; p_label?: string | null };
+        Returns: void;
+      };
+      bulk_clear_markup: { Args: { p_variant_key: string }; Returns: void };
+      bulk_start_distribution: {
+        Args: {
+          p_list_id: number;
+          p_recipient_ids?: number[] | null;
+          p_subject?: string | null;
+          p_body?: string | null;
+          p_file_name?: string | null;
+          p_trigger?: string;
+        };
+        Returns: Json;
+      };
+      bulk_retry_failed: { Args: { p_distribution_id: number }; Returns: number };
       /**
        * The colours a shopper can pick, without publishing the IMEI beside
        * them; see 20261015010000.

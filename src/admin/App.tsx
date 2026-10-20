@@ -22,6 +22,7 @@ const Statements = lazy(() => import('./modules/Statements'));
 const Settings = lazy(() => import('./modules/Settings'));
 const Activity = lazy(() => import('./modules/Activity'));
 const GoodsReceived = lazy(() => import('./modules/GoodsReceived'));
+const BulkPricing = lazy(() => import('./modules/BulkPricing'));
 const Finance = lazy(() => import('./modules/Finance'));
 const Reports = lazy(() => import('./modules/Reports'));
 const Alerts = lazy(() => import('./modules/Alerts'));
@@ -151,6 +152,7 @@ export function AdminApp() {
               <Route path="/staff" element={<Records resource="users" />} />
               <Route path="/ledger" element={<Ledger />} />
               <Route path="/invoices/statements" element={<Statements />} />
+              <Route path="/bulk-pricing" element={<BulkPricing />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/activity" element={<Activity />} />
               <Route path="/finance" element={<Finance />} />
