@@ -46,10 +46,16 @@ function fill(template: string, values: Record<string, string>): string {
 }
 
 function htmlBody(text: string, weekLabel: string): string {
+  // Escape the text, THEN turn single newlines into breaks. The other way
+  // round escaped the <br> tags this function had just inserted, so the
+  // signature arrived reading "Kind regards,<br>JR Importers<br>…".
+  const escape = (value: string) =>
+    value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
   const paragraphs = text
     .split(/\n{2,}/)
     .map((block) => `<p style="margin:0 0 14px;line-height:1.55">${
-      block.replace(/\n/g, '<br>').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      escape(block).replace(/\n/g, '<br>')
     }</p>`)
     .join('');
 
@@ -146,8 +152,15 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`${name}: ${res.status} ${await res.text()}`);
-    return res.json();
+    // Named `payload`, not `body`: this function already has a `body`
+    // parameter and redeclaring it stops the module parsing at all.
+    const payload = await res.text();
+    if (!res.ok) throw new Error(`${name}: ${res.status} ${payload}`);
+    // bulk_finish_delivery returns void, so PostgREST answers with an empty
+    // body. res.json() on that throws "Unexpected end of JSON input" — which
+    // crashed this function after the first email went out, leaving its
+    // recipient marked pending and the rest of the queue untouched.
+    return payload === '' ? null : JSON.parse(payload);
   };
 
   const rest = async (path: string) => {
@@ -253,11 +266,18 @@ Deno.serve(async (req: Request) => {
       }
     } catch (error) {
       failed += 1;
-      await rpc('bulk_finish_delivery', {
-        p_delivery_id: claim.delivery_id,
-        p_sent: false,
-        p_error: String((error as Error)?.message ?? error).slice(0, 300),
-      });
+      // Recording the failure must not become a second failure. If this throws
+      // too the whole run dies and everybody after this address is never
+      // written to — which is exactly what happened on 20 October.
+      try {
+        await rpc('bulk_finish_delivery', {
+          p_delivery_id: claim.delivery_id,
+          p_sent: false,
+          p_error: String((error as Error)?.message ?? error).slice(0, 300),
+        });
+      } catch {
+        // The delivery stays claimed and the next run picks it up.
+      }
     }
   }
 
