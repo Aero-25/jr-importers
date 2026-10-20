@@ -245,7 +245,11 @@ export const STORE = {
   city: 'Walvis Bay',
   address: 'Pelican Mall, Walvis Bay',
   phone: '+264 81 562 9203',
-  email: 'sales@jrimporters.com',
+  // The shop's own address, and the one `settings.store_email` carries.
+  // Every document and the storefront footer read this constant, so the two
+  // drifting apart put the wrong address on invoices, job cards, damage
+  // reports, credit notes, the price list and the About page at once.
+  email: 'info@jrimporters.com',
 } as const;
 
 /** How long a checkout holds stock before the reservation lapses. */
