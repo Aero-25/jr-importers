@@ -16,7 +16,8 @@ const ProductDetail = lazy(() => import('./routes/ProductDetail'));
 const Cart = lazy(() => import('./routes/Cart'));
 const Checkout = lazy(() => import('./routes/Checkout'));
 const OrderConfirmation = lazy(() => import('./routes/OrderConfirmation'));
-const Account = lazy(() => import('./routes/Account'));
+const Account = lazy(() => import('./routes/Account'));
+const Portal = lazy(() => import('./routes/Portal'));
 const LaybuyStart = lazy(() =>
   import('./routes/Laybuy').then((m) => ({ default: m.LaybuyStart })),
 );
@@ -82,6 +83,7 @@ export function ShopApp() {
             <Route path="/laybuy/:id/confirm" element={<LaybuyConfirm />} />
             <Route path="/order/:id" element={<OrderConfirmation />} />
             <Route path="/account/*" element={<Account />} />
+            <Route path="/portal" element={<Portal />} />
             <Route path="/support" element={<Support />} />
             <Route path="/about" element={<About />} />
             {/* Legal pages stay as static HTML so they render without the bundle. */}

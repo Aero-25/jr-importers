@@ -238,6 +238,19 @@ export type OrderRow = {
 /* The weekly dealer price list. None of this touches `products`: these are
    special prices for a list that goes out to dealers, not the shop's own. */
 
+/** A login the shop has bound to a company, for the trade portal. */
+export type CompanyPortalUserRow = {
+  id: number;
+  auth_user_id: string;
+  customer_id: string;
+  email: string;
+  active: boolean;
+  invited_by: string | null;
+  last_seen_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type BulkSupplierUploadRow = {
   id: number;
   file_name: string;
@@ -934,6 +947,7 @@ export type Database = {
       bulk_recipients: Table<BulkRecipientRow>;
       bulk_distributions: Table<BulkDistributionRow>;
       bulk_deliveries: Table<BulkDeliveryRow>;
+      company_portal_users: Table<CompanyPortalUserRow>;
       product_imeis: Table<ProductImeiRow>;
       products: Table<ProductRow, 'name'>;
       purchase_orders: Table<PurchaseOrderRow>;
@@ -1043,6 +1057,38 @@ export type Database = {
         }>;
       };
       bulk_apply_shop_prices: { Args: { p_list_id: number }; Returns: Json };
+      /* Company portals — dealer pricing for account customers. */
+      portal_me: { Args: Record<PropertyKey, never>; Returns: Json };
+      portal_catalogue: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          item_id: number;
+          product_id: number | null;
+          brand: string;
+          display_name: string;
+          storage_gb: number | null;
+          five_g: boolean;
+          price: number;
+          in_stock: boolean;
+          on_hand: number;
+          image: string | null;
+          week_start: string;
+        }>;
+      };
+      portal_my_quotes: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          id: number;
+          quote_number: string;
+          created_at: string;
+          valid_until: string | null;
+          status: string;
+          total_amount: number;
+          items: Json;
+        }>;
+      };
+      portal_request_quote: { Args: { p_items: Json; p_note?: string | null }; Returns: Json };
+      link_portal_login: { Args: { p_email: string; p_customer_id: string }; Returns: Json };
       /**
        * The colours a shopper can pick, without publishing the IMEI beside
        * them; see 20261015010000.

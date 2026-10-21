@@ -7,7 +7,7 @@ import { heroImages } from '@/data/resources';
 import { ADMIN_APK_URL } from '@/lib/constants';
 import { BUILD_TIME, buildLabel, checkForUpdate, isInstalledApp } from '@/lib/buildInfo';
 import { DEFAULT_VAT_RATE, percent } from '@/lib/format';
-import { Button, Card, Input, Notice, Panel, useToast } from '@/ui';
+import { Badge, Button, Card, CardBody, CardHeader, Field, Input, Notice, Panel, useToast } from '@/ui';
 import { ModuleHeader } from '../components/AdminShell';
 import { MfaPanel } from '../components/MfaPanel';
 
@@ -22,8 +22,149 @@ export default function Settings() {
         <Housekeeping />
         <MobileApp />
         <HeroImages />
+        <PortalLogins />
       </div>
     </>
+  );
+}
+
+/**
+ * Giving a company a portal login.
+ *
+ * Deliberately a shop action rather than a signup. Email confirmation is off
+ * on this project, so anybody can register any address — if a trade account
+ * could be self-claimed, a stranger would see dealer pricing by typing a
+ * customer's address into a form. The login has to exist in Supabase first;
+ * this binds it to the company it buys for.
+ */
+function PortalLogins() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [email, setEmail] = useState('');
+  const [search, setSearch] = useState('');
+  const [customerId, setCustomerId] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const existing = useQuery({
+    queryKey: ['company_portal_users'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('company_portal_users')
+        .select('id, email, active, customer_id, created_at')
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
+  const matches = useQuery({
+    queryKey: ['customers', 'portal-search', search],
+    enabled: search.trim().length >= 2,
+    queryFn: async () => {
+      const safe = search.replace(/[,()*]/g, ' ').trim();
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, name, email')
+        .ilike('name', `%${safe}%`)
+        .limit(8);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
+  const link = async () => {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('link_portal_login', {
+        p_email: email.trim(),
+        p_customer_id: customerId,
+      });
+      if (error) throw new Error(error.message);
+      const reply = data as unknown as { ok?: boolean; message?: string };
+      if (!reply?.ok) throw new Error(reply?.message ?? 'Could not link that login.');
+      toast.success('Portal access granted', reply.message);
+      setEmail('');
+      setSearch('');
+      setCustomerId('');
+      void qc.invalidateQueries({ queryKey: ['company_portal_users'] });
+    } catch (e) {
+      toast.error('Could not give that login access', (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader title="Company portal logins" />
+      <CardBody className="space-y-4">
+        <p className="text-sm text-ink-subtle">
+          Account customers sign in at <code>/portal</code> to see the weekly trade prices and
+          request a quote. Create the login in Supabase first, then bind it to the company here.
+        </p>
+
+        <Field label="Login email" htmlFor="portal-email">
+          <Input
+            id="portal-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="buyer@company.com"
+          />
+        </Field>
+
+        <Field label="Company" htmlFor="portal-company">
+          <Input
+            id="portal-company"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCustomerId('');
+            }}
+            placeholder="Namib Mills…"
+          />
+        </Field>
+
+        {search.trim().length >= 2 && !customerId && (
+          <ul className="divide-y divide-hairline/70 rounded-xl border border-hairline">
+            {(matches.data ?? []).map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-raised"
+                  onClick={() => {
+                    setCustomerId(c.id as string);
+                    setSearch(c.name as string);
+                  }}
+                >
+                  {c.name as string}
+                </button>
+              </li>
+            ))}
+            {(matches.data ?? []).length === 0 && (
+              <li className="px-3 py-2 text-sm text-ink-subtle">No customer by that name.</li>
+            )}
+          </ul>
+        )}
+
+        <Button disabled={!email.trim() || !customerId || busy} onClick={() => void link()}>
+          {busy ? 'Granting…' : 'Give this login trade access'}
+        </Button>
+
+        {(existing.data ?? []).length > 0 && (
+          <ul className="divide-y divide-hairline/70 border-t border-hairline pt-2 text-sm">
+            {(existing.data ?? []).map((row) => (
+              <li key={row.id as number} className="flex items-center justify-between gap-3 py-2">
+                <span className="truncate text-ink">{row.email as string}</span>
+                <Badge tone={row.active ? 'lime' : 'neutral'}>
+                  {row.active ? 'active' : 'off'}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 
