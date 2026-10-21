@@ -106,6 +106,8 @@ async function mockConsole(page: Page) {
         return route.fulfill({ json: [
           { product_id: 11, display_name: 'Samsung Galaxy A06 64GB',
             dealer_price: 2667.46, shop_price: 2500, target_price: 2750, change: 250 },
+          { product_id: 12, display_name: 'Samsung Galaxy A56 128GB 5G',
+            dealer_price: 8581.10, shop_price: 9800, target_price: 8840, change: -960 },
         ] });
       }
       if (tail === 'bulk_save_upload') return route.fulfill({ json: 301 });
@@ -289,6 +291,23 @@ test('recipients can be picked from the customers the shop already has', async (
   await page.getByLabel('Name', { exact: true }).fill('Brand New Dealer');
   await page.getByLabel('Email', { exact: true }).fill('new@dealer.na');
   await expect(page.getByRole('button', { name: 'Add', exact: true })).toBeEnabled();
+});
+
+test('a shop price that would fall is named, not just counted', async ({ page }) => {
+  await mockConsole(page);
+  await page.goto('/admin/#/bulk-pricing');
+  await tabs(page).getByRole('button', { name: 'Pricing & markups' }).click();
+
+  // The warning has to say which ones. A count leaves the shop to go and find
+  // them, which is the work the warning exists to save.
+  const warning = page.locator('text=would go').locator('xpath=ancestor::*[self::div][1]');
+  await expect(page.getByText(/would go/)).toBeVisible();
+  await expect(warning.getByText('Samsung Galaxy A56 128GB 5G')).toBeVisible();
+  await expect(warning.getByText(/9,800\.00/)).toBeVisible();
+  await expect(warning.getByText(/8,840\.00/)).toBeVisible();
+
+  // And the one going up is not in the warning.
+  await expect(warning.getByText('Samsung Galaxy A06 64GB')).toHaveCount(0);
 });
 
 test('the customer attachment carries retail prices and no costs at all', async ({ page }) => {

@@ -876,7 +876,11 @@ function ShopPricePanel({ list }: { list: PriceListRow }) {
   // Defensive: a surprising payload must not take the whole pricing tab down
   // with it — the table below this panel is the screen's actual job.
   const all = Array.isArray(preview.data) ? preview.data : [];
-  const rows = all.filter((r) => Number(r.change) !== 0);
+  // A price going down is the one to look at, so it sorts to the top and the
+  // row is marked rather than just its number.
+  const rows = all
+    .filter((r) => Number(r.change) !== 0)
+    .sort((a, b) => Number(a.change) - Number(b.change));
   if (list.pricing_mode !== 'calculated') return null;
   if (preview.isLoading) return <Skeleton className="h-24" />;
 
@@ -915,8 +919,26 @@ function ShopPricePanel({ list }: { list: PriceListRow }) {
 
       {down.length > 0 && (
         <Notice tone="warn" className="mt-3">
-          {down.length} of these would go <strong>down</strong> — the dealer price has fallen
-          below what the shop is charging. Worth a look before applying.
+          <p>
+            <strong>{down.length}</strong> would go <strong>down</strong> — the dealer price has
+            fallen below what the shop is charging:
+          </p>
+          {/* Named, not counted. A warning that says "7 of these" and leaves
+              you to find them is a warning you have to act on twice. */}
+          <ul className="mt-2 space-y-0.5">
+            {down.map((r) => (
+              <li
+                key={r.product_id}
+                className="flex flex-wrap justify-between gap-x-4 font-medium text-danger"
+              >
+                <span>{r.display_name}</span>
+                <span className="tabular">
+                  {money(r.shop_price)} &rarr; <strong>{money(r.target_price)}</strong>{' '}
+                  <span className="text-danger">({money(r.change)})</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         </Notice>
       )}
 
@@ -935,7 +957,14 @@ function ShopPricePanel({ list }: { list: PriceListRow }) {
             <tbody className="divide-y divide-hairline/70">
               {rows.map((r) => (
                 <tr key={r.product_id}>
-                  <td className="px-4 py-2 text-ink">{r.display_name}</td>
+                  <td
+                    className={cn(
+                      'px-4 py-2',
+                      Number(r.change) < 0 ? 'font-medium text-danger' : 'text-ink',
+                    )}
+                  >
+                    {r.display_name}
+                  </td>
                   <td className="tabular px-3 py-2 text-right text-ink-muted">{money(r.dealer_price)}</td>
                   <td className="tabular px-3 py-2 text-right text-ink-muted">{money(r.shop_price)}</td>
                   <td className="tabular px-3 py-2 text-right font-semibold text-ink">{money(r.target_price)}</td>
