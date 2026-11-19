@@ -416,6 +416,13 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
         hint: 'Assigned automatically when the invoice is created — numbers run in order.',
       },
       {
+        key: 'created_at',
+        label: 'Date',
+        type: 'readonly',
+        inList: true,
+        hint: 'When the invoice was raised.',
+      },
+      {
         key: 'customer_name',
         label: 'Customer',
         type: 'customer',
