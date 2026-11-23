@@ -1,0 +1,39 @@
+{
+  "width": 1080,
+  "height": 1920,
+  "duration": 17.0,
+  "bpm": 120,
+
+  "introLines": [0.15, 0.42, 0.72],
+  "flicker": [[1.45, 1.0], [1.50, 0.35], [1.54, 1.0], [1.60, 0.15], [1.64, 0.8], [1.72, 0.05], [1.76, 0.55], [1.84, 0.0], [1.87, 0.3], [1.90, 0.0]],
+  "blackout": 1.92,
+
+  "slamBlack": 2.0,
+  "slamFriday": 2.5,
+  "lockupEyebrow": 3.0,
+  "sweepB": 3.25,
+  "zoomOut": [4.7, 5.0],
+
+  "titleC": 5.0,
+  "tiles": [5.25, 5.5, 5.75, 6.0],
+  "dateLine": 6.5,
+  "wipe": [7.75, 8.15],
+
+  "dLines": [8.05, 8.2, 8.35],
+  "tagDrop": 8.45,
+  "push": [10.3, 10.6],
+
+  "onlineTitle": 10.55,
+  "phoneIn": 10.6,
+  "urlTap": 11.0,
+  "typeStart": 11.15,
+  "typeInterval": 0.062,
+  "url": "jrimporters.com",
+  "enter": 12.15,
+  "load": [12.2, 12.5],
+  "buttonTap": 12.9,
+  "dive": [13.15, 14.0],
+
+  "end": 14.0,
+  "endPulse": 16.0
+}
