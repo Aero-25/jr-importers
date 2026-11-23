@@ -153,6 +153,9 @@ test.describe('hero', () => {
   test('and stays put when reduced motion is asked for', async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: 'reduce' });
     const page = await context.newPage();
+    // This context has no stubbed backend; keep a real sale or its countdown
+    // from swapping in the Black Friday hero, which has no parallax.
+    await page.route('**/rest/v1/promotions*', (route) => route.fulfill({ json: [] }));
     await page.goto('/');
 
     const hero = page.locator('[data-hero]');

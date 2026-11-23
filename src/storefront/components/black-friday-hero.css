@@ -1,6 +1,7 @@
 /*
- * Black Friday hero: JR lime on near-black.
- * Only rendered while the Black Friday promotion runs (or is previewed).
+ * Black Friday hero: JR lime on near-black, the JR Android as a flickering
+ * neon sign. Rendered from two weeks before the sale (as a countdown) to its
+ * last day. Everything that moves stops under prefers-reduced-motion.
  */
 .bf-hero {
   --bf-lime: #bbdb45;
@@ -8,35 +9,47 @@
   --bf-ink: #f3f5ee;
   --bf-dim: #a9b2a3;
   --bf-red: #ff3b4f;
+  --bf-cycle: 5.5s;
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  background: #070807;
+  background: radial-gradient(ellipse 80% 70% at 72% 45%, #141a0c, #070807 62%);
   color: var(--bf-ink);
   padding: clamp(36px, 4vw, 60px) 0 104px;
 }
 
 /* ── Backdrop ─────────────────────────────────────────────────────────── */
-.bf-hero__backdrop { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
-.bf-hero__grid {
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgb(187 219 69 / .07) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(187 219 69 / .07) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(ellipse 70% 80% at 68% 50%, #000 20%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 68% 50%, #000 20%, transparent 75%);
-}
+.bf-hero__backdrop { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
 .bf-hero__glow {
-  position: absolute; width: 900px; height: 900px; right: -180px; top: 50%;
+  position: absolute; width: 920px; height: 920px; right: -200px; top: 50%;
   transform: translateY(-50%);
-  background: radial-gradient(circle, rgb(187 219 69 / .26), rgb(187 219 69 / .07) 38%, transparent 66%);
-  filter: blur(10px);
+  background: radial-gradient(circle, rgb(187 219 69 / .28), rgb(187 219 69 / .07) 38%, transparent 66%);
+  animation: bf-breathe 6s ease-in-out infinite;
+}
+/* A grid floor running towards the viewer. */
+.bf-hero__floor {
+  position: absolute; left: -50%; right: -50%; bottom: -2px; height: 52%;
+  background-image:
+    linear-gradient(rgb(187 219 69 / .22) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, rgb(187 219 69 / .16) 1.5px, transparent 1.5px);
+  background-size: 70px 70px;
+  transform: perspective(420px) rotateX(64deg);
+  transform-origin: 50% 100%;
+  mask-image: linear-gradient(to top, #000 10%, transparent 85%);
+  -webkit-mask-image: linear-gradient(to top, #000 10%, transparent 85%);
+  animation: bf-floor 2.4s linear infinite;
+}
+.bf-hero__sparks i {
+  position: absolute; bottom: -12px; left: var(--x);
+  width: var(--size); height: var(--size); border-radius: 50%;
+  background: var(--bf-lime); box-shadow: 0 0 8px 2px rgb(187 219 69 / .7);
+  opacity: 0;
+  animation: bf-spark var(--duration) linear var(--delay) infinite;
 }
 .bf-hero__ghost {
   position: absolute; right: -2vw; bottom: -9vw;
   font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 38vw; line-height: 1; letter-spacing: -.08em;
-  color: transparent; -webkit-text-stroke: 1px rgb(187 219 69 / .08);
+  color: transparent; -webkit-text-stroke: 1px rgb(187 219 69 / .07);
   user-select: none;
 }
 
@@ -51,7 +64,10 @@
   display: inline-flex; align-items: center; gap: 10px;
   font-size: 11px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--bf-dim);
 }
-.bf-hero__presents img { filter: drop-shadow(0 0 10px rgb(187 219 69 / .55)); }
+.bf-hero__live {
+  width: 9px; height: 9px; border-radius: 50%; background: var(--bf-red);
+  box-shadow: 0 0 0 0 rgb(255 59 79 / .6); animation: bf-live 1.6s ease-out infinite;
+}
 .bf-hero__presents strong { color: var(--bf-lime); font-weight: 900; letter-spacing: .08em; }
 .bf-hero__presents em {
   font-style: normal; padding: 2px 7px; border-radius: 4px; letter-spacing: .12em;
@@ -67,9 +83,11 @@
 .bf-hero__black { color: transparent; -webkit-text-stroke: 2px var(--bf-ink); animation: bf-rise .9s cubic-bezier(.2,.7,.2,1) both; }
 .bf-hero__friday {
   color: var(--bf-lime);
-  text-shadow: 0 0 70px rgb(187 219 69 / .38);
+  text-shadow: 0 0 22px rgb(187 219 69 / .55), 0 0 70px rgb(187 219 69 / .35);
   animation: bf-rise .9s .12s cubic-bezier(.2,.7,.2,1) both;
 }
+/* One letter with a loose contact, like a real sign. */
+.bf-hero__flicker { animation: bf-letter 7s steps(1, end) infinite; }
 
 .bf-hero__when { display: flex; align-items: center; gap: 16px; margin-top: 22px; animation: bf-rise .9s .22s cubic-bezier(.2,.7,.2,1) both; }
 .bf-hero__when strong {
@@ -85,69 +103,93 @@
 .bf-hero__countdown-label { font-size: 10px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: var(--bf-lime); }
 .bf-hero__countdown ol { display: flex; gap: 8px; }
 .bf-hero__countdown li {
-  display: grid; justify-items: center; min-width: 62px; padding: 9px 6px 7px;
-  border: 1px solid rgb(255 255 255 / .12); border-radius: 10px;
-  background: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / .02));
+  display: grid; justify-items: center; min-width: 64px; padding: 10px 6px 8px; overflow: hidden;
+  border: 1px solid rgb(187 219 69 / .25); border-radius: 10px;
+  background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / .02));
+  box-shadow: inset 0 0 18px rgb(187 219 69 / .08);
 }
-.bf-hero__countdown b { font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 26px; line-height: 1; color: var(--bf-ink); }
+.bf-hero__countdown b {
+  font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 28px; line-height: 1; color: var(--bf-ink);
+  animation: bf-tick .38s cubic-bezier(.2,.7,.2,1) both;
+}
 .bf-hero__countdown small { margin-top: 4px; font-size: 8px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--bf-dim); }
-.bf-hero__countdown li:last-child b { color: var(--bf-lime); }
+.bf-hero__countdown li:last-child { border-color: rgb(187 219 69 / .6); }
+.bf-hero__countdown li:last-child b { color: var(--bf-lime); text-shadow: 0 0 14px rgb(187 219 69 / .6); }
 
 .bf-hero__actions { display: flex; align-items: center; gap: 26px; margin-top: 24px; flex-wrap: wrap; }
 .bf-hero__cta {
   display: inline-flex; align-items: center; gap: 14px; min-height: 56px; padding: 0 26px;
   border-radius: 10px; background: var(--bf-lime); color: #0b0c0a;
   font-size: 14px; font-weight: 800; letter-spacing: .01em;
-  box-shadow: 0 0 0 0 rgb(187 219 69 / .5);
   transition: background .2s, box-shadow .3s, transform .2s;
   animation: bf-pulse 2.6s ease-out infinite;
 }
 .bf-hero__cta:hover { background: var(--bf-lime-hot); transform: translateY(-2px); box-shadow: 0 18px 40px -16px rgb(187 219 69 / .8); }
 .bf-hero__link { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--bf-ink); }
 .bf-hero__link:hover { color: var(--bf-lime); }
-.bf-hero__cta:focus-visible, .bf-hero__link:focus-visible, .bf-hero__star:focus-visible { outline: 3px solid var(--bf-lime); outline-offset: 4px; }
+.bf-hero__cta:focus-visible, .bf-hero__link:focus-visible, .bf-hero__deal:focus-visible { outline: 3px solid var(--bf-lime); outline-offset: 4px; }
 
 /* ── Stage ────────────────────────────────────────────────────────────── */
-.bf-hero__stage { position: relative; width: 100%; max-width: 560px; aspect-ratio: 1; justify-self: center; }
+.bf-hero__stage { position: relative; width: 100%; max-width: 580px; aspect-ratio: 1; justify-self: center; }
 .bf-hero__ring { position: absolute; inset: 0; width: 100%; height: 100%; animation: bf-spin 48s linear infinite; }
 .bf-hero__ring text { fill: var(--bf-lime); font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 10px; letter-spacing: 0; }
 .bf-hero__disc {
-  position: absolute; inset: 14%; border-radius: 50%;
-  background: radial-gradient(circle at 50% 38%, #20251a, #0c0d0a 70%);
-  border: 1px solid rgb(187 219 69 / .32);
-  box-shadow: 0 0 120px -10px rgb(187 219 69 / .35), inset 0 0 70px rgb(187 219 69 / .12);
+  position: absolute; inset: 14%; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, #1f2614, #0b0d08 70%);
+  border: 1px solid rgb(187 219 69 / .4);
+  box-shadow: 0 0 120px -10px rgb(187 219 69 / .4), inset 0 0 70px rgb(187 219 69 / .14);
+  animation: bf-disc var(--bf-cycle) steps(1, end) infinite;
+}
+/* Scanlines and a slow sweep across the sign. */
+.bf-hero__scan {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, transparent 0 46%, rgb(187 219 69 / .14) 50%, transparent 54% 100%),
+    repeating-linear-gradient(180deg, rgb(255 255 255 / .035) 0 1px, transparent 1px 4px);
+  background-size: 100% 220%, 100% 100%;
+  animation: bf-sweep 4.5s linear infinite;
 }
 
-.bf-hero__mascot {
-  position: absolute; left: 50%; top: 50%; height: 56%; width: auto;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 24px 40px rgb(0 0 0 / .6)) drop-shadow(0 0 40px rgb(187 219 69 / .35));
-  animation: bf-float 5s ease-in-out infinite;
+/* The JR Android, as neon. */
+.bf-hero__android {
+  position: absolute; left: 50%; top: 50%; height: 70%; aspect-ratio: 420 / 757;
+  transform: translate(-50%, -53%);
+}
+.bf-hero__android img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.bf-hero__android-main {
+  filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55));
+  animation: bf-neon var(--bf-cycle) steps(1, end) infinite;
+}
+.bf-hero__android-ghost { opacity: 0; mix-blend-mode: screen; }
+.bf-hero__android-ghost--a { filter: sepia(1) saturate(9) hue-rotate(-45deg) brightness(1.1); animation: bf-glitch-a var(--bf-cycle) steps(1, end) infinite; }
+.bf-hero__android-ghost--b { filter: hue-rotate(95deg) saturate(2.5) brightness(1.2); animation: bf-glitch-b var(--bf-cycle) steps(1, end) infinite; }
+.bf-hero__android-floor {
+  position: absolute; left: -10%; right: -10%; bottom: -5%; height: 10%; border-radius: 50%;
+  background: radial-gradient(ellipse, rgb(187 219 69 / .55), transparent 70%);
+  filter: blur(6px);
+  animation: bf-disc var(--bf-cycle) steps(1, end) infinite;
 }
 
-.bf-hero__star { position: absolute; inset: 20%; display: block; animation: bf-float 6s ease-in-out infinite; }
-.bf-hero__star-img, .bf-hero__support {
-  position: absolute; object-fit: contain; background: #fff; border-radius: 20px; padding: 6%;
-  box-shadow: 0 30px 60px -24px rgb(0 0 0 / .8), 0 0 0 1px rgb(255 255 255 / .6);
-}
-.bf-hero__star-img { inset: 4% 8% 10% 8%; width: 84%; height: 86%; transform: rotate(-4deg); }
-.bf-hero__support { width: 52%; height: 58%; top: 12%; opacity: .9; }
-.bf-hero__support--0 { left: -18%; transform: rotate(-14deg); }
-.bf-hero__support--1 { right: -18%; transform: rotate(12deg); }
-.bf-hero__tag {
-  position: absolute; right: -16%; bottom: -6%; display: grid; gap: 2px; max-width: 72%;
-  padding: 12px 16px 13px; border-radius: 14px;
+/* The best deal, on a tag hanging off the sign. */
+.bf-hero__deal {
+  position: absolute; left: -4%; bottom: 4%; z-index: 2;
+  display: flex; align-items: center; gap: 12px; max-width: 64%;
+  padding: 8px 14px 8px 8px; border-radius: 16px;
   background: #0b0c0a; border: 2px solid var(--bf-lime);
-  box-shadow: 0 20px 40px -18px rgb(0 0 0 / .9), 0 0 30px -8px rgb(187 219 69 / .6);
-  transform: rotate(3deg);
+  box-shadow: 0 20px 40px -18px rgb(0 0 0 / .9), 0 0 30px -8px rgb(187 219 69 / .7);
+  transform: rotate(-3deg);
+  transition: transform .25s;
 }
-.bf-hero__tag small { font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--bf-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bf-hero__tag s { font-size: 13px; font-weight: 700; color: var(--bf-red); text-decoration: line-through 2px var(--bf-red); }
-.bf-hero__tag b { font-family: 'Archivo', sans-serif; font-size: 26px; font-weight: 900; letter-spacing: -.03em; line-height: 1.05; color: var(--bf-lime); }
-.bf-hero__tag em { display: inline-flex; align-items: center; gap: 5px; font-style: normal; font-size: 11px; font-weight: 700; color: var(--bf-ink); }
+.bf-hero__deal:hover { transform: rotate(-1deg) translateY(-3px); }
+.bf-hero__deal img { width: 72px; height: 72px; flex-shrink: 0; object-fit: contain; padding: 4px; border-radius: 10px; background: #fff; }
+.bf-hero__deal > span { display: grid; gap: 1px; min-width: 0; }
+.bf-hero__deal small { font-size: 10px; font-weight: 700; color: var(--bf-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bf-hero__deal s { font-size: 12px; font-weight: 700; color: var(--bf-red); text-decoration: line-through 2px var(--bf-red); }
+.bf-hero__deal b { font-family: 'Archivo', sans-serif; font-size: 22px; font-weight: 900; letter-spacing: -.03em; line-height: 1.05; color: var(--bf-lime); }
+.bf-hero__deal em { display: inline-flex; align-items: center; gap: 4px; font-style: normal; font-size: 10px; font-weight: 700; color: var(--bf-ink); }
 
 .bf-hero__burst {
-  position: absolute; top: 3%; right: 3%; width: 128px; height: 128px;
+  position: absolute; top: 3%; right: 3%; width: 126px; height: 126px; z-index: 2;
   display: grid; place-content: center; text-align: center;
   background: var(--bf-lime); color: #0b0c0a;
   clip-path: polygon(50% 0%, 61% 13%, 77% 6%, 80% 23%, 97% 25%, 90% 40%, 100% 54%, 86% 63%, 89% 80%, 72% 81%, 63% 97%, 50% 87%, 37% 97%, 28% 81%, 11% 80%, 14% 63%, 0% 54%, 10% 40%, 3% 25%, 20% 23%, 23% 6%, 39% 13%);
@@ -174,39 +216,101 @@
 /* ── Motion ───────────────────────────────────────────────────────────── */
 @keyframes bf-rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
 @keyframes bf-spin { to { transform: rotate(360deg); } }
-@keyframes bf-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
 @keyframes bf-wobble { 0%, 100% { transform: rotate(12deg) scale(1); } 50% { transform: rotate(4deg) scale(1.06); } }
 @keyframes bf-marquee { to { transform: translateX(-50%); } }
+@keyframes bf-breathe { 0%, 100% { opacity: .85; } 50% { opacity: 1; } }
+@keyframes bf-floor { to { background-position: 0 70px, 0 0; } }
+@keyframes bf-sweep { from { background-position: 0 120%, 0 0; } to { background-position: 0 -120%, 0 0; } }
+@keyframes bf-tick { from { opacity: 0; transform: translateY(-60%); } to { opacity: 1; transform: none; } }
+@keyframes bf-live {
+  0% { box-shadow: 0 0 0 0 rgb(255 59 79 / .6); }
+  70%, 100% { box-shadow: 0 0 0 9px rgb(255 59 79 / 0); }
+}
 @keyframes bf-pulse {
   0% { box-shadow: 0 0 0 0 rgb(187 219 69 / .55); }
   70%, 100% { box-shadow: 0 0 0 16px rgb(187 219 69 / 0); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .bf-hero *, .bf-hero *::before, .bf-hero *::after { animation: none !important; }
+@keyframes bf-spark {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: .9; }
+  80% { opacity: .6; }
+  100% { transform: translate(18px, -760px); opacity: 0; }
 }
 
-/* ── Smaller screens ──────────────────────────────────────────────────── */
+/* Neon: steady, then a stutter, a dropout, and a second stutter. */
+@keyframes bf-neon {
+  0% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
+  17% { opacity: .22; filter: brightness(.45) saturate(.6); }
+  18% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
+  19.5% { opacity: .45; filter: brightness(.6); }
+  20.5% { opacity: 1; filter: drop-shadow(0 0 14px rgb(212 240 106 / 1)) drop-shadow(0 0 60px rgb(187 219 69 / .7)); }
+  23% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
+  61% { opacity: .1; filter: brightness(.3) saturate(.4); }
+  63.5% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
+  82% { opacity: .5; filter: brightness(.55); }
+  82.8% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
+  83.6% { opacity: .3; filter: brightness(.45); }
+  84.4% { opacity: 1; filter: drop-shadow(0 0 16px rgb(212 240 106 / 1)) drop-shadow(0 0 64px rgb(187 219 69 / .75)); }
+  87% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
+}
+@keyframes bf-disc {
+  0%, 18%, 20.5%, 63.5%, 82.8%, 84.4% { opacity: 1; }
+  17%, 19.5%, 82%, 83.6% { opacity: .55; }
+  61% { opacity: .35; }
+}
+@keyframes bf-glitch-a {
+  0%, 18%, 20.5%, 63.5%, 84.4% { opacity: 0; transform: none; clip-path: inset(0); }
+  17% { opacity: .85; transform: translate(-9px, 2px); clip-path: inset(18% 0 58% 0); }
+  19.5% { opacity: .8; transform: translate(7px, -1px); clip-path: inset(62% 0 12% 0); }
+  61% { opacity: .9; transform: translate(-12px, 0); clip-path: inset(34% 0 40% 0); }
+  82% { opacity: .7; transform: translate(6px, 1px); clip-path: inset(8% 0 70% 0); }
+  83.6% { opacity: .8; transform: translate(-7px, 0); clip-path: inset(48% 0 30% 0); }
+}
+@keyframes bf-glitch-b {
+  0%, 18%, 20.5%, 63.5%, 84.4% { opacity: 0; transform: none; clip-path: inset(0); }
+  17% { opacity: .8; transform: translate(8px, -2px); clip-path: inset(40% 0 35% 0); }
+  19.5% { opacity: .7; transform: translate(-6px, 1px); clip-path: inset(10% 0 74% 0); }
+  61% { opacity: .85; transform: translate(11px, 0); clip-path: inset(70% 0 6% 0); }
+  82% { opacity: .75; transform: translate(-8px, 0); clip-path: inset(55% 0 25% 0); }
+  83.6% { opacity: .7; transform: translate(9px, -1px); clip-path: inset(22% 0 60% 0); }
+}
+@keyframes bf-letter {
+  0%, 42%, 44%, 45.5%, 91%, 92.5% { opacity: 1; }
+  43%, 45%, 92% { opacity: .2; text-shadow: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bf-hero *, .bf-hero *::before, .bf-hero *::after { animation: none !important; }
+  .bf-hero__sparks { display: none; }
+}
+
+/* ── Smaller screens: the sign first, compact, then the copy. ─────────── */
 @media (max-width: 960px) {
-  .bf-hero { padding: 36px 0 96px; }
-  .bf-hero__inner { grid-template-columns: 1fr; gap: 28px; }
-  .bf-hero__stage { max-width: 400px; }
-  .bf-hero__title { font-size: clamp(72px, 21vw, 140px); }
+  .bf-hero { padding: 24px 0 88px; }
+  .bf-hero__inner { grid-template-columns: 1fr; gap: 8px; }
+  .bf-hero__stage { order: -1; width: min(78vw, 400px); }
+  .bf-hero__title { font-size: clamp(66px, 19vw, 140px); margin-top: 12px; }
   .bf-hero__ghost { font-size: 70vw; bottom: -14vw; }
+  .bf-hero__floor { height: 34%; }
 }
 @media (max-width: 520px) {
+  .bf-hero__stage { width: 76vw; }
   .bf-hero__presents { font-size: 9px; letter-spacing: .18em; }
-  .bf-hero__when strong { font-size: 38px; }
+  .bf-hero__when { margin-top: 16px; }
+  .bf-hero__when strong { font-size: 36px; }
   .bf-hero__when span { font-size: 10px; }
-  .bf-hero__lede { font-size: 13px; }
+  .bf-hero__lede { display: none; }
+  .bf-hero__countdown { margin-top: 16px; gap: 10px; }
   .bf-hero__countdown li { min-width: 54px; }
   .bf-hero__countdown b { font-size: 22px; }
-  .bf-hero__stage { max-width: 330px; }
-  .bf-hero__burst { width: 96px; height: 96px; }
-  .bf-hero__burst b { font-size: 27px; }
-  .bf-hero__burst small { font-size: 8px; }
-  .bf-hero__tag { right: -8%; padding: 9px 12px 10px; }
-  .bf-hero__tag b { font-size: 20px; }
+  .bf-hero__burst { width: 84px; height: 84px; }
+  .bf-hero__burst b { font-size: 24px; }
+  .bf-hero__burst small { font-size: 7px; }
+  .bf-hero__deal { left: -8%; bottom: 0; max-width: 78%; padding: 6px 10px 6px 6px; gap: 8px; }
+  .bf-hero__deal img { width: 52px; height: 52px; }
+  .bf-hero__deal b { font-size: 17px; }
   .bf-hero__cta { min-height: 52px; font-size: 13px; }
+  .bf-hero__actions { margin-top: 18px; }
   .bf-hero__ticker { height: 42px; }
   .bf-hero__ticker span { font-size: 12px; }
 }

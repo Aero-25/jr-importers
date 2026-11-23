@@ -56,9 +56,8 @@ export interface ActivePromotion {
   preview: boolean;
 }
 
-/** The promotion running today, if any. */
-export function useActivePromotion(): ActivePromotion | null {
-  const { data } = useQuery<PromotionRow[], Error>({
+function usePromotionRows() {
+  return useQuery<PromotionRow[], Error>({
     queryKey: keys.list('promotions', { active: true }),
     staleTime: 5 * 60_000,
     queryFn: async () => {
@@ -72,6 +71,34 @@ export function useActivePromotion(): ActivePromotion | null {
       return (data ?? []) as PromotionRow[];
     },
   });
+}
+
+/** How long before a promotion starts the home page announces it. */
+const ANNOUNCE_DAYS = 14;
+
+/**
+ * The next promotion, while it is announced but not yet running. Only the
+ * home hero and the strip above the header use it: prices, deal cards and
+ * the sale look still wait for the window itself.
+ */
+export function useUpcomingPromotion(): ActivePromotion | null {
+  const { data } = usePromotionRows();
+  const today = shopToday();
+  const announceFrom = (startsOn: string) => {
+    const d = new Date(`${startsOn}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - ANNOUNCE_DAYS);
+    return d.toISOString().slice(0, 10);
+  };
+  const next = (data ?? [])
+    .filter((p) => p.active && today < p.starts_on && today >= announceFrom(p.starts_on))
+    .sort((a, b) => a.starts_on.localeCompare(b.starts_on))[0];
+  if (!next) return null;
+  return { name: next.name, theme: next.theme, startsOn: next.starts_on, endsOn: next.ends_on, preview: false };
+}
+
+/** The promotion running today, if any. */
+export function useActivePromotion(): ActivePromotion | null {
+  const { data } = usePromotionRows();
 
   const today = shopToday();
   const running = (data ?? []).find((p) => p.active && p.starts_on <= today && today <= p.ends_on);

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowRight, ArrowUpRight, MapPin, ShieldCheck, Truck, Wallet, Wrench } from 'lucide-react';
 import { useCatalog, useFacets } from '@/data/products';
-import { isPromoItem, useActivePromotion } from '@/data/promotions';
+import { isPromoItem, useActivePromotion, useUpcomingPromotion } from '@/data/promotions';
 import { SHOP_CATEGORIES } from '@/lib/constants';
 import { STORE } from '@/lib/constants';
 import { money } from '@/lib/format';
@@ -34,6 +34,8 @@ export default function Home() {
   // On-order handsets are listed and buyable, but not "on our shelf".
   const shelved = phones.data?.filter((p) => p.stock > 0).length ?? 0;
   const promotion = useActivePromotion();
+  const upcoming = useUpcomingPromotion();
+  const heroPromotion = promotion ?? upcoming;
   const deals = useCatalog(
     { categories: [...SHOP_CATEGORIES], dealsOnly: true, sort: 'price-asc', limit: 24 },
     { enabled: Boolean(promotion) },
@@ -42,8 +44,8 @@ export default function Home() {
 
   return (
     <div ref={revealRoot} className="coast-home">
-      {promotion?.theme === 'black-friday' ? (
-        <BlackFridayHero promotion={promotion} deals={dealList} />
+      {heroPromotion?.theme === 'black-friday' ? (
+        <BlackFridayHero promotion={heroPromotion} deals={dealList} upcoming={!promotion} />
       ) : (
       <section className="coast-hero" aria-labelledby="coast-hero-title">
         <div ref={heroRef} data-hero className="coast-hero-scene" aria-hidden="true">

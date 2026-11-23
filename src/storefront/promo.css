@@ -156,3 +156,8 @@
 .coastline-shop[data-promo='black-friday'] .coast-laybuy-orbits i:first-child::after { background: var(--bf-lime); box-shadow: 0 0 30px rgb(187 219 69 / .5); }
 .coastline-shop[data-promo='black-friday'] .coast-auth-card::before { background: var(--bf-lime); }
 .coastline-shop[data-promo='black-friday'] ::selection { background: var(--bf-lime); color: var(--bf-black); }
+
+/* ── Countdown strip before the sale (the rest of the site keeps its look) */
+.coastline-shop .coast-utility:has(.coast-utility-promo--soon) { background: var(--bf-black); color: var(--bf-ink); }
+.coastline-shop .coast-utility:has(.coast-utility-promo--soon) .coast-live-dot { background: var(--bf-lime); }
+.coastline-shop .coast-utility:has(.coast-utility-promo--soon) a { color: var(--bf-lime); font-weight: 700; }

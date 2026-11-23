@@ -5,7 +5,7 @@ import { cn } from '@/lib/cn';
 import { CATEGORY_GROUPS, STORE } from '@/lib/constants';
 import { useCart } from '@/data/cart';
 import { useCompare } from '@/data/compare';
-import { useActivePromotion } from '@/data/promotions';
+import { useActivePromotion, useUpcomingPromotion } from '@/data/promotions';
 import { useAuth } from '@/auth/AuthProvider';
 import '../shell.css';
 
@@ -25,6 +25,7 @@ export function Header() {
   const { count: compareCount } = useCompare();
   const { isAuthenticated, profile } = useAuth();
   const promotion = useActivePromotion();
+  const upcoming = useUpcomingPromotion();
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
@@ -84,6 +85,16 @@ export function Header() {
                 {promotion.preview && <em className="coast-utility-promo__preview">Preview</em>}
               </p>
               <Link to="/shop?deals=1">Shop the deals<ArrowUpRight aria-hidden size={12} /></Link>
+            </>
+          ) : upcoming ? (
+            <>
+              <p className="coast-utility-promo coast-utility-promo--soon">
+                <span className="coast-live-dot" />
+                <strong>{upcoming.name}</strong>
+                <span className="coast-utility-promo__dates">{promoDates(upcoming.startsOn, upcoming.endsOn)}</span>
+                <span className="hidden sm:inline">Coming soon, online &amp; at Pelican Mall</span>
+              </p>
+              <Link to="/">See the countdown<ArrowUpRight aria-hidden size={12} /></Link>
             </>
           ) : (
             <>
