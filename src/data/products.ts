@@ -41,7 +41,7 @@ const PUBLIC_COLUMNS = [
   'image', 'image1', 'image2', 'image3', 'image4', 'image5',
   'spec_display', 'spec_processor', 'spec_ram', 'spec_storage', 'spec_battery',
   'spec_back_camera', 'spec_front_camera', 'spec_os', 'spec_weight', 'spec_extras',
-  'active', 'show_online', 'featured', 'sale_price', 'allow_backorder', 'created_at', 'updated_at',
+  'active', 'show_online', 'featured', 'sale_price', 'allow_backorder', 'in_promotion', 'deal_note', 'created_at', 'updated_at',
 ].join(',');
 
 /**
@@ -63,7 +63,7 @@ export interface CatalogFilters {
   minPrice?: number | null;
   maxPrice?: number | null;
   featuredOnly?: boolean;
-  /** Only products carrying a sale price — the deals page during a promotion. */
+  /** Only promotion items (a sale price, or flagged as part of the sale) — the deals page. */
   dealsOnly?: boolean;
   sort?: CatalogSort;
   limit?: number;
@@ -96,7 +96,7 @@ export function useCatalog(filters: CatalogFilters = {}, { enabled = true }: { e
         .or(NOT_A_SERVICE);
 
       if (filters.category) query = query.eq('category', filters.category);
-      if (filters.dealsOnly) query = query.not('sale_price', 'is', null);
+      if (filters.dealsOnly) query = query.or('sale_price.not.is.null,in_promotion.is.true');
       if (filters.categories?.length) query = query.in('category', filters.categories);
       if (filters.brand) query = query.eq('brand', filters.brand);
       if (filters.featuredOnly) query = query.eq('featured', true);

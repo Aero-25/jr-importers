@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Phone, Scale, ShoppingBag } from 'lucide-react';
+import { Gift, Phone, Scale, ShoppingBag } from 'lucide-react';
 import type { PublicProductRow } from '@/lib/database.types';
 import { STORE, isServiceCategory } from '@/lib/constants';
 import { money, slugify } from '@/lib/format';
@@ -7,7 +7,7 @@ import { cn } from '@/lib/cn';
 import { Badge, Button, StockBadge } from '@/ui';
 import { useCart } from '@/data/cart';
 import { useCompare } from '@/data/compare';
-import { effectivePrice, isOnOrder, salePriceOf, useActivePromotion } from '@/data/promotions';
+import { dealNoteOf, effectivePrice, isOnOrder, isPromoItem, salePriceOf, useActivePromotion } from '@/data/promotions';
 import { useToast } from '@/ui';
 import { Price } from './Price';
 import '../commerce.css';
@@ -35,6 +35,8 @@ export function ProductCard({
   const outOfStock = !service && product.stock <= 0 && !onOrder;
   const compared = compare.has(product.id);
   const sale = service ? null : salePriceOf(product, promotion);
+  const deal = !service && isPromoItem(product, promotion);
+  const dealNote = deal ? dealNoteOf(product, promotion) : null;
 
   function toggleCompare() {
     const result = compare.toggle(product);
@@ -66,6 +68,7 @@ export function ProductCard({
     <article
       className={cn(
         'coast-product group relative flex flex-col overflow-hidden',
+        deal && 'coast-product--deal',
         className,
       )}
     >
@@ -96,7 +99,7 @@ export function ProductCard({
             <span className="coast-product__service-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-2xs font-semibold text-white shadow-card">
               In-store service
             </span>
-          ) : sale !== null ? (
+          ) : deal ? (
             <span className="coast-product__deal-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-2xs font-bold uppercase tracking-wide shadow-card">
               {promotion?.name ?? 'Sale'}
             </span>
@@ -152,6 +155,13 @@ export function ProductCard({
           </Link>
         </h3>
 
+        {dealNote && (
+          <p className="coast-product__deal-note mt-2 flex items-start gap-1.5">
+            <Gift aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" />
+            <span>{dealNote}</span>
+          </p>
+        )}
+
         <div className="mt-auto pt-3">
           <p className="coast-product__price tabular font-display font-bold text-brand-700">
             {service ? (
@@ -161,7 +171,7 @@ export function ProductCard({
             )}
           </p>
 
-          <div className="mt-1.5">
+          <div className="coast-product__stock mt-1.5">
             {service ? (
               <Badge tone="info" size="sm">
                 Quoted at the counter

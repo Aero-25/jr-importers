@@ -23,8 +23,10 @@ import {
 import { useCart } from '@/data/cart';
 import {
   ON_ORDER_LIMIT,
+  dealNoteOf,
   effectivePrice,
   isOnOrder,
+  isPromoItem,
   salePriceOf,
   useActivePromotion,
 } from '@/data/promotions';
@@ -137,6 +139,8 @@ export default function ProductDetail() {
   const outOfStock = !service && onHand <= 0 && !onOrder;
   const maxQuantity = onOrder ? ON_ORDER_LIMIT : Math.max(onHand, 1);
   const sale = service ? null : salePriceOf(product, promotion);
+  const deal = !service && isPromoItem(product, promotion);
+  const dealNote = deal ? dealNoteOf(product, promotion) : null;
 
   function addToCart() {
     if (!product) return;
@@ -229,7 +233,10 @@ export default function ProductDetail() {
             {product.name}
           </h1>
 
-          <div className="coast-detail__pricing mt-6 flex flex-wrap items-center gap-3">
+          {deal && (
+            <p className="coast-detail__deal-tag mt-5">{promotion?.name ?? 'Black Friday'}</p>
+          )}
+          <div className={cn('coast-detail__pricing mt-6 flex flex-wrap items-center gap-3', deal && 'coast-detail__pricing--deal')}>
             <p className="tabular font-display text-3xl font-semibold text-ink">
               {service ? (
                 `From ${money(product.price)}`
@@ -259,6 +266,11 @@ export default function ProductDetail() {
                 ? `VAT inclusive · ${promotion?.name ?? 'Sale'} price until ${new Date(`${promotion?.endsOn}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
                 : 'VAT inclusive'}
           </p>
+          {dealNote && (
+            <p className="coast-detail__deal-note mt-3">
+              <strong>{promotion?.name ?? 'Black Friday'} package:</strong> {dealNote}
+            </p>
+          )}
           {onOrder && (
             <p className="coast-detail__on-order mt-3 rounded-xl border border-hairline bg-raised px-4 py-3 text-sm text-ink-muted">
               <strong className="text-ink">Not on our shelf right now — order it and we source it for you.</strong>{' '}

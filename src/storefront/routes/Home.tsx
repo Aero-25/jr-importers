@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowRight, ArrowUpRight, MapPin, ShieldCheck, Truck, Wallet, Wrench } from 'lucide-react';
 import { useCatalog, useFacets } from '@/data/products';
-import { salePriceOf, useActivePromotion } from '@/data/promotions';
+import { isPromoItem, useActivePromotion } from '@/data/promotions';
 import { SHOP_CATEGORIES } from '@/lib/constants';
 import { STORE } from '@/lib/constants';
 import { money } from '@/lib/format';
@@ -9,6 +9,7 @@ import { ErrorState } from '@/ui';
 import { useParallax, useReveal, useSpecular } from '@/ui/effects';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
 import { ChipRail } from '../components/ChipRail';
+import { BlackFridayHero } from '../components/BlackFridayHero';
 import { promoDates } from '../components/Header';
 import { useSeo } from '../seo';
 
@@ -37,10 +38,13 @@ export default function Home() {
     { categories: [...SHOP_CATEGORIES], dealsOnly: true, sort: 'price-asc', limit: 24 },
     { enabled: Boolean(promotion) },
   );
-  const dealList = (deals.data ?? []).filter((p) => salePriceOf(p, promotion) !== null);
+  const dealList = (deals.data ?? []).filter((p) => isPromoItem(p, promotion));
 
   return (
     <div ref={revealRoot} className="coast-home">
+      {promotion?.theme === 'black-friday' ? (
+        <BlackFridayHero promotion={promotion} deals={dealList} />
+      ) : (
       <section className="coast-hero" aria-labelledby="coast-hero-title">
         <div ref={heroRef} data-hero className="coast-hero-scene" aria-hidden="true">
           <img src="/coastline-hero.webp" alt="" width="1672" height="941" fetchPriority="high" className="coast-hero-art" />
@@ -78,6 +82,7 @@ export default function Home() {
         <div className="coast-hero-caption" aria-hidden="true"><span>DESIGNED FOR YOUR EVERYDAY</span><i /><span>ROOTED IN NAMIBIA</span></div>
         <a href="#find-your-next" className="coast-scroll-cue" aria-label="Discover phones in stock"><ArrowDown size={17} aria-hidden /></a>
       </section>
+      )}
 
       <div className="coast-promise-strip">
         <ul className="coast-container">
@@ -90,7 +95,7 @@ export default function Home() {
       {promotion && dealList.length > 0 && (
         <section id="deals" className="coast-container coast-stock-section coast-deals-section" aria-labelledby="coast-deals-title">
           <div className="coast-section-heading reveal">
-            <div><p className="coast-eyebrow">{promotion.name} · {promoDates(promotion.startsOn, promotion.endsOn)}</p><h2 id="coast-deals-title">This week’s deals.</h2><p>Special prices on selected stock. When it’s gone, it’s gone.</p></div>
+            <div><p className="coast-eyebrow">{promotion.name} · {promoDates(promotion.startsOn, promotion.endsOn)}</p><h2 id="coast-deals-title">This week’s deals.</h2><p>Special prices and packages on selected stock. When it’s gone, it’s gone.</p></div>
             <Link to="/shop?deals=1" className="coast-text-link">All deals <ArrowUpRight aria-hidden size={18} /></Link>
           </div>
           <div className="coast-home-products grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

@@ -1,11 +1,13 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/cn';
 import { CATEGORY_GROUPS, PRICE_BANDS } from '@/lib/constants';
+import { useActivePromotion } from '@/data/promotions';
 
 interface Chip {
   label: string;
   to: string;
   active: boolean;
+  deal?: boolean;
 }
 
 /**
@@ -24,12 +26,16 @@ export function ChipRail({ className }: { className?: string }) {
   const min = params.get('min');
   const max = params.get('max');
   const hasBand = Boolean(min || max);
+  const promotion = useActivePromotion();
 
   const chips: Chip[] = [
+    ...(promotion
+      ? [{ label: promotion.name, to: '/shop?deals=1', active: params.get('deals') === '1', deal: true }]
+      : []),
     {
       label: 'All phones',
       to: '/shop/phones',
-      active: currentGroup === 'phones' && !hasBand,
+      active: currentGroup === 'phones' && !hasBand && params.get('deals') !== '1',
     },
     ...PRICE_BANDS.map((band) => {
       const next = new URLSearchParams();
@@ -68,6 +74,7 @@ export function ChipRail({ className }: { className?: string }) {
               aria-current={chip.active ? 'page' : undefined}
               className={cn(
                 'coast-chip inline-flex items-center whitespace-nowrap rounded-full px-4 py-2 text-sm transition-all duration-200',
+                chip.deal && 'coast-chip--deal',
                 chip.active
                   ? 'bg-brand-600 font-semibold text-white shadow-card'
                   : 'font-medium text-ink',

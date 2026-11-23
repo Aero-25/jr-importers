@@ -109,6 +109,24 @@ export function salePriceOf(product: Priced, promotion: ActivePromotion | null):
   return Number.isFinite(sale) && sale > 0 && sale < price ? sale : null;
 }
 
+type Promoted = Priced & { in_promotion?: boolean | null; deal_note?: string | null };
+
+/**
+ * Part of the running promotion: it has a lower price, or the shop has put it
+ * in the sale at its normal price (usually as a package, see deal_note).
+ */
+export function isPromoItem(product: Promoted, promotion: ActivePromotion | null): boolean {
+  if (!promotion) return false;
+  return salePriceOf(product, promotion) !== null || Boolean(product.in_promotion);
+}
+
+/** The package or deal line to show while a promotion runs. */
+export function dealNoteOf(product: Promoted, promotion: ActivePromotion | null): string | null {
+  if (!promotion) return null;
+  const note = product.deal_note?.trim();
+  return note ? note : null;
+}
+
 /** What the product costs right now. */
 export function effectivePrice(product: Priced, promotion: ActivePromotion | null): number {
   return salePriceOf(product, promotion) ?? (Number(product.price) || 0);

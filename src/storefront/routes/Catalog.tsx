@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { ChevronDown, Phone, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, Phone, SlidersHorizontal, X, Zap } from 'lucide-react';
 import { useCatalog, useFacets, type CatalogSort } from '@/data/products';
 import { useActivePromotion } from '@/data/promotions';
 import {
@@ -138,6 +138,21 @@ export default function Catalog() {
           </div>
         )}
       </header>
+
+      {promotion && (
+        <div className="coast-deals-filter mb-4">
+          <button
+            type="button"
+            aria-pressed={deals}
+            onClick={() => update('deals', deals ? null : '1')}
+            className="coast-deals-toggle"
+          >
+            <Zap aria-hidden className="h-4 w-4" />
+            <span>{deals ? `Showing ${promotion.name} only` : `${promotion.name} only`}</span>
+            {deals && <X aria-hidden className="h-4 w-4" />}
+          </button>
+        </div>
+      )}
 
       <ChipRail className="-mx-4 mb-8" />
 

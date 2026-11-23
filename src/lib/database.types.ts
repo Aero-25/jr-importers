@@ -187,6 +187,10 @@ export type ProductRow = {
   sale_price: number | null;
   /** Stays on the website and can be ordered at stock 0; the unit is sourced after the sale. */
   allow_backorder: boolean;
+  /** Part of the running promotion even without a sale price (packages at the normal price). */
+  in_promotion: boolean;
+  /** Short package or deal text shown while a promotion runs, e.g. "Free case + glass". */
+  deal_note: string | null;
   created_at: string;
   updated_at: string;
 }

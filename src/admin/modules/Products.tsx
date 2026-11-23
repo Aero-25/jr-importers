@@ -83,6 +83,9 @@ export default function Products() {
           {product.sale_price != null && Number(product.sale_price) < Number(product.price) && (
             <span className="block text-xs font-semibold text-danger">Sale {money(product.sale_price)}</span>
           )}
+          {product.in_promotion && !(product.sale_price != null && Number(product.sale_price) < Number(product.price)) && (
+            <span className="block text-xs font-semibold text-ink-muted">Black Friday item</span>
+          )}
         </span>
       ),
       sortValue: (product) => Number(product.price),
@@ -143,6 +146,11 @@ export default function Products() {
           {product.allow_backorder && (
             <Badge tone="info" size="sm">
               On order
+            </Badge>
+          )}
+          {product.deal_note && (
+            <Badge tone="lime" size="sm">
+              Package
             </Badge>
           )}
           {product.active && product.show_online === false && (
@@ -229,6 +237,8 @@ const BLANK = {
   show_online: true,
   featured: false,
   allow_backorder: false,
+  in_promotion: false,
+  deal_note: '',
 };
 
 function ProductDialog({
@@ -300,6 +310,8 @@ function ProductDialog({
           show_online: product.show_online ?? true,
           featured: product.featured,
           allow_backorder: product.allow_backorder ?? false,
+          in_promotion: product.in_promotion ?? false,
+          deal_note: product.deal_note ?? '',
         },
   );
 
@@ -344,6 +356,8 @@ function ProductDialog({
       show_online: form.show_online,
       featured: form.featured,
       allow_backorder: form.allow_backorder,
+      in_promotion: form.in_promotion,
+      deal_note: form.deal_note.trim().slice(0, 120) || null,
     };
 
     // A SKU or barcode shared by two products splits one item's stock and
@@ -458,6 +472,14 @@ function ProductDialog({
             }
           />
           <Input
+            label="Package / deal text"
+            value={form.deal_note}
+            maxLength={120}
+            onChange={(e) => set('deal_note', e.target.value)}
+            placeholder="Free case + screen protector"
+            hint="Optional. Shown on the product during the sale. Use it for packages at the normal price."
+          />
+          <Input
             label="Cost price (N$)"
             type="number"
             inputMode="decimal"
@@ -547,6 +569,12 @@ function ProductDialog({
               hint="Stays on the website at zero stock with an Order now button. You source the unit after the sale."
               checked={form.allow_backorder}
               onChange={(e) => set('allow_backorder', e.target.checked)}
+            />
+            <Checkbox
+              label="Black Friday item"
+              hint="Shows in the Black Friday deals and filter during the sale, even without a sale price. Products with a sale price are included anyway."
+              checked={form.in_promotion}
+              onChange={(e) => set('in_promotion', e.target.checked)}
             />
             <Checkbox
               label="Feature on the home page"
