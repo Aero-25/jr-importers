@@ -126,7 +126,9 @@ export function AdminApp() {
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/pos" element={<Pos />} />
           <Route path="/cash-ups" element={<CashUps />} />
-          <Route path="/orders" element={<Orders />} />
+          <Route path="/orders" element={<Orders key="pos-sales" channel="pos" />} />
+          <Route path="/online/sales" element={<Orders key="online-sales" channel="web" view="sales" />} />
+          <Route path="/online/orders" element={<Orders key="online-orders" channel="web" view="orders" />} />
           <Route path="/refunds" element={<Refunds />} />
           <Route path="/dispatch" element={<Dispatch />} />
           <Route path="/products" element={<Products />} />
@@ -149,6 +151,7 @@ export function AdminApp() {
               <Route path="/purchase-orders" element={<Records resource="purchase_orders" />} />
               <Route path="/expenses" element={<Records resource="expenses" />} />
               <Route path="/coupons" element={<Records resource="coupons" />} />
+              <Route path="/promotions" element={<Records resource="promotions" />} />
               <Route path="/staff" element={<Records resource="users" />} />
               <Route path="/ledger" element={<Ledger />} />
               <Route path="/invoices/statements" element={<Statements />} />

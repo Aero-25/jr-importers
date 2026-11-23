@@ -86,6 +86,7 @@ export default function OrderConfirmation() {
                 <span className="tabular text-ink-muted">{item.quantity}×</span>{' '}
                 <span className="text-ink">{item.name}</span>
                 {item.color && <span className="text-ink-subtle"> · {item.color}</span>}
+                {item.on_order && <span className="text-info"> · On order — we will confirm delivery</span>}
               </span>
               <span className="tabular shrink-0 text-ink">
                 {money(item.price * item.quantity)}

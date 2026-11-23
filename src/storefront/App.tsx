@@ -7,6 +7,8 @@ import { Footer } from './components/Footer';
 import { RepairsBand } from './components/RepairsBand';
 import { ScrollToTop } from './components/ScrollToTop';
 import { TrackVisits } from './components/TrackVisits';
+import { useActivePromotion } from '@/data/promotions';
+import './promo.css';
 
 // Route-level splitting: the landing page must not carry the checkout form or
 // the account screens in its first byte.
@@ -35,6 +37,8 @@ const NotFound = lazy(() => import('./routes/NotFound'));
 
 export function ShopApp() {
   const location = useLocation();
+  // While a sale runs (or is being previewed) the shop wears its theme.
+  const promotion = useActivePromotion();
 
   // The job-card link is a task, not a visit: someone opening it on WhatsApp
   // is finishing a repair booking, often in a queue. Shop navigation and the
@@ -55,7 +59,7 @@ export function ShopApp() {
   }
 
   return (
-    <div className="coastline-shop flex min-h-screen flex-col">
+    <div className="coastline-shop flex min-h-screen flex-col" data-promo={promotion?.theme}>
       <ScrollToTop />
       <TrackVisits />
       <Header />

@@ -7,7 +7,9 @@ import { cn } from '@/lib/cn';
 import { Badge, Button, StockBadge } from '@/ui';
 import { useCart } from '@/data/cart';
 import { useCompare } from '@/data/compare';
+import { effectivePrice, isOnOrder, salePriceOf, useActivePromotion } from '@/data/promotions';
 import { useToast } from '@/ui';
+import { Price } from './Price';
 import '../commerce.css';
 
 export function productPath(product: Pick<PublicProductRow, 'id' | 'name'>): string {
@@ -27,9 +29,12 @@ export function ProductCard({
   const { add } = useCart();
   const compare = useCompare();
   const toast = useToast();
+  const promotion = useActivePromotion();
   const service = isServiceCategory(product.category);
-  const outOfStock = !service && product.stock <= 0;
+  const onOrder = !service && isOnOrder(product);
+  const outOfStock = !service && product.stock <= 0 && !onOrder;
   const compared = compare.has(product.id);
+  const sale = service ? null : salePriceOf(product, promotion);
 
   function toggleCompare() {
     const result = compare.toggle(product);
@@ -41,7 +46,8 @@ export function ProductCard({
   }
 
   function addToCart() {
-    const result = add(product, 1);
+    // A preview of the sale look charges normal prices: the database would.
+    const result = add(product, 1, null, effectivePrice(product, promotion?.preview ? null : promotion));
     if (result.reason === 'in-store-only') {
       toast.info('Booked at the shop', `Call ${STORE.phone} to book ${product.name}.`);
       return;
@@ -50,7 +56,10 @@ export function ProductCard({
       toast.warn('Out of stock', `${product.name} is not available right now.`);
       return;
     }
-    toast.success('Added to cart', product.name);
+    toast.success(
+      'Added to cart',
+      onOrder ? `${product.name} — on order, we source it for you.` : product.name,
+    );
   }
 
   return (
@@ -87,12 +96,21 @@ export function ProductCard({
             <span className="coast-product__service-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-2xs font-semibold text-white shadow-card">
               In-store service
             </span>
+          ) : sale !== null ? (
+            <span className="coast-product__deal-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-2xs font-bold uppercase tracking-wide shadow-card">
+              {promotion?.name ?? 'Sale'}
+            </span>
           ) : (
             product.featured && (
               <Badge tone="lime" size="sm">
                 Featured
               </Badge>
             )
+          )}
+          {onOrder && (
+            <Badge tone="info" size="sm" className="coast-product__order-badge">
+              On order
+            </Badge>
           )}
           {outOfStock && (
             <Badge tone="danger" size="sm" className="coast-product__sold-badge">
@@ -136,13 +154,21 @@ export function ProductCard({
 
         <div className="mt-auto pt-3">
           <p className="coast-product__price tabular font-display font-bold text-brand-700">
-            {service ? `From ${money(product.price)}` : money(product.price)}
+            {service ? (
+              `From ${money(product.price)}`
+            ) : (
+              <Price price={Number(product.price) || 0} sale={sale} />
+            )}
           </p>
 
           <div className="mt-1.5">
             {service ? (
               <Badge tone="info" size="sm">
                 Quoted at the counter
+              </Badge>
+            ) : onOrder ? (
+              <Badge tone="info" size="sm">
+                Order now · we source it
               </Badge>
             ) : (
               // No figure on a card: the catalogue cannot tell whether a
@@ -181,7 +207,7 @@ export function ProductCard({
               className="coast-product__action relative z-10 mt-4"
               icon={<ShoppingBag className="h-3.5 w-3.5" />}
             >
-              {outOfStock ? 'Sold out' : 'Add to cart'}
+              {outOfStock ? 'Sold out' : onOrder ? 'Order now' : 'Add to cart'}
             </Button>
           )}
         </div>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Phone, SlidersHorizontal, X } from 'lucide-react';
 import { useCatalog, useFacets, type CatalogSort } from '@/data/products';
+import { useActivePromotion } from '@/data/promotions';
 import {
   CATEGORY_GROUPS,
   PRICE_BANDS,
@@ -36,8 +37,14 @@ export default function Catalog() {
   const sort = (params.get('sort') as CatalogSort | null) ?? 'popular';
   const minPrice = params.get('min') ? Number(params.get('min')) : null;
   const maxPrice = params.get('max') ? Number(params.get('max')) : null;
+  const promotion = useActivePromotion();
+  // The deals view only exists while a sale runs; outside it, a stale link
+  // just shows the shop.
+  const deals = Boolean(promotion) && params.get('deals') === '1';
 
-  const title = group ? group.label : search ? `Search: ${search}` : 'All phones';
+  const title = deals
+    ? `${promotion!.name} deals`
+    : group ? group.label : search ? `Search: ${search}` : 'All phones';
 
   useSeo({
     title: `${title} — JR Importers`,
@@ -68,8 +75,9 @@ export default function Catalog() {
       sort,
       minPrice,
       maxPrice,
+      dealsOnly: deals,
     }),
-    [scope, category, brand, search, sort, minPrice, maxPrice],
+    [scope, category, brand, search, sort, minPrice, maxPrice, deals],
   );
 
   const catalog = useCatalog(filters);
@@ -90,6 +98,7 @@ export default function Catalog() {
     brand && { key: 'brand', label: brand },
     category && { key: 'category', label: category },
     search && { key: 'q', label: `“${search}”` },
+    deals && { key: 'deals', label: `${promotion!.name} deals` },
     minPrice && { key: 'min', label: `From ${money(minPrice)}` },
     maxPrice && { key: 'max', label: `Up to ${money(maxPrice)}` },
   ].filter(Boolean) as Array<{ key: string; label: string }>;

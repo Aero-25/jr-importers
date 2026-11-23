@@ -1,12 +1,15 @@
 import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowRight, ArrowUpRight, MapPin, ShieldCheck, Truck, Wallet, Wrench } from 'lucide-react';
 import { useCatalog, useFacets } from '@/data/products';
+import { salePriceOf, useActivePromotion } from '@/data/promotions';
+import { SHOP_CATEGORIES } from '@/lib/constants';
 import { STORE } from '@/lib/constants';
 import { money } from '@/lib/format';
 import { ErrorState } from '@/ui';
 import { useParallax, useReveal, useSpecular } from '@/ui/effects';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
 import { ChipRail } from '../components/ChipRail';
+import { promoDates } from '../components/Header';
 import { useSeo } from '../seo';
 
 const PROMISES = [
@@ -27,6 +30,14 @@ export default function Home() {
   const heroRef = useParallax<HTMLDivElement>(0.12);
   const { ref: laybuyRef, specularProps } = useSpecular<HTMLDivElement>();
   const cheapest = phones.data?.[0]?.price;
+  // On-order handsets are listed and buyable, but not "on our shelf".
+  const shelved = phones.data?.filter((p) => p.stock > 0).length ?? 0;
+  const promotion = useActivePromotion();
+  const deals = useCatalog(
+    { categories: [...SHOP_CATEGORIES], dealsOnly: true, sort: 'price-asc', limit: 24 },
+    { enabled: Boolean(promotion) },
+  );
+  const dealList = (deals.data ?? []).filter((p) => salePriceOf(p, promotion) !== null);
 
   return (
     <div ref={revealRoot} className="coast-home">
@@ -36,17 +47,31 @@ export default function Home() {
         </div>
         <div className="coast-hero-wash" aria-hidden="true" />
         <div className="coast-container coast-hero-content">
-          <p className="coast-eyebrow reveal"><span className="coast-live-dot" /> Tech for life in Namibia</p>
-          <h1 id="coast-hero-title" className="reveal" data-reveal-index="1">Your next<br />starts <span>here.</span></h1>
-          <p className="coast-hero-copy reveal" data-reveal-index="2">Phones, tablets and everyday tech.<br className="hidden sm:block" /> From our shelf in Walvis Bay to your door.</p>
-          <div className="coast-hero-actions reveal" data-reveal-index="3">
-            <Link to="/shop/phones" className="coast-button">Shop phones <ArrowUpRight aria-hidden size={18} /></Link>
-            <Link to="/shop" className="coast-text-link">Explore the shop <ArrowRight aria-hidden size={17} /></Link>
-          </div>
+          {promotion ? (
+            <>
+              <p className="coast-eyebrow reveal"><span className="coast-live-dot" /> {promotion.name} · {promoDates(promotion.startsOn, promotion.endsOn)}</p>
+              <h1 id="coast-hero-title" className="reveal" data-reveal-index="1">{promotion.name}<br /><span>deals.</span></h1>
+              <p className="coast-hero-copy reveal" data-reveal-index="2">Selected phones and accessories at special prices, online and at our shop in Pelican Mall. {promoDates(promotion.startsOn, promotion.endsOn)} only, while stock lasts.</p>
+              <div className="coast-hero-actions reveal" data-reveal-index="3">
+                <Link to="/shop?deals=1" className="coast-button">Shop the deals <ArrowUpRight aria-hidden size={18} /></Link>
+                <Link to="/shop/phones" className="coast-text-link">All phones <ArrowRight aria-hidden size={17} /></Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="coast-eyebrow reveal"><span className="coast-live-dot" /> Tech for life in Namibia</p>
+              <h1 id="coast-hero-title" className="reveal" data-reveal-index="1">Your next<br />starts <span>here.</span></h1>
+              <p className="coast-hero-copy reveal" data-reveal-index="2">Phones, tablets and everyday tech.<br className="hidden sm:block" /> From our shelf in Walvis Bay to your door.</p>
+              <div className="coast-hero-actions reveal" data-reveal-index="3">
+                <Link to="/shop/phones" className="coast-button">Shop phones <ArrowUpRight aria-hidden size={18} /></Link>
+                <Link to="/shop" className="coast-text-link">Explore the shop <ArrowRight aria-hidden size={17} /></Link>
+              </div>
+            </>
+          )}
           {phones.data && phones.data.length > 0 && (
             <div className="coast-hero-stock reveal" data-reveal-index="4">
               <span className="coast-stock-mark" aria-hidden><ShieldCheck size={18} /></span>
-              <p><strong>On our shelf. Ready for you.</strong><span>{phones.data.length} handsets in stock{cheapest != null && <> · From {money(cheapest)}</>}</span></p>
+              <p><strong>On our shelf. Ready for you.</strong><span>{shelved} handsets in stock{cheapest != null && <> · From {money(cheapest)}</>}</span></p>
             </div>
           )}
         </div>
@@ -61,6 +86,20 @@ export default function Home() {
           ))}
         </ul>
       </div>
+
+      {promotion && dealList.length > 0 && (
+        <section id="deals" className="coast-container coast-stock-section coast-deals-section" aria-labelledby="coast-deals-title">
+          <div className="coast-section-heading reveal">
+            <div><p className="coast-eyebrow">{promotion.name} · {promoDates(promotion.startsOn, promotion.endsOn)}</p><h2 id="coast-deals-title">This week’s deals.</h2><p>Special prices on selected stock. When it’s gone, it’s gone.</p></div>
+            <Link to="/shop?deals=1" className="coast-text-link">All deals <ArrowUpRight aria-hidden size={18} /></Link>
+          </div>
+          <div className="coast-home-products grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {dealList.slice(0, 8).map((product, index) => (
+              <div key={product.id} className="reveal" data-reveal-index={index}><ProductCard product={product} /></div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section id="find-your-next" className="coast-container coast-stock-section">
         <div className="coast-section-heading reveal">
@@ -99,7 +138,7 @@ export default function Home() {
       {brands.data && brands.data.brands.length > 0 && (
         <section className="coast-container coast-brand-section reveal" aria-label="Shop by brand">
           <div><p className="coast-eyebrow">The names you know.</p><h2>The next one you’ll love.</h2></div>
-          <ul>{brands.data.brands.map(brand => <li key={brand.value}><Link to={`/shop/phones?brand=${encodeURIComponent(brand.value)}`}><span>{brand.value}</span><span className="coast-brand-count">{brand.count} in stock</span><ArrowUpRight size={18} aria-hidden /></Link></li>)}</ul>
+          <ul>{brands.data.brands.map(brand => <li key={brand.value}><Link to={`/shop/phones?brand=${encodeURIComponent(brand.value)}`}><span>{brand.value}</span><span className="coast-brand-count">{brand.count} available</span><ArrowUpRight size={18} aria-hidden /></Link></li>)}</ul>
         </section>
       )}
       <div className="coast-home-signoff reveal"><MapPin size={15} aria-hidden /><span>From {STORE.city}, with possibility.</span><span aria-hidden className="coast-signoff-line" /></div>

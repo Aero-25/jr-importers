@@ -1,8 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
-import { useCart, useCartTotals } from '@/data/cart';
+import { useCart, useCartTotals, useLiveCartPrices } from '@/data/cart';
 import { money } from '@/lib/format';
-import { Button, Card, EmptyState, IconButton } from '@/ui';
+import { Button, Card, EmptyState, IconButton, Notice } from '@/ui';
 import { useSeo } from '../seo';
 
 export default function Cart() {
@@ -11,6 +11,7 @@ export default function Cart() {
   const navigate = useNavigate();
   const { lines, setQuantity, remove, clear } = useCart();
   const totals = useCartTotals(lines);
+  const live = useLiveCartPrices();
 
   if (lines.length === 0) {
     return (
@@ -31,6 +32,12 @@ export default function Cart() {
       <p className="mt-1 text-sm text-ink-muted">
         {totals.itemCount} item{totals.itemCount === 1 ? '' : 's'}
       </p>
+
+      {live.changed > 0 && (
+        <Notice tone="info" className="mt-4" title="Prices updated">
+          Your cart now shows today's prices.
+        </Notice>
+      )}
 
       <div className="coast-cart-layout mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
         <ul className="space-y-3">
@@ -58,7 +65,20 @@ export default function Cart() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">{line.name}</p>
                     {line.color && <p className="text-xs text-ink-subtle">{line.color}</p>}
-                    <p className="tabular mt-1 text-sm text-ink-muted">{money(line.price)} each</p>
+                    <p className="tabular mt-1 text-sm text-ink-muted">
+                      {money(line.price)} each
+                      {line.was_price ? (
+                        <s className="ml-2 text-ink-subtle">
+                          <span className="sr-only">Was </span>
+                          {money(line.was_price)}
+                        </s>
+                      ) : null}
+                    </p>
+                    {line.on_order && (
+                      <p className="mt-1 text-xs font-medium text-info">
+                        On order — we source it and confirm the delivery date with you.
+                      </p>
+                    )}
 
                     {overStock && (
                       <p className="mt-1 text-xs text-warn">

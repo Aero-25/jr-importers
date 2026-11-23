@@ -29,12 +29,54 @@ export function orderReference(order: Pick<OrderRow, 'id' | 'invoice_number'>): 
   return order.invoice_number ?? order.id.slice(0, 8).toUpperCase();
 }
 
-export default function Orders() {
+/** What an online sale is: money has been taken (or the goods have gone). */
+const SALE_STATUSES = ['Paid', 'Processing', 'Ready for Collection', 'Dispatched', 'Delivered', 'Completed'];
+
+const CHANNEL_LABEL: Record<OrderRow['channel'], string> = {
+  web: 'Website',
+  pos: 'Till',
+  invoice: 'Invoice',
+};
+
+export default function Orders({
+  channel,
+  view,
+}: {
+  /** Only this channel's orders (the Online section passes 'web'). */
+  channel?: OrderRow['channel'];
+  /** 'sales' keeps to orders that have been paid; 'orders' shows every one. */
+  view?: 'sales' | 'orders';
+} = {}) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [selected, setSelected] = useState<OrderRow | null>(null);
 
-  const orders = useOrders({ search, status: status || null });
+  const salesOnly = view === 'sales';
+  const orders = useOrders({
+    search,
+    channel: channel ?? null,
+    status: status || null,
+    statuses: salesOnly && !status ? SALE_STATUSES : null,
+  });
+
+  const heading =
+    channel === 'web'
+      ? salesOnly
+        ? {
+            title: 'Online sales',
+            description: 'Website orders that have been paid for. Till and invoice sales are under Orders.',
+          }
+        : {
+            title: 'Online orders',
+            description: 'Everything customers have ordered on the website, paid or not. Each new order is emailed to the shop.',
+          }
+      : channel === 'pos'
+        ? {
+            title: 'POS sales',
+            description: 'Sales rung up on the till. Website orders are under Online; sales raised as invoices are under Invoices.',
+          }
+        : { title: 'Orders', description: 'Every sale, online and at the counter.' };
+  const statusOptions = salesOnly ? SALE_STATUSES : [...ORDER_STATUSES];
 
   const columns: Column<OrderRow>[] = [
     {
@@ -66,6 +108,17 @@ export default function Orders() {
         </span>
       ),
     },
+    ...(channel
+      ? []
+      : [{
+          key: 'channel',
+          header: 'From',
+          secondary: true,
+          render: (order: OrderRow) => (
+            <span className="text-xs text-ink-muted">{CHANNEL_LABEL[order.channel] ?? '—'}</span>
+          ),
+          sortValue: (order: OrderRow) => order.channel ?? '',
+        } satisfies Column<OrderRow>]),
     {
       key: 'total',
       header: 'Total',
@@ -94,7 +147,7 @@ export default function Orders() {
 
   return (
     <>
-      <ModuleHeader title="Orders" description="Every sale, online and at the counter." />
+      <ModuleHeader title={heading.title} description={heading.description} />
 
       <div className="p-6">
         <div className="mb-4 flex flex-wrap gap-3">
@@ -111,7 +164,7 @@ export default function Orders() {
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             placeholder="All statuses"
-            options={ORDER_STATUSES.map((s) => ({ value: s, label: s }))}
+            options={statusOptions.map((s) => ({ value: s, label: s }))}
             containerClassName="w-48"
           />
         </div>
@@ -124,10 +177,14 @@ export default function Orders() {
             loading={orders.isLoading}
             onRowClick={setSelected}
             defaultSort={{ key: 'placed', direction: 'desc' }}
-            empty={{
-              title: 'No orders match',
-              message: 'Adjust the search or status filter.',
-            }}
+            empty={
+              channel === 'web' && !search && !status
+                ? {
+                    title: salesOnly ? 'No online sales yet' : 'No online orders yet',
+                    message: 'Orders placed on the website appear here. Sales rung up on the till are under Orders.',
+                  }
+                : { title: 'No orders match', message: 'Adjust the search or status filter.' }
+            }
           />
         </div>
       </div>

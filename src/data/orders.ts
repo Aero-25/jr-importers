@@ -5,6 +5,8 @@ import { DEFAULT_VAT_RATE, round2, vatFromInclusive } from '@/lib/format';
 import { keys } from './keys';
 
 export interface OrderFilters {
+  /** web (customer checkout), pos (the till) or invoice (from a staff invoice). */
+  channel?: 'web' | 'pos' | 'invoice' | null;
   status?: string | null;
   statuses?: string[] | null;
   search?: string | null;
@@ -19,6 +21,7 @@ export function useOrders(filters: OrderFilters = {}) {
     queryFn: async () => {
       let query = supabase.from('orders').select('*');
 
+      if (filters.channel) query = query.eq('channel', filters.channel);
       if (filters.status) query = query.eq('status', filters.status);
       if (filters.statuses?.length) query = query.in('status', filters.statuses);
       if (filters.from) query = query.gte('created_at', filters.from);
@@ -120,6 +123,9 @@ export function usePlaceOrder() {
         .from('orders')
         .insert({
           user_id: input.customer.user_id ?? null,
+          // The database sets this for customers anyway; sent so a staff
+          // member testing the shop is still recorded as a web order.
+          channel: 'web',
           customer_name: input.customer.name,
           customer_email: input.customer.email.toLowerCase(),
           customer_phone: input.customer.phone,

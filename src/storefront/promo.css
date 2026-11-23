@@ -1,0 +1,97 @@
+/*
+ * Promotion themes.
+ *
+ * Applied by `data-promo` on .coastline-shop, which is set only while a
+ * promotion in the `promotions` table is running (or being previewed with
+ * ?preview=<theme>). Outside those dates none of this matches, so the shop
+ * returns to its own look on its own.
+ *
+ * Black Friday: black, signal yellow and a red price. The content areas stay
+ * light so product photos (shot on white) and long copy remain readable; the
+ * frame (strip, hero, actions, footer) goes black.
+ */
+
+.coastline-shop[data-promo='black-friday'] {
+  --bf-black: #0b0b0c;
+  --bf-ink: #f6f6f2;
+  --bf-yellow: #ffd60a;
+  --bf-red: #d4142a;
+
+  /* Tokens the shared UI reads: primary buttons, lime badges, prices. */
+  --c-brand-400: 40 40 44;
+  --c-brand-500: 11 11 12;
+  --c-brand-600: 0 0 0;
+  --c-brand-700: 11 11 12;
+  --c-brand-800: 11 11 12;
+  --c-lime-300: 255 230 110;
+  --c-lime-400: 255 222 60;
+  --c-lime-500: 255 214 10;
+  --c-lime-600: 230 190 0;
+  --c-lime-700: 150 120 0;
+  --coast-forest: #0b0b0c;
+}
+
+/* ── The strip above the header ─────────────────────────────────────── */
+.coastline-shop[data-promo='black-friday'] .coast-utility { background: var(--bf-black); color: var(--bf-ink); }
+.coastline-shop[data-promo='black-friday'] .coast-utility .coast-live-dot { background: var(--bf-yellow); }
+.coast-utility-promo strong { color: var(--bf-yellow, inherit); font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.coast-utility-promo__dates { font-weight: 700; }
+.coast-utility-promo__preview { font-style: normal; padding: 1px 6px; border-radius: 3px; background: rgb(255 255 255 / .16); }
+.coastline-shop[data-promo='black-friday'] .coast-utility a { color: var(--bf-yellow); font-weight: 700; }
+
+/* ── Header actions ─────────────────────────────────────────────────── */
+.coastline-shop[data-promo='black-friday'] .coast-search > button { background: var(--bf-black); }
+.coastline-shop[data-promo='black-friday'] .coast-search > button:hover { background: #2a2a2e; }
+.coastline-shop[data-promo='black-friday'] .coast-count { background: var(--bf-yellow); color: var(--bf-black); }
+.coastline-shop[data-promo='black-friday'] .coast-category-inner nav a::after { background: var(--bf-yellow); }
+
+/* ── Hero ───────────────────────────────────────────────────────────── */
+.coastline-shop[data-promo='black-friday'] .coast-hero { background: var(--bf-black); color: var(--bf-ink); }
+.coastline-shop[data-promo='black-friday'] .coast-hero-art { filter: grayscale(.85) brightness(.42) contrast(1.1); }
+.coastline-shop[data-promo='black-friday'] .coast-hero-wash {
+  background: linear-gradient(90deg, rgb(11 11 12 / .97), rgb(11 11 12 / .86) 30%, rgb(11 11 12 / .35) 58%, rgb(11 11 12 / .1) 78%);
+}
+.coastline-shop[data-promo='black-friday'] .coast-hero h1 { color: var(--bf-ink); text-transform: uppercase; letter-spacing: -.04em; }
+.coastline-shop[data-promo='black-friday'] .coast-hero h1 span { color: var(--bf-yellow); }
+.coastline-shop[data-promo='black-friday'] .coast-hero .coast-eyebrow { color: var(--bf-yellow); }
+.coastline-shop[data-promo='black-friday'] .coast-hero .coast-live-dot { background: var(--bf-red); box-shadow: 0 0 0 4px rgb(212 20 42 / .25); }
+.coastline-shop[data-promo='black-friday'] .coast-hero-copy,
+.coastline-shop[data-promo='black-friday'] .coast-hero-stock { color: #cfcfc8; }
+.coastline-shop[data-promo='black-friday'] .coast-hero-stock strong { color: var(--bf-ink); }
+.coastline-shop[data-promo='black-friday'] .coast-hero-stock p > span { color: #b9b9b2; }
+.coastline-shop[data-promo='black-friday'] .coast-hero .coast-text-link,
+.coastline-shop[data-promo='black-friday'] .coast-hero-caption { color: var(--bf-ink); }
+.coastline-shop[data-promo='black-friday'] .coast-hero .coast-button { background: var(--bf-yellow); color: var(--bf-black); }
+.coastline-shop[data-promo='black-friday'] .coast-hero .coast-button:hover { background: #ffe14d; box-shadow: 0 14px 28px -17px var(--bf-yellow); }
+.coastline-shop[data-promo='black-friday'] .coast-scroll-cue { background: var(--bf-yellow); color: var(--bf-black); }
+
+/* ── Buttons that were forest green ─────────────────────────────────── */
+.coastline-shop[data-promo='black-friday'] .coast-button { background: var(--bf-black); }
+.coastline-shop[data-promo='black-friday'] .coast-button:hover { background: #2a2a2e; box-shadow: 0 14px 28px -17px #000; }
+.coastline-shop[data-promo='black-friday'] .coast-product__action:not(:disabled),
+.coastline-shop[data-promo='black-friday'] .coast-detail__add { background: var(--bf-black); color: #fff; box-shadow: none; }
+.coastline-shop[data-promo='black-friday'] .coast-product__action:not(:disabled):hover,
+.coastline-shop[data-promo='black-friday'] .coast-detail__add:hover { background: #2a2a2e; }
+.coastline-shop[data-promo='black-friday'] .coast-chip[aria-current] { background: var(--bf-black); border-color: var(--bf-black); }
+.coastline-shop[data-promo='black-friday'] .coast-repair-actions .coast-repair-call { background: var(--bf-black); }
+
+/* ── Prices and the deal badge (any promotion) ──────────────────────── */
+.coastline-shop .coast-price__now { color: #c8102e; }
+.coastline-shop .coast-price__off {
+  align-self: center; padding: 1px 6px; border-radius: 4px;
+  background: #c8102e; color: #fff; font-family: 'Manrope', sans-serif;
+  font-size: 11px; font-weight: 800; letter-spacing: .02em;
+}
+.coastline-shop .coast-product__deal-badge { background: #0b0b0c; color: #ffd60a; }
+.coastline-shop .coast-product__price .coast-price__was { font-size: .62em; }
+.coastline-shop[data-promo='black-friday'] .coast-deals-section .coast-section-heading h2::after {
+  content: ''; display: block; width: 52px; height: 4px; margin-top: 14px; background: var(--bf-yellow);
+}
+
+/* ── Footer and the dark editorial panel ────────────────────────────── */
+.coastline-shop[data-promo='black-friday'] .coast-footer { background: var(--bf-black); }
+.coastline-shop[data-promo='black-friday'] .coast-footer .coast-live-dot { background: var(--bf-yellow); }
+.coastline-shop[data-promo='black-friday'] .coast-laybuy { background: var(--bf-black); }
+.coastline-shop[data-promo='black-friday'] .coast-laybuy-orbits i:first-child::after { background: var(--bf-yellow); box-shadow: 0 0 30px rgb(255 214 10 / .5); }
+.coastline-shop[data-promo='black-friday'] .coast-auth-card::before { background: var(--bf-yellow); }
+.coastline-shop[data-promo='black-friday'] ::selection { background: var(--bf-yellow); color: var(--bf-black); }

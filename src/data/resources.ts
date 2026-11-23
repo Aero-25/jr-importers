@@ -86,6 +86,8 @@ export const productImeis = createResource('product_imeis', {
   orderBy: { column: 'created_at', ascending: false },
 });
 
+export { promotions } from './promotions';
+
 export const couponUsage = createResource('coupon_usage', {
   orderBy: { column: 'used_at', ascending: false },
 });

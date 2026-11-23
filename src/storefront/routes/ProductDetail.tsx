@@ -21,6 +21,13 @@ import {
   useVariants,
 } from '@/data/products';
 import { useCart } from '@/data/cart';
+import {
+  ON_ORDER_LIMIT,
+  effectivePrice,
+  isOnOrder,
+  salePriceOf,
+  useActivePromotion,
+} from '@/data/promotions';
 import { laybyDeposit, laybySuggestedInstalment } from '@/data/laybys';
 import { supabase } from '@/lib/supabase';
 import { STORE, isServiceCategory } from '@/lib/constants';
@@ -28,6 +35,7 @@ import { money } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Badge, Button, ErrorState, LoadingScreen, Modal, Input, StockBadge, useToast } from '@/ui';
 import { ProductCard } from '../components/ProductCard';
+import { Price } from '../components/Price';
 import { productJsonLd, useSeo } from '../seo';
 
 export default function ProductDetail() {
@@ -38,6 +46,7 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const toast = useToast();
   const { add } = useCart();
+  const promotion = useActivePromotion();
 
   const { data: product, isLoading, isError, error, refetch } = useProduct(
     Number.isFinite(id) ? id : null,
@@ -65,17 +74,19 @@ export default function ProductDetail() {
             name: product.name,
             description: product.description,
             brand: product.brand,
-            price: Number(product.price),
-            stock: product.stock,
+            price: effectivePrice(product, promotion?.preview ? null : promotion),
+            stock: isOnOrder(product) ? 1 : product.stock,
             image: product.image,
             sku: product.sku,
           })
         : null,
-    [product],
+    [product, promotion],
   );
 
   useSeo({
-    title: product ? `${product.name} — ${money(product.price)}` : 'Product',
+    title: product
+      ? `${product.name} — ${money(effectivePrice(product, promotion?.preview ? null : promotion))}`
+      : 'Product',
     description:
       product?.description?.slice(0, 155) ??
       (product ? `Buy the ${product.name} at JR Importers in Namibia.` : undefined),
@@ -121,8 +132,11 @@ export default function ProductDetail() {
     ? (chosen?.available ?? stockInfo!.available)
     : (stockInfo?.available ?? product.stock);
 
-  const outOfStock = !service && onHand <= 0;
-  const maxQuantity = Math.max(onHand, 1);
+  // Sold out on the shelf but sourced to order: still buyable.
+  const onOrder = !service && onHand <= 0 && isOnOrder(product);
+  const outOfStock = !service && onHand <= 0 && !onOrder;
+  const maxQuantity = onOrder ? ON_ORDER_LIMIT : Math.max(onHand, 1);
+  const sale = service ? null : salePriceOf(product, promotion);
 
   function addToCart() {
     if (!product) return;
@@ -130,7 +144,12 @@ export default function ProductDetail() {
       toast.warn('Choose a colour', 'Each handset is stocked by colour.');
       return;
     }
-    const result = add(product, quantity, colour ?? chosen?.color ?? null);
+    const result = add(
+      product,
+      quantity,
+      colour ?? chosen?.color ?? null,
+      effectivePrice(product, promotion?.preview ? null : promotion),
+    );
     if (result.reason === 'insufficient-stock') {
       toast.warn('Not enough stock', `Only ${product.stock} left.`);
       return;
@@ -139,7 +158,12 @@ export default function ProductDetail() {
       toast.warn('Quantity reduced', `Only ${result.added} could be added.`);
       return;
     }
-    toast.success('Added to cart', `${result.added} × ${product.name}`);
+    toast.success(
+      'Added to cart',
+      onOrder
+        ? `${result.added} × ${product.name} — on order, we source it for you.`
+        : `${result.added} × ${product.name}`,
+    );
   }
 
   return (
@@ -207,10 +231,16 @@ export default function ProductDetail() {
 
           <div className="coast-detail__pricing mt-6 flex flex-wrap items-center gap-3">
             <p className="tabular font-display text-3xl font-semibold text-ink">
-              {service ? `From ${money(product.price)}` : money(product.price)}
+              {service ? (
+                `From ${money(product.price)}`
+              ) : (
+                <Price price={Number(product.price) || 0} sale={sale} wasClassName="text-lg" />
+              )}
             </p>
             {service ? (
               <Badge tone="info">Quoted at the counter</Badge>
+            ) : onOrder ? (
+              <Badge tone="info">On order</Badge>
             ) : (
               /* Exact figures are published only where captured IMEIs back
                  them; elsewhere the shop says it has the handset without
@@ -225,8 +255,16 @@ export default function ProductDetail() {
           <p className="mt-1 text-xs text-ink-subtle">
             {service
               ? 'Indicative price. The final quote depends on the handset and the parts it needs.'
-              : 'VAT inclusive'}
+              : sale !== null
+                ? `VAT inclusive · ${promotion?.name ?? 'Sale'} price until ${new Date(`${promotion?.endsOn}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
+                : 'VAT inclusive'}
           </p>
+          {onOrder && (
+            <p className="coast-detail__on-order mt-3 rounded-xl border border-hairline bg-raised px-4 py-3 text-sm text-ink-muted">
+              <strong className="text-ink">Not on our shelf right now — order it and we source it for you.</strong>{' '}
+              We will contact you to confirm the delivery date once your order is in.
+            </p>
+          )}
 
           {/* The one thing a customer buying an imported handset is actually
               worried about. Shown only when it is true — a trust badge on a
@@ -366,7 +404,7 @@ export default function ProductDetail() {
             )}
           </div>
 
-          {product.category === 'Smartphones' && !outOfStock && (
+          {product.category === 'Smartphones' && !outOfStock && !onOrder && (
             <div className="coast-detail__laybuy mt-5 rounded-card border border-hairline p-5">
               <p className="flex items-center gap-2 text-sm font-semibold text-ink">
                 <CalendarClock aria-hidden className="h-4 w-4 text-brand-400" />

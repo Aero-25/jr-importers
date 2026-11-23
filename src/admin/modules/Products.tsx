@@ -77,7 +77,14 @@ export default function Products() {
       key: 'price',
       header: 'Price',
       align: 'right',
-      render: (product) => <span className="tabular font-medium">{money(product.price)}</span>,
+      render: (product) => (
+        <span className="tabular font-medium">
+          {money(product.price)}
+          {product.sale_price != null && Number(product.sale_price) < Number(product.price) && (
+            <span className="block text-xs font-semibold text-danger">Sale {money(product.sale_price)}</span>
+          )}
+        </span>
+      ),
       sortValue: (product) => Number(product.price),
     },
     // Cost and margin walk out of the door with anyone who leaves, so the
@@ -131,6 +138,11 @@ export default function Products() {
           {!product.active && (
             <Badge tone="neutral" size="sm">
               Retired
+            </Badge>
+          )}
+          {product.allow_backorder && (
+            <Badge tone="info" size="sm">
+              On order
             </Badge>
           )}
           {product.active && product.show_online === false && (
@@ -205,6 +217,7 @@ const BLANK = {
   category: 'Smartphones',
   description: '',
   price: '',
+  sale_price: '',
   cost_price: '',
   stock: '0',
   reorder_level: '10',
@@ -215,6 +228,7 @@ const BLANK = {
   active: true,
   show_online: true,
   featured: false,
+  allow_backorder: false,
 };
 
 function ProductDialog({
@@ -274,6 +288,7 @@ function ProductDialog({
           category: product.category ?? 'Smartphones',
           description: product.description ?? '',
           price: String(product.price ?? ''),
+          sale_price: product.sale_price == null ? '' : String(product.sale_price),
           cost_price: String(product.cost_price ?? ''),
           stock: String(product.stock ?? 0),
           reorder_level: String(product.reorder_level ?? 10),
@@ -284,6 +299,7 @@ function ProductDialog({
           active: product.active,
           show_online: product.show_online ?? true,
           featured: product.featured,
+          allow_backorder: product.allow_backorder ?? false,
         },
   );
 
@@ -303,6 +319,12 @@ function ProductDialog({
       category: form.category || null,
       description: form.description.trim() || null,
       price: toNumber(form.price),
+      // Blank clears it. A sale price at or above the normal price is never
+      // charged (the database only ever lowers a price), so it is dropped.
+      sale_price:
+        form.sale_price.trim() && toNumber(form.sale_price) > 0 && toNumber(form.sale_price) < toNumber(form.price)
+          ? toNumber(form.sale_price)
+          : null,
       cost_price: toNumber(form.cost_price),
       // A serialised product's stock is recounted from its IMEI pool by a
       // trigger; writing back the figure snapshotted when this dialog opened
@@ -321,6 +343,7 @@ function ProductDialog({
       active: form.active,
       show_online: form.show_online,
       featured: form.featured,
+      allow_backorder: form.allow_backorder,
     };
 
     // A SKU or barcode shared by two products splits one item's stock and
@@ -421,6 +444,20 @@ function ProductDialog({
             hint="VAT inclusive."
           />
           <Input
+            label="Sale price (N$)"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="0.01"
+            value={form.sale_price}
+            onChange={(e) => set('sale_price', e.target.value)}
+            hint={
+              form.sale_price.trim() && toNumber(form.sale_price) >= toNumber(form.price)
+                ? 'Must be below the selling price, or it is ignored.'
+                : 'Optional. Charged on the website only while a promotion is running (see Promotions).'
+            }
+          />
+          <Input
             label="Cost price (N$)"
             type="number"
             inputMode="decimal"
@@ -504,6 +541,12 @@ function ProductDialog({
               hint="Uncheck for counter-only stock. It stays sellable on the till, customers just never see it online."
               checked={form.show_online}
               onChange={(e) => set('show_online', e.target.checked)}
+            />
+            <Checkbox
+              label="Orderable when out of stock (on order)"
+              hint="Stays on the website at zero stock with an Order now button. You source the unit after the sale."
+              checked={form.allow_backorder}
+              onChange={(e) => set('allow_backorder', e.target.checked)}
             />
             <Checkbox
               label="Feature on the home page"

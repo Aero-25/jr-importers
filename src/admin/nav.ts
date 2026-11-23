@@ -9,6 +9,8 @@ import {
   ClipboardList,
   FileText,
   Globe,
+  MonitorSmartphone,
+  Tag,
   Landmark,
   type LucideIcon,
   Package,
@@ -62,9 +64,19 @@ export const NAV: NavSection[] = [
       { id: 'alerts', label: 'Needs attention', path: '/alerts', icon: BellRing },
       { id: 'pos', label: 'POS Terminal', path: '/pos', icon: Store },
       { id: 'cash-ups', label: 'Cash ups', path: '/cash-ups', icon: Banknote },
-      { id: 'orders', label: 'Orders', path: '/orders', icon: ShoppingCart },
+      { id: 'orders', label: 'POS sales', path: '/orders', icon: ShoppingCart },
       { id: 'refunds', label: 'Refunds & returns', path: '/refunds', icon: RotateCcw },
       { id: 'dispatch', label: 'Dispatch', path: '/dispatch', icon: Truck },
+    ],
+  },
+  {
+    // Trade from the website, apart from the till: what has been paid for
+    // online, and everything customers have ordered.
+    id: 'online',
+    label: 'Online',
+    items: [
+      { id: 'online-sales', label: 'Online sales', path: '/online/sales', icon: Globe },
+      { id: 'online-orders', label: 'Online orders', path: '/online/orders', icon: MonitorSmartphone },
     ],
   },
   {
@@ -87,6 +99,7 @@ export const NAV: NavSection[] = [
       { id: 'products', label: 'Products', path: '/products', icon: Package, adminOnly: true },
       { id: 'stock-takes', label: 'Stock takes', path: '/stock-takes', icon: ClipboardList, adminOnly: true },
       { id: 'grv', label: 'Goods received', path: '/grv', icon: PackageSearch, adminOnly: true },
+      { id: 'promotions', label: 'Promotions', path: '/promotions', icon: Tag, adminOnly: true },
       {
         id: 'bulk-pricing',
         label: 'Bulk pricing',

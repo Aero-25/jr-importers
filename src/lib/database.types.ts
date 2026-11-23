@@ -38,6 +38,8 @@ export type LineItem = {
   sku?: string | null;
   /** Unit price at the time of sale — never re-read from `products`. */
   price: number;
+  /** Ordered while none were on the shelf; the shop sources the unit. */
+  on_order?: boolean;
   /** Unit cost at the time of sale, for margin reporting. Same reasoning. */
   cost_price?: number | null;
   quantity: number;
@@ -181,9 +183,25 @@ export type ProductRow = {
   /** Listed on the public storefront. Counter-only stock is active but not shown. */
   show_online: boolean;
   featured: boolean;
+  /** Promotional price, charged only while a promotion is running and only when below price. */
+  sale_price: number | null;
+  /** Stays on the website and can be ordered at stock 0; the unit is sourced after the sale. */
+  allow_backorder: boolean;
   created_at: string;
   updated_at: string;
 }
+
+/** A sale window. See 20261123000000_black_friday_sale.sql. */
+export type PromotionRow = {
+  id: number;
+  name: string;
+  theme: string;
+  starts_on: string;
+  ends_on: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
 
 /** What the public may read of a product: everything but what the shop paid. */
 export type PublicProductRow = Omit<ProductRow, 'cost_price'>;
@@ -191,6 +209,8 @@ export type PublicProductRow = Omit<ProductRow, 'cost_price'>;
 export type OrderRow = {
   id: string;
   user_id: string | null;
+  /** web (customer checkout), pos (the till) or invoice (mirrored from a staff invoice). */
+  channel: 'web' | 'pos' | 'invoice';
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
@@ -935,6 +955,7 @@ export type Database = {
       expenses: Table<ExpenseRow, 'description'>;
       grvs: Table<GrvRow>;
       hero_images: Table<HeroImageRow, 'image_url'>;
+      promotions: Table<PromotionRow, 'name' | 'starts_on' | 'ends_on'>;
       invoices: Table<InvoiceRow>;
       job_cards: Table<JobCardRow, 'customer_name' | 'customer_phone'>;
       laybys: Table<LaybyRow>;

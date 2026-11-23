@@ -5,13 +5,26 @@ import { cn } from '@/lib/cn';
 import { CATEGORY_GROUPS, STORE } from '@/lib/constants';
 import { useCart } from '@/data/cart';
 import { useCompare } from '@/data/compare';
+import { useActivePromotion } from '@/data/promotions';
 import { useAuth } from '@/auth/AuthProvider';
 import '../shell.css';
+
+/** "24–27 Nov", or "28 Nov – 2 Dec" across a month end. */
+export function promoDates(from: string, to: string): string {
+  const a = new Date(`${from}T12:00:00`);
+  const b = new Date(`${to}T12:00:00`);
+  const month = (d: Date) => d.toLocaleDateString('en-GB', { month: 'short' });
+  if (from === to) return `${a.getDate()} ${month(a)}`;
+  return a.getMonth() === b.getMonth()
+    ? `${a.getDate()}–${b.getDate()} ${month(b)}`
+    : `${a.getDate()} ${month(a)} – ${b.getDate()} ${month(b)}`;
+}
 
 export function Header() {
   const { count } = useCart();
   const { count: compareCount } = useCompare();
   const { isAuthenticated, profile } = useAuth();
+  const promotion = useActivePromotion();
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
@@ -61,8 +74,23 @@ export function Header() {
     <header className={cn('coast-header', scrolled && 'coast-header--scrolled')}>
       <div className="coast-utility">
         <div className="coast-shell-width coast-utility-inner">
-          <p><span className="coast-live-dot" />From Walvis Bay. Across Namibia.</p>
-          <Link to="/about">Visit us at Pelican Mall<ArrowUpRight aria-hidden size={12} /></Link>
+          {promotion ? (
+            <>
+              <p className="coast-utility-promo">
+                <span className="coast-live-dot" />
+                <strong>{promotion.name}</strong>
+                <span className="coast-utility-promo__dates">{promoDates(promotion.startsOn, promotion.endsOn)}</span>
+                <span className="hidden sm:inline">Deals on selected phones &amp; accessories</span>
+                {promotion.preview && <em className="coast-utility-promo__preview">Preview</em>}
+              </p>
+              <Link to="/shop?deals=1">Shop the deals<ArrowUpRight aria-hidden size={12} /></Link>
+            </>
+          ) : (
+            <>
+              <p><span className="coast-live-dot" />From Walvis Bay. Across Namibia.</p>
+              <Link to="/about">Visit us at Pelican Mall<ArrowUpRight aria-hidden size={12} /></Link>
+            </>
+          )}
         </div>
       </div>
 

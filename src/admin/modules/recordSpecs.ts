@@ -657,6 +657,31 @@ export const RECORD_SPECS: Record<string, RecordSpec> = {
     ],
   },
 
+  promotions: {
+    title: 'Promotions',
+    description:
+      'Sale windows. While one is running, products with a sale price are charged at it on the website and the shop wears the promotion theme. Set the sale price on each product.',
+    table: 'promotions',
+    resource: resources.promotions,
+    searchColumns: ['name', 'theme'],
+    createLabel: 'New promotion',
+    fields: [
+      { key: 'name', label: 'Name', type: 'text', required: true, inList: true, hint: 'Shown to customers, e.g. Black Friday.' },
+      {
+        key: 'theme',
+        label: 'Look',
+        type: 'select',
+        options: ['black-friday'],
+        required: true,
+        inList: true,
+        hint: 'How the website dresses for it. Preview any time with ?preview=black-friday on the shop address.',
+      },
+      { key: 'starts_on', label: 'First day', type: 'date', required: true, inList: true, hint: 'From midnight in Walvis Bay.' },
+      { key: 'ends_on', label: 'Last day', type: 'date', required: true, inList: true, hint: 'Until midnight at the end of this day.' },
+      { key: 'active', label: 'Active', type: 'checkbox', defaultChecked: true, inList: true },
+    ],
+  },
+
   users: {
     title: 'Staff & access',
     description: 'Who can open the console, and what they can reach.',

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Lock, Tag } from 'lucide-react';
-import { useCart, useCartTotals } from '@/data/cart';
+import { useCart, useCartTotals, useLiveCartPrices } from '@/data/cart';
 import { logCouponUsage, usePlaceOrder, useValidateCoupon } from '@/data/orders';
 import { useAuth } from '@/auth/AuthProvider';
 import { DELIVERY_METHODS } from '@/lib/constants';
@@ -49,6 +49,9 @@ export default function Checkout() {
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
 
   const totals = useCartTotals(lines, discount);
+  // Re-prices the lines against the live catalogue (sale prices on or off).
+  const live = useLiveCartPrices();
+  const hasOnOrder = lines.some((line) => line.on_order);
   const placeOrder = usePlaceOrder();
   const validateCoupon = useValidateCoupon();
 
@@ -114,6 +117,7 @@ export default function Checkout() {
           quantity: line.quantity,
           color: line.color,
           line_total: line.price * line.quantity,
+          ...(line.on_order ? { on_order: true } : {}),
         })),
         customer: {
           user_id: user?.id ?? null,
@@ -148,10 +152,18 @@ export default function Checkout() {
       clear();
       navigate(`/order/${order.id}`, { replace: true });
     } catch (error) {
-      toast.error(
-        'Order could not be placed',
-        error instanceof Error ? error.message : 'Please try again.',
-      );
+      const message = error instanceof Error ? error.message : 'Please try again.';
+      // The database refuses an order priced below today's price (a cart
+      // filled before or after a sale). Say so in plain words.
+      if (message.includes('PRICE_CHANGED')) {
+        live.recheck();
+        toast.warn(
+          'A price has changed',
+          message.replace(/^.*PRICE_CHANGED:\s*/, '') + ' Your cart has been updated — please check it and place the order again.',
+        );
+        return;
+      }
+      toast.error('Order could not be placed', message);
     }
   }
 
@@ -163,6 +175,18 @@ export default function Checkout() {
         <Notice tone="info" className="mt-4" title="Sign in to place your order">
           Orders are linked to an account so you can track them and we can reach you about
           delivery.
+        </Notice>
+      )}
+
+      {live.changed > 0 && (
+        <Notice tone="info" className="mt-4" title="Prices updated">
+          Your order now shows today's prices. Please check the summary before you place it.
+        </Notice>
+      )}
+      {hasOnOrder && (
+        <Notice tone="info" className="mt-4" title="Some items are on order">
+          We source on-order items after you order and will contact you to confirm the delivery
+          date.
         </Notice>
       )}
 
@@ -323,6 +347,7 @@ export default function Checkout() {
               size="lg"
               className="mt-5"
               loading={placeOrder.isPending}
+              disabled={live.checking}
               icon={<Lock className="h-4 w-4" />}
             >
               Place order

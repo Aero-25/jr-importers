@@ -10,7 +10,8 @@ import { keys } from './keys';
  * is advertised by the repairs band and booked at the counter, not listed
  * between the phones. Applied with `stock.gt.0` by every catalogue query, so
  * a service can never surface in the grid, the facets, the compare picker or
- * "related products". Anything else with `stock <= 0` is unbuyable and would
+ * "related products". Anything else with `stock <= 0` is unbuyable (unless it
+ * is an on-order line, see BUYABLE) and would
  * only frustrate someone who clicked in.
  */
 const NO_SERVICES = `(${SERVICE_CATEGORIES.map((c) => `"${c}"`).join(',')})`;
@@ -21,6 +22,12 @@ const NO_SERVICES = `(${SERVICE_CATEGORIES.map((c) => `"${c}"`).join(',')})`;
  * whole storefront. This or-filter keeps them: no category is not a service.
  */
 const NOT_A_SERVICE = `category.is.null,category.not.in.${NO_SERVICES}`;
+
+/**
+ * Buyable: on the shelf, or an "on order" line the shop sources after the
+ * sale (Ulefone Armors it no longer holds). Repeated `or` filters are ANDed.
+ */
+const BUYABLE = 'stock.gt.0,allow_backorder.is.true';
 
 /**
  * Every products column the public may read — all but `cost_price`, which the
@@ -34,7 +41,7 @@ const PUBLIC_COLUMNS = [
   'image', 'image1', 'image2', 'image3', 'image4', 'image5',
   'spec_display', 'spec_processor', 'spec_ram', 'spec_storage', 'spec_battery',
   'spec_back_camera', 'spec_front_camera', 'spec_os', 'spec_weight', 'spec_extras',
-  'active', 'show_online', 'featured', 'created_at', 'updated_at',
+  'active', 'show_online', 'featured', 'sale_price', 'allow_backorder', 'created_at', 'updated_at',
 ].join(',');
 
 /**
@@ -56,6 +63,8 @@ export interface CatalogFilters {
   minPrice?: number | null;
   maxPrice?: number | null;
   featuredOnly?: boolean;
+  /** Only products carrying a sale price — the deals page during a promotion. */
+  dealsOnly?: boolean;
   sort?: CatalogSort;
   limit?: number;
 }
@@ -73,19 +82,21 @@ export type CatalogSort = 'newest' | 'price-asc' | 'price-desc' | 'name' | 'popu
  * (screen protectors, say) stays active so the till can sell it, and is kept
  * off the shop with `show_online`.
  */
-export function useCatalog(filters: CatalogFilters = {}) {
+export function useCatalog(filters: CatalogFilters = {}, { enabled = true }: { enabled?: boolean } = {}) {
   return useQuery<PublicProductRow[], Error>({
     queryKey: keys.list('products', { catalog: filters }),
+    enabled,
     queryFn: async () => {
       let query = supabase
         .from('products')
         .select(PUBLIC_COLUMNS)
         .eq('active', true)
         .eq('show_online', true)
-        .gt('stock', 0)
+        .or(BUYABLE)
         .or(NOT_A_SERVICE);
 
       if (filters.category) query = query.eq('category', filters.category);
+      if (filters.dealsOnly) query = query.not('sale_price', 'is', null);
       if (filters.categories?.length) query = query.in('category', filters.categories);
       if (filters.brand) query = query.eq('brand', filters.brand);
       if (filters.featuredOnly) query = query.eq('featured', true);
@@ -171,7 +182,7 @@ export function useFacets(scope: { categories?: string[] | null } = {}) {
         .select('category, brand, price')
         .eq('active', true)
         .eq('show_online', true)
-        .gt('stock', 0)
+        .or(BUYABLE)
         .or(NOT_A_SERVICE);
       if (scoped) query = query.in('category', scoped);
 
@@ -221,7 +232,7 @@ export function useRelatedProducts(product: PublicProductRow | null | undefined,
         .select(PUBLIC_COLUMNS)
         .eq('active', true)
         .eq('show_online', true)
-        .gt('stock', 0)
+        .or(BUYABLE)
         .not('category', 'in', NO_SERVICES)
         .eq('category', product!.category!)
         .neq('id', product!.id)
