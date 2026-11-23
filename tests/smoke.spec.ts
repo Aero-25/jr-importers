@@ -116,6 +116,12 @@ test('the icon set is served and the head points at it', async ({ page, request 
 // correctly refuses to animate under it. Opting in is what makes the first of
 // these a test of the motion rather than a test of the reduced-motion guard.
 test.describe('hero', () => {
+  // These run against the live backend. A running or announced promotion
+  // swaps in its own hero (no parallax), so pin the everyday one.
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/rest/v1/promotions*', (route) => route.fulfill({ json: [] }));
+  });
+
   test.describe('with motion allowed', () => {
     test.use({ reducedMotion: 'no-preference' });
 
