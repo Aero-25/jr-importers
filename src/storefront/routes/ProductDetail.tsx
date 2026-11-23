@@ -182,8 +182,8 @@ export default function ProductDetail() {
         </Link>
       </nav>
 
-      <div className="coast-detail__layout grid gap-8 lg:grid-cols-2">
-        <div className="coast-detail__gallery">
+      <div className="coast-detail__layout grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <div className="coast-detail__gallery min-w-0">
           <div className="coast-detail__image overflow-hidden">
             {images[activeImage] ? (
               <img
@@ -223,7 +223,7 @@ export default function ProductDetail() {
           )}
         </div>
 
-        <div className="coast-detail__information">
+        <div className="coast-detail__information min-w-0">
           {product.brand && (
             <p className="coast-commerce-eyebrow text-brand-400">
               {product.brand}

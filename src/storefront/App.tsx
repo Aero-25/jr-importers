@@ -7,6 +7,7 @@ import { Footer } from './components/Footer';
 import { RepairsBand } from './components/RepairsBand';
 import { ScrollToTop } from './components/ScrollToTop';
 import { TrackVisits } from './components/TrackVisits';
+import { BootDone, ShopLoader } from './components/ShopLoader';
 import { useActivePromotion } from '@/data/promotions';
 import './promo.css';
 
@@ -49,6 +50,7 @@ export function ShopApp() {
         <div className="field" aria-hidden />
         <div className="relative z-10">
           <Suspense fallback={<LoadingScreen />}>
+            <BootDone />
             <Routes location={location}>
               <Route path="/jobcard/:token" element={<JobCardAccept />} />
             </Routes>
@@ -73,7 +75,8 @@ export function ShopApp() {
           </div>
         )}
 
-        <Suspense fallback={<LoadingScreen label="Loading…" />}>
+        <Suspense fallback={<ShopLoader />}>
+          <BootDone />
           <Routes location={location}>
             <Route path="/" element={<Home />} />
             <Route path="/shop" element={<Catalog />} />

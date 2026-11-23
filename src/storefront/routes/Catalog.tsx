@@ -175,7 +175,7 @@ export default function Catalog() {
 
       <ChipRail className="-mx-4 mb-8" />
 
-      <div className="coast-catalog__layout grid gap-6 lg:grid-cols-[13rem_1fr]">
+      <div className="coast-catalog__layout grid grid-cols-1 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <aside className="coast-catalog__sidebar lg:sticky lg:self-start">
           <button
             type="button"

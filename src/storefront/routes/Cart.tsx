@@ -39,7 +39,7 @@ export default function Cart() {
         </Notice>
       )}
 
-      <div className="coast-cart-layout mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
+      <div className="coast-cart-layout mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <ul className="space-y-3">
           {lines.map((line) => {
             const overStock = line.available_stock > 0 && line.quantity > line.available_stock;

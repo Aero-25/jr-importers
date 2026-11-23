@@ -190,10 +190,8 @@ export function BlackFridayHero({
             <span className="bf-hero__scan" />
           </div>
 
-          {/* The JR Android, flickering like a neon sign with the odd glitch. */}
+          {/* The JR Android, flickering between lit green and unlit black, like a neon tube. */}
           <div className="bf-hero__android" aria-hidden="true">
-            <img src="/bf-android.webp" alt="" width={420} height={757} className="bf-hero__android-ghost bf-hero__android-ghost--a" />
-            <img src="/bf-android.webp" alt="" width={420} height={757} className="bf-hero__android-ghost bf-hero__android-ghost--b" />
             <img src="/bf-android.webp" alt="" width={420} height={757} fetchPriority="high" className="bf-hero__android-main" />
             <span className="bf-hero__android-floor" />
           </div>

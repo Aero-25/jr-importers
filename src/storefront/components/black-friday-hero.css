@@ -94,7 +94,7 @@
 .bf-hero__when strong {
   font-family: 'Archivo', sans-serif; font-weight: 900; font-size: clamp(40px, 4.2vw, 60px);
   line-height: 1; letter-spacing: -.05em; color: var(--bf-ink);
-  padding-right: 16px; border-right: 3px solid var(--bf-lime);
+  padding-right: 16px; border-right: 3px solid var(--bf-lime); white-space: nowrap; flex-shrink: 0;
 }
 .bf-hero__when span { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; line-height: 1.7; color: var(--bf-dim); }
 
@@ -161,9 +161,6 @@
   filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55));
   animation: bf-neon var(--bf-cycle) steps(1, end) infinite;
 }
-.bf-hero__android-ghost { opacity: 0; mix-blend-mode: screen; }
-.bf-hero__android-ghost--a { filter: sepia(1) saturate(9) hue-rotate(-45deg) brightness(1.1); animation: bf-glitch-a var(--bf-cycle) steps(1, end) infinite; }
-.bf-hero__android-ghost--b { filter: hue-rotate(95deg) saturate(2.5) brightness(1.2); animation: bf-glitch-b var(--bf-cycle) steps(1, end) infinite; }
 .bf-hero__android-floor {
   position: absolute; left: -10%; right: -10%; bottom: -5%; height: 10%; border-radius: 50%;
   background: radial-gradient(ellipse, rgb(187 219 69 / .55), transparent 70%);
@@ -238,46 +235,27 @@
   100% { transform: translate(18px, -760px); opacity: 0; }
 }
 
-/* Neon: steady, then a stutter, a dropout, and a second stutter. */
+/* Neon: only lit green or unlit black, like a real tube. */
 @keyframes bf-neon {
-  0% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
-  17% { opacity: .22; filter: brightness(.45) saturate(.6); }
-  18% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
-  19.5% { opacity: .45; filter: brightness(.6); }
-  20.5% { opacity: 1; filter: drop-shadow(0 0 14px rgb(212 240 106 / 1)) drop-shadow(0 0 60px rgb(187 219 69 / .7)); }
-  23% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
-  61% { opacity: .1; filter: brightness(.3) saturate(.4); }
-  63.5% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
-  82% { opacity: .5; filter: brightness(.55); }
-  82.8% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
-  83.6% { opacity: .3; filter: brightness(.45); }
-  84.4% { opacity: 1; filter: drop-shadow(0 0 16px rgb(212 240 106 / 1)) drop-shadow(0 0 64px rgb(187 219 69 / .75)); }
-  87% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .9)) drop-shadow(0 0 42px rgb(187 219 69 / .55)); }
+  0% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .95)) drop-shadow(0 0 46px rgb(187 219 69 / .6)); }
+  8% { opacity: 1; filter: brightness(.1) saturate(.4); }
+  10% { opacity: 1; filter: drop-shadow(0 0 16px rgb(212 240 106 / 1)) drop-shadow(0 0 70px rgb(187 219 69 / .8)); }
+  12% { opacity: 1; filter: brightness(.1) saturate(.4); }
+  15.5% { opacity: 1; filter: drop-shadow(0 0 16px rgb(212 240 106 / 1)) drop-shadow(0 0 70px rgb(187 219 69 / .8)); }
+  19% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .95)) drop-shadow(0 0 46px rgb(187 219 69 / .6)); }
+  52% { opacity: 1; filter: brightness(.1) saturate(.4); }
+  53.5% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .95)) drop-shadow(0 0 46px rgb(187 219 69 / .6)); }
+  78% { opacity: 1; filter: brightness(.1) saturate(.4); }
+  83% { opacity: 1; filter: drop-shadow(0 0 16px rgb(212 240 106 / 1)) drop-shadow(0 0 70px rgb(187 219 69 / .8)); }
+  86% { opacity: 1; filter: drop-shadow(0 0 10px rgb(187 219 69 / .95)) drop-shadow(0 0 46px rgb(187 219 69 / .6)); }
 }
 @keyframes bf-disc {
-  0%, 18%, 20.5%, 63.5%, 82.8%, 84.4% { opacity: 1; }
-  17%, 19.5%, 82%, 83.6% { opacity: .55; }
-  61% { opacity: .35; }
-}
-@keyframes bf-glitch-a {
-  0%, 18%, 20.5%, 63.5%, 84.4% { opacity: 0; transform: none; clip-path: inset(0); }
-  17% { opacity: .85; transform: translate(-9px, 2px); clip-path: inset(18% 0 58% 0); }
-  19.5% { opacity: .8; transform: translate(7px, -1px); clip-path: inset(62% 0 12% 0); }
-  61% { opacity: .9; transform: translate(-12px, 0); clip-path: inset(34% 0 40% 0); }
-  82% { opacity: .7; transform: translate(6px, 1px); clip-path: inset(8% 0 70% 0); }
-  83.6% { opacity: .8; transform: translate(-7px, 0); clip-path: inset(48% 0 30% 0); }
-}
-@keyframes bf-glitch-b {
-  0%, 18%, 20.5%, 63.5%, 84.4% { opacity: 0; transform: none; clip-path: inset(0); }
-  17% { opacity: .8; transform: translate(8px, -2px); clip-path: inset(40% 0 35% 0); }
-  19.5% { opacity: .7; transform: translate(-6px, 1px); clip-path: inset(10% 0 74% 0); }
-  61% { opacity: .85; transform: translate(11px, 0); clip-path: inset(70% 0 6% 0); }
-  82% { opacity: .75; transform: translate(-8px, 0); clip-path: inset(55% 0 25% 0); }
-  83.6% { opacity: .7; transform: translate(9px, -1px); clip-path: inset(22% 0 60% 0); }
+  0%, 10%, 15.5%, 53.5%, 83% { opacity: 1; }
+  8%, 12%, 52%, 78% { opacity: .3; }
 }
 @keyframes bf-letter {
-  0%, 42%, 44%, 45.5%, 91%, 92.5% { opacity: 1; }
-  43%, 45%, 92% { opacity: .2; text-shadow: none; }
+  0%, 42%, 44%, 45.5%, 91%, 92.5% { color: var(--bf-lime); }
+  43%, 45%, 92% { color: #1a2010; text-shadow: none; }
 }
 
 
