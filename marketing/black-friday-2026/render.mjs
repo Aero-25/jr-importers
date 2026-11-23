@@ -1,6 +1,6 @@
 // Renders comp.html deterministically: seek(t) → screenshot → ffmpeg.
 //   node render.mjs stills 0.5,2.3,...     → stills/t-<t>.png
-//   node render.mjs video [fps] [out.mp4]  → silent master at <fps>, motion-blurred down to 30
+//   node render.mjs video [fps] [out.mp4]  → silent master; use 30 (comp.html draws its own motion blur)
 //   node render.mjs serve                  → http://127.0.0.1:8787/comp.html?play  (real-time preview, no sound)
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
