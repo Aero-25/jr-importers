@@ -1,7 +1,7 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/cn';
 import { CATEGORY_GROUPS, PRICE_BANDS } from '@/lib/constants';
-import { useActivePromotion } from '@/data/promotions';
+import { useActivePromotion, useUpcomingPromotion } from '@/data/promotions';
 
 interface Chip {
   label: string;
@@ -26,7 +26,10 @@ export function ChipRail({ className }: { className?: string }) {
   const min = params.get('min');
   const max = params.get('max');
   const hasBand = Boolean(min || max);
-  const promotion = useActivePromotion();
+  // Shown from the countdown onwards, so shoppers can find the sale early.
+  const active = useActivePromotion();
+  const upcoming = useUpcomingPromotion();
+  const promotion = active ?? upcoming;
 
   const chips: Chip[] = [
     ...(promotion

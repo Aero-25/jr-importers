@@ -161,3 +161,9 @@
 .coastline-shop .coast-utility:has(.coast-utility-promo--soon) { background: var(--bf-black); color: var(--bf-ink); }
 .coastline-shop .coast-utility:has(.coast-utility-promo--soon) .coast-live-dot { background: var(--bf-lime); }
 .coastline-shop .coast-utility:has(.coast-utility-promo--soon) a { color: var(--bf-lime); font-weight: 700; }
+
+.coastline-shop .coast-deals-soon {
+  padding: 10px 14px; border-radius: 10px;
+  border-left: 4px solid #9bbb31; background: rgb(187 219 69 / .18);
+  color: rgb(var(--c-ink)); font-size: 14px;
+}

@@ -1,7 +1,8 @@
 /*
  * Black Friday hero: JR lime on near-black, the JR Android as a flickering
  * neon sign. Rendered from two weeks before the sale (as a countdown) to its
- * last day. Everything that moves stops under prefers-reduced-motion.
+ * last day. It animates for every visitor, including those whose device asks
+ * for reduced motion: the owner chose a live sign over a still one.
  */
 .bf-hero {
   --bf-lime: #bbdb45;
@@ -9,7 +10,7 @@
   --bf-ink: #f3f5ee;
   --bf-dim: #a9b2a3;
   --bf-red: #ff3b4f;
-  --bf-cycle: 5.5s;
+  --bf-cycle: 4.2s;
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -279,10 +280,6 @@
   43%, 45%, 92% { opacity: .2; text-shadow: none; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .bf-hero *, .bf-hero *::before, .bf-hero *::after { animation: none !important; }
-  .bf-hero__sparks { display: none; }
-}
 
 /* ── Smaller screens: the sign first, compact, then the copy. ─────────── */
 @media (max-width: 960px) {

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Phone, SlidersHorizontal, X, Zap } from 'lucide-react';
 import { useCatalog, useFacets, type CatalogSort } from '@/data/products';
-import { useActivePromotion } from '@/data/promotions';
+import { useActivePromotion, useUpcomingPromotion } from '@/data/promotions';
 import {
   CATEGORY_GROUPS,
   PRICE_BANDS,
@@ -37,10 +37,16 @@ export default function Catalog() {
   const sort = (params.get('sort') as CatalogSort | null) ?? 'popular';
   const minPrice = params.get('min') ? Number(params.get('min')) : null;
   const maxPrice = params.get('max') ? Number(params.get('max')) : null;
-  const promotion = useActivePromotion();
-  // The deals view only exists while a sale runs; outside it, a stale link
-  // just shows the shop.
+  const activePromotion = useActivePromotion();
+  const upcomingPromotion = useUpcomingPromotion();
+  const promotion = activePromotion ?? upcomingPromotion;
+  // The deals view exists from the countdown to the last day of the sale;
+  // outside that, a stale link just shows the shop. Before the start the
+  // products carry their normal prices (cards price themselves).
   const deals = Boolean(promotion) && params.get('deals') === '1';
+  const startsLabel = upcomingPromotion
+    ? new Date(`${upcomingPromotion.startsOn}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+    : null;
 
   const title = deals
     ? `${promotion!.name} deals`
@@ -152,6 +158,13 @@ export default function Catalog() {
             {deals && <X aria-hidden className="h-4 w-4" />}
           </button>
         </div>
+      )}
+
+      {deals && startsLabel && (
+        <p className="coast-deals-soon mb-4">
+          <strong>{promotion!.name} prices go live at midnight on {startsLabel}.</strong> Until then these
+          products show their normal prices.
+        </p>
       )}
 
       <ChipRail className="-mx-4 mb-8" />
@@ -303,8 +316,12 @@ export default function Catalog() {
             </div>
           ) : (
             <EmptyState
-              title="No products match"
-              message="Try removing a filter, or ask us to source the exact model you want."
+              title={deals && startsLabel ? `${promotion!.name} deals are on their way` : 'No products match'}
+              message={
+                deals && startsLabel
+                  ? `The deals go live at midnight on ${startsLabel}. Check back then, or browse the shop in the meantime.`
+                  : 'Try removing a filter, or ask us to source the exact model you want.'
+              }
               action={
                 <Button
                   variant="secondary"

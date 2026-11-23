@@ -217,7 +217,8 @@ body:has(.coastline-shop), .coastline-shop {
   .coast-inner-main > .coast-auth-card { margin-block: 30px; padding: 30px 24px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .coastline-shop *, .coastline-shop *::before, .coastline-shop *::after { animation: none !important; transition-duration: .01ms !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
+  /* The Black Friday hero is exempt: the owner wants it moving for everyone. */
+  .coastline-shop :not(.bf-hero, .bf-hero *), .coastline-shop :not(.bf-hero *)::before, .coastline-shop :not(.bf-hero *)::after { animation: none !important; transition-duration: .01ms !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
   .coast-hero-scene { transform: none; will-change: auto; }
   .coastline-shop .reveal { opacity: 1; transform: none; }
 }

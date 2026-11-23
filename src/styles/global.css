@@ -51,9 +51,10 @@
     html {
       scroll-behavior: auto;
     }
-    *,
-    *::before,
-    *::after {
+    /* Except the Black Friday hero, which the owner wants live for everyone. */
+    :not(.bf-hero, .bf-hero *),
+    :not(.bf-hero *)::before,
+    :not(.bf-hero *)::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
