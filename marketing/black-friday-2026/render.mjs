@@ -51,8 +51,9 @@ if (mode === 'stills') {
   fs.mkdirSync(path.dirname(out), { recursive: true });
   const duration = await page.evaluate(() => window.DURATION);
   const frames = Math.round(duration * fps);
-  // Two-frame shutter at 60fps → 30fps gives a 180° motion blur on the slams.
-  const vf = fps === 60 ? 'tmix=frames=2:weights=1 1,fps=30,format=yuv420p' : 'format=yuv420p';
+  // Shutter: blend the sub-frames spanning 1/60 s into each 30 fps frame (a 180° motion blur).
+  const taps = fps >= 120 ? 3 : fps >= 60 ? 2 : 1;
+  const vf = (taps > 1 ? `tmix=frames=${taps}:weights=${Array(taps).fill(1).join(' ')},fps=30,` : '') + 'format=yuv420p';
   const ff = spawn('ffmpeg', ['-y', '-f', 'image2pipe', '-framerate', String(fps), '-c:v', 'png', '-i', '-',
     '-vf', vf, '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-r', '30', '-movflags', '+faststart', out], { stdio: ['pipe', 'inherit', 'inherit'] });
   const t0 = Date.now();

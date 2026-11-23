@@ -24,7 +24,7 @@ Every on-screen date and phrase is plain text in `comp.html`, and every cue time
 Needs Node with Playwright and Chromium, ffmpeg, and Python 3 with `numpy` and `scipy`.
 
 ```bash
-node render.mjs video 60 out/video-silent.mp4     # 60 fps frames, blended to 30 fps for motion blur
+node render.mjs video 120 out/video-silent.mp4    # 120 fps sub-frames, blended to 30 fps for motion blur
 python3 audio.py out/music.wav                    # soundtrack
 python3 finish.py out/video-silent.mp4 out/music.wav out/final.mp4   # mux, loudness -14 LUFS
 ```
