@@ -81,7 +81,7 @@ export default function Products() {
         <span className="tabular font-medium">
           {money(product.price)}
           {product.sale_price != null && Number(product.sale_price) < Number(product.price) && (
-            <span className="block text-xs font-semibold text-danger">Sale {money(product.sale_price)}</span>
+            <span className="block text-xs font-semibold text-danger">Online {money(product.sale_price)}</span>
           )}
           {product.in_promotion && !(product.sale_price != null && Number(product.sale_price) < Number(product.price)) && (
             <span className="block text-xs font-semibold text-ink-muted">Black Friday item</span>
@@ -458,7 +458,7 @@ function ProductDialog({
             hint="VAT inclusive."
           />
           <Input
-            label="Sale price (N$)"
+            label="Online sale price (N$)"
             type="number"
             inputMode="decimal"
             min={0}
@@ -468,7 +468,7 @@ function ProductDialog({
             hint={
               form.sale_price.trim() && toNumber(form.sale_price) >= toNumber(form.price)
                 ? 'Must be below the selling price, or it is ignored.'
-                : 'Optional. Charged on the website only while a promotion is running (see Promotions).'
+                : 'Optional. Website orders only, and only while a promotion is running (see Promotions). The till always charges the normal price.'
             }
           />
           <Input

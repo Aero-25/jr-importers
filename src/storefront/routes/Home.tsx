@@ -57,7 +57,7 @@ export default function Home() {
             <>
               <p className="coast-eyebrow reveal"><span className="coast-live-dot" /> {promotion.name} · {promoDates(promotion.startsOn, promotion.endsOn)}</p>
               <h1 id="coast-hero-title" className="reveal" data-reveal-index="1">{promotion.name}<br /><span>deals.</span></h1>
-              <p className="coast-hero-copy reveal" data-reveal-index="2">Selected phones and accessories at special prices, online and at our shop in Pelican Mall. {promoDates(promotion.startsOn, promotion.endsOn)} only, while stock lasts.</p>
+              <p className="coast-hero-copy reveal" data-reveal-index="2">Selected phones and accessories at special online-only prices. Order here, then collect at Pelican Mall or have it delivered. {promoDates(promotion.startsOn, promotion.endsOn)} only, while stock lasts.</p>
               <div className="coast-hero-actions reveal" data-reveal-index="3">
                 <Link to="/shop?deals=1" className="coast-button">Shop the deals <ArrowUpRight aria-hidden size={18} /></Link>
                 <Link to="/shop/phones" className="coast-text-link">All phones <ArrowRight aria-hidden size={17} /></Link>
@@ -97,7 +97,7 @@ export default function Home() {
       {promotion && dealList.length > 0 && (
         <section id="deals" className="coast-container coast-stock-section coast-deals-section" aria-labelledby="coast-deals-title">
           <div className="coast-section-heading reveal">
-            <div><p className="coast-eyebrow">{promotion.name} · {promoDates(promotion.startsOn, promotion.endsOn)}</p><h2 id="coast-deals-title">This week’s deals.</h2><p>Special prices and packages on selected stock. When it’s gone, it’s gone.</p></div>
+            <div><p className="coast-eyebrow">{promotion.name} · {promoDates(promotion.startsOn, promotion.endsOn)}</p><h2 id="coast-deals-title">This week’s deals.</h2><p>Online-only prices and packages on selected stock. When it’s gone, it’s gone.</p></div>
             <Link to="/shop?deals=1" className="coast-text-link">All deals <ArrowUpRight aria-hidden size={18} /></Link>
           </div>
           <div className="coast-home-products grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

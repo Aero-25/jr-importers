@@ -81,7 +81,7 @@ export function Header() {
                 <span className="coast-live-dot" />
                 <strong>{promotion.name}</strong>
                 <span className="coast-utility-promo__dates">{promoDates(promotion.startsOn, promotion.endsOn)}</span>
-                <span className="hidden sm:inline">Deals on selected phones &amp; accessories</span>
+                <span className="hidden sm:inline">Online-only deals on selected phones &amp; accessories</span>
                 {promotion.preview && <em className="coast-utility-promo__preview">Preview</em>}
               </p>
               <Link to="/shop?deals=1">Shop the deals<ArrowUpRight aria-hidden size={12} /></Link>
@@ -92,7 +92,7 @@ export function Header() {
                 <span className="coast-live-dot" />
                 <strong>{upcoming.name}</strong>
                 <span className="coast-utility-promo__dates">{promoDates(upcoming.startsOn, upcoming.endsOn)}</span>
-                <span className="hidden sm:inline">Coming soon, online &amp; at Pelican Mall</span>
+                <span className="hidden sm:inline">Coming soon · online-only prices</span>
               </p>
               <Link to="/">See the countdown<ArrowUpRight aria-hidden size={12} /></Link>
             </>

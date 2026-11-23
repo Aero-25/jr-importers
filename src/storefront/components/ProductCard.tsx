@@ -101,7 +101,7 @@ export function ProductCard({
             </span>
           ) : deal ? (
             <span className="coast-product__deal-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-2xs font-bold uppercase tracking-wide shadow-card">
-              {promotion?.name ?? 'Sale'}
+              {promotion?.name ?? 'Sale'} · Online
             </span>
           ) : (
             product.featured && (

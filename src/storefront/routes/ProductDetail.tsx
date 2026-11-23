@@ -234,7 +234,7 @@ export default function ProductDetail() {
           </h1>
 
           {deal && (
-            <p className="coast-detail__deal-tag mt-5">{promotion?.name ?? 'Black Friday'}</p>
+            <p className="coast-detail__deal-tag mt-5">{promotion?.name ?? 'Black Friday'} · Online only</p>
           )}
           <div className={cn('coast-detail__pricing mt-6 flex flex-wrap items-center gap-3', deal && 'coast-detail__pricing--deal')}>
             <p className="tabular font-display text-3xl font-semibold text-ink">
@@ -263,12 +263,12 @@ export default function ProductDetail() {
             {service
               ? 'Indicative price. The final quote depends on the handset and the parts it needs.'
               : sale !== null
-                ? `VAT inclusive · ${promotion?.name ?? 'Sale'} price until ${new Date(`${promotion?.endsOn}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
+                ? `VAT inclusive · ${promotion?.name ?? 'Sale'} online price, for orders placed on this website, until ${new Date(`${promotion?.endsOn}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
                 : 'VAT inclusive'}
           </p>
           {dealNote && (
             <p className="coast-detail__deal-note mt-3">
-              <strong>{promotion?.name ?? 'Black Friday'} package:</strong> {dealNote}
+              <strong>{promotion?.name ?? 'Black Friday'} online package:</strong> {dealNote}
             </p>
           )}
           {onOrder && (

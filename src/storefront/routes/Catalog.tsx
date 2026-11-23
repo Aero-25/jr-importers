@@ -160,10 +160,16 @@ export default function Catalog() {
         </div>
       )}
 
+      {deals && !startsLabel && (
+        <p className="coast-deals-soon mb-4">
+          <strong>{promotion!.name} prices are for online orders only.</strong> Order here, then collect at
+          Pelican Mall or have it delivered. Purchases at the counter are at normal prices.
+        </p>
+      )}
       {deals && startsLabel && (
         <p className="coast-deals-soon mb-4">
-          <strong>{promotion!.name} prices go live at midnight on {startsLabel}.</strong> Until then these
-          products show their normal prices.
+          <strong>{promotion!.name} prices go live online at midnight on {startsLabel}.</strong> They are for
+          orders placed on this website only. Until then these products show their normal prices.
         </p>
       )}
 

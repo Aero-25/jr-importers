@@ -45,7 +45,7 @@ function dayRange(from: string, to: string): { days: string; month: string } {
   return { days: from === to ? `${b.getDate()}` : `${a.getDate()}–${b.getDate()}`, month };
 }
 
-const TICKER = ['Black Friday', 'JR Importers', 'Walvis Bay', 'Online & in store', 'Deals + packages', 'While stock lasts'];
+const TICKER = ['Black Friday', 'JR Importers', 'Walvis Bay', 'Online only', 'Deals + packages', 'While stock lasts'];
 
 /** Fixed, not random: the same sparks on every render and every visit. */
 const SPARKS = Array.from({ length: 22 }, (_, i) => ({
@@ -131,14 +131,14 @@ export function BlackFridayHero({
             <span>
               {month}
               <br />
-              Online &amp; at Pelican Mall
+              Online only · jrimporters.com
             </span>
           </div>
 
           <p className="bf-hero__lede">
             {upcoming
-              ? `Our biggest four days of the year start ${startDay} ${month}. Black Friday prices on selected phones and accessories, plus packages put together for you.`
-              : 'Our biggest four days of the year. Black Friday prices on selected phones and accessories, plus packages put together for you. When it’s gone, it’s gone.'}
+              ? `Our biggest four days of the year start ${startDay} ${month}. Online-only Black Friday prices on selected phones and accessories, plus packages put together for you. Order here, then collect at Pelican Mall or have it delivered.`
+              : 'Our biggest four days of the year. Online-only Black Friday prices on selected phones and accessories, plus packages put together for you. Order here, then collect at Pelican Mall or have it delivered.'}
           </p>
 
           <div
