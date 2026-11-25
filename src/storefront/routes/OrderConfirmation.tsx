@@ -4,6 +4,7 @@ import { orderItems, useOrder } from '@/data/orders';
 import { formatDateTime, money } from '@/lib/format';
 import { Card, ErrorState, LoadingScreen, StatusBadge } from '@/ui';
 import { useSeo } from '../seo';
+import { PayByEft } from '../components/PayByEft';
 
 export default function OrderConfirmation() {
   const { id } = useParams<{ id: string }>();
@@ -39,6 +40,9 @@ export default function OrderConfirmation() {
   }
 
   const items = orderItems(order);
+  const reference = order.id.slice(0, 8).toUpperCase();
+  // Until the shop marks it paid, the order still needs paying: show the EFT details.
+  const unpaid = order.status === 'Pending';
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
@@ -48,8 +52,9 @@ export default function OrderConfirmation() {
           Order confirmed
         </h1>
         <p className="mt-2 text-ink-muted">
-          Thank you, {order.customer_name}. We have your order and will be in touch shortly with
-          payment and delivery details.
+          {unpaid
+            ? `Thank you, ${order.customer_name}. We have your order. To pay by EFT, use the banking details below with reference ${reference}.`
+            : `Thank you, ${order.customer_name}. We have your order and will be in touch shortly with delivery details.`}
         </p>
       </div>
 
@@ -57,7 +62,7 @@ export default function OrderConfirmation() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline pb-4">
           <div>
             <p className="text-xs uppercase tracking-wide text-ink-muted">Order reference</p>
-            <p className="font-mono text-sm text-ink">{order.id.slice(0, 8).toUpperCase()}</p>
+            <p className="font-mono text-sm text-ink">{reference}</p>
           </div>
           <StatusBadge status={order.status} />
         </div>
@@ -112,6 +117,8 @@ export default function OrderConfirmation() {
           </div>
         </dl>
       </Card>
+
+      {unpaid && <PayByEft reference={reference} amount={Number(order.total_amount)} />}
 
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         <Link
