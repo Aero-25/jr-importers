@@ -314,7 +314,7 @@ function Housekeeping() {
         <div>
           <p className="text-sm font-medium text-ink">Release expired stock reservations</p>
           <p className="mt-0.5 text-sm text-ink-muted">
-            Checkout holds stock for 30 minutes. If a customer never pays, this returns those units
+            Checkout holds stock for 3 hours. If a customer never pays, this returns those units
             to available and cancels the order.
           </p>
         </div>

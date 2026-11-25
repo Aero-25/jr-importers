@@ -252,8 +252,8 @@ export const STORE = {
   email: 'info@jrimporters.com',
 } as const;
 
-/** How long a checkout holds stock before the reservation lapses. */
-export const STOCK_RESERVATION_MINUTES = 30;
+/** How long a checkout holds stock before the reservation lapses (reserve_order_stock in the DB). */
+export const STOCK_RESERVATION_MINUTES = 180;
 
 /**
  * The console packaged as an Android app. CI republishes this exact URL on

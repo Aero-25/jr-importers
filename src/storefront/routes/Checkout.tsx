@@ -354,7 +354,7 @@ export default function Checkout() {
             </Button>
 
             <p className="mt-3 text-center text-xs text-ink-subtle">
-              Stock is held for 30 minutes once your order is confirmed.
+              Stock is held for 3 hours once your order is confirmed.
             </p>
           </Card>
         </aside>
