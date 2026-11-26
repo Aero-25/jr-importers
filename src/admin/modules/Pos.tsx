@@ -35,6 +35,7 @@ import { keys } from '@/data/keys';
 import { cartTotals } from '@/data/cart';
 import {
   ImeiChooser,
+  colourOfUnits,
   linesNeedingImeis,
   useAvailableUnits,
 } from '../components/ImeiChooser';
@@ -214,6 +215,14 @@ export default function Pos() {
         toast.warn(
           'Saved on this device',
           `${money(totals.total)} — no line to the server. It will post itself the moment the connection returns.`,
+        );
+      } else if (sold.stockConflict) {
+        // The customer has paid, so the sale stands, but nothing came off the
+        // shelf. Said out loud at the till: a quiet note on the order went
+        // unnoticed for two months and left phones on the books that were gone.
+        toast.error(
+          'Sale saved, but stock was NOT taken off',
+          `${sold.stockConflict} Check the handset or quantity, then tell the manager to correct the stock.`,
         );
       } else {
         toast.success('Sale complete', money(totals.total));
@@ -459,7 +468,12 @@ export default function Pos() {
                                   l.product_id === line.product_id
                                     ? // `imei` mirrors the first so the dispatch
                                       // note and older screens keep working.
-                                      { ...l, imeis, imei: imeis[0] ?? null }
+                                      {
+                                        ...l,
+                                        imeis,
+                                        imei: imeis[0] ?? null,
+                                        color: colourOfUnits(imeis, unitPools[line.product_id!] ?? [], l.color),
+                                      }
                                     : l,
                                 ),
                               )

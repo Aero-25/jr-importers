@@ -39,7 +39,7 @@ import {
   type Column,
   useToast,
 } from '@/ui';
-import { ImeiChooser, useAvailableUnits } from '../components/ImeiChooser';
+import { ImeiChooser, colourOfUnits, useAvailableUnits } from '../components/ImeiChooser';
 import { ModuleHeader } from '../components/AdminShell';
 import { CreditInvoiceDialog } from '../components/CreditInvoiceDialog';
 import { StaffLogin } from '../components/StaffLogin';
@@ -1089,7 +1089,7 @@ function LineItemsEditor({
                   onChange={(imeis) =>
                     // `imei` mirrors the first so screens reading a single
                     // serial (dispatch notes) keep working unchanged.
-                    patch(index, { imeis, imei: imeis[0] ?? null })
+                    patch(index, { imeis, imei: imeis[0] ?? null, color: colourOfUnits(imeis, units[line.product_id!] ?? [], line.color) })
                   }
                 />
               ) : null}

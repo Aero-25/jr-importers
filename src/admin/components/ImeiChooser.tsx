@@ -10,6 +10,21 @@ export type ImeiUnit = {
   serial_number: string | null;
 };
 
+/**
+ * The colour of the handsets picked for a line, when they share one; otherwise
+ * the line's own colour. The line starts with the product's default colour,
+ * and a sale recorded as "Black" for an Orange handset is wrong on the invoice
+ * and on the warranty record.
+ */
+export function colourOfUnits(imeis: string[], units: ImeiUnit[], fallback: string | null | undefined) {
+  const colours = new Set(
+    imeis
+      .map((id) => units.find((u) => (u.imei ?? u.serial_number) === id)?.color)
+      .filter((c): c is string => Boolean(c)),
+  );
+  return colours.size === 1 ? [...colours][0] : fallback ?? null;
+}
+
 /** The serials already picked for a line, whichever field they were stored in. */
 export function chosenImeis(line: LineItem): string[] {
   return line.imeis ?? (line.imei ? [line.imei] : []);

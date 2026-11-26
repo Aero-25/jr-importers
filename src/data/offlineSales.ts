@@ -23,7 +23,7 @@ import type { PosSaleInput } from './till';
  * time it was rung up rather than the time it synced, and its id is the id
  * generated on the device, which is what makes a retry safe.
  */
-async function postSale(sale: QueuedSale): Promise<OrderRow | null> {
+async function postSale(sale: QueuedSale): Promise<{ order: OrderRow | null; stockConflict: string | null }> {
   const subtotal = round2(sale.items.reduce((sum, l) => sum + l.price * l.quantity, 0));
   const discount = round2(Math.min(Math.max(sale.discount, 0), subtotal));
   const total = round2(subtotal - discount);
@@ -66,7 +66,9 @@ async function postSale(sale: QueuedSale): Promise<OrderRow | null> {
   if (reserveError) throw new Error(reserveError.message);
 
   const result = data as unknown as { ok?: boolean; message?: string };
+  let stockConflict: string | null = null;
   if (result && result.ok === false) {
+    stockConflict = result.message ?? 'Stock could not be taken off.';
     // The sale happened — a customer walked out with the phone. Stock simply
     // cannot go where the system thought it would, so the order stands and the
     // discrepancy is flagged rather than the sale being discarded. Appended to
@@ -82,7 +84,7 @@ async function postSale(sale: QueuedSale): Promise<OrderRow | null> {
       .eq('id', sale.id);
   }
 
-  return inserted ?? null;
+  return { order: inserted ?? null, stockConflict };
 }
 
 export interface OfflineState {
@@ -166,7 +168,9 @@ export function useOfflineSales() {
 
   /** Rings up a sale, taking the offline path only when the online one fails. */
   const sell = useCallback(
-    async (input: PosSaleInput): Promise<{ outcome: 'posted' | 'queued'; order: OrderRow | null }> => {
+    async (
+      input: PosSaleInput,
+    ): Promise<{ outcome: 'posted' | 'queued'; order: OrderRow | null; stockConflict: string | null }> => {
       const sale = await queueSale({
         items: input.items,
         discount: input.discount,
@@ -183,18 +187,18 @@ export function useOfflineSales() {
         // Queued first, then posted immediately. Writing to the queue before
         // the network attempt is what guarantees a sale is never lost to a
         // request that dies halfway.
-        const order = await postSale(sale);
+        const { order, stockConflict } = await postSale(sale);
         await removeSale(sale.id);
         await refresh();
         void qc.invalidateQueries({ queryKey: keys.table('orders') });
         void qc.invalidateQueries({ queryKey: keys.table('products') });
-        return { outcome: 'posted', order };
+        return { outcome: 'posted', order, stockConflict };
       } catch (error) {
         await recordFailure(sale, error instanceof Error ? error.message : 'Unknown error');
         setState((s) => ({ ...s, online: false }));
         await refresh();
         // No order row to invoice from until it syncs.
-        return { outcome: 'queued', order: null };
+        return { outcome: 'queued', order: null, stockConflict: null };
       }
     },
     [qc, refresh],
